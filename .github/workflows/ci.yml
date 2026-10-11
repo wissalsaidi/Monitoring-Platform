@@ -1,0 +1,59 @@
+# CI minimale (SCRUM-28) : à chaque push / pull request
+name: CI
+
+on:
+  push:
+    branches: [main, develop, 'feature/**']
+  pull_request:
+
+jobs:
+  laravel:
+    name: Lint, tests & build
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_sqlite, intl, zip, bcmath, redis
+          coverage: none
+
+      - name: PHP syntax check
+        run: find app config database routes tests -name '*.php' -print0 | xargs -0 -n1 php -l > /dev/null
+
+      - name: Composer install
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Code style (Pint)
+        run: vendor/bin/pint --test
+
+      - name: Security check (composer audit)
+        run: composer audit
+
+      - name: Laravel tests
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+          php artisan test
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Build front (Vite)
+        run: |
+          npm ci
+          npm run build
+
+  docker:
+    name: Docker build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build de l'image PHP
+        run: docker build -t monitoring-platform-app ./docker/php
+      - name: Validation du docker-compose
+        run: cp .env.example .env && docker compose config --quiet
