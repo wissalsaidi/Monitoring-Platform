@@ -56,6 +56,9 @@ Laravel s'authentifie auprès de Zabbix avec un **token API** (jamais avec un mo
 
 Les appels sont journalisés dans `storage/logs/zabbix-<date>.log` (INFO / ERROR, sans token ni paramètres).
 
+Sous Windows, `vendor/` du conteneur vit dans un volume Docker (sinon chaque page prend plusieurs secondes).
+Après toute modification de `composer.json` : `docker compose exec app composer install`.
+
 Toutes les commandes `artisan` passent par le conteneur : `docker compose exec app php artisan …`
 (depuis Windows, les hôtes `mysql`, `redis` et `zabbix-web` n'existent pas).
 

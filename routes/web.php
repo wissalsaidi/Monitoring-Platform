@@ -2,4 +2,8 @@
 
 use Illuminate\Support\Facades\Route;
 
-Route::view('/', 'dashboard')->name('dashboard');
+// Les routes de connexion / inscription / déconnexion sont fournies par Fortify.
+
+Route::middleware('auth')->group(function () {
+    Route::view('/', 'dashboard')->name('dashboard');
+});

@@ -25,9 +25,32 @@
         </nav>
     </aside>
 
-    <main class="flex-grow-1 p-4">
-        @yield('content')
-    </main>
+    <div class="flex-grow-1">
+        <header class="bg-body border-bottom px-4 py-2 d-flex justify-content-end">
+            <div class="dropdown">
+                <button class="btn btn-link text-body text-decoration-none dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                    <i class="bi bi-person-circle me-1"></i>{{ auth()->user()->name }}
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end shadow-sm">
+                    <li><h6 class="dropdown-header">{{ auth()->user()->email }}</h6></li>
+                    @if ($team = auth()->user()->defaultTeam())
+                        <li><span class="dropdown-item-text small text-body-secondary"><i class="bi bi-people me-1"></i>Team: {{ $team->name }}</span></li>
+                    @endif
+                    <li><hr class="dropdown-divider"></li>
+                    <li>
+                        <form method="POST" action="{{ route('logout') }}">
+                            @csrf
+                            <button type="submit" class="dropdown-item"><i class="bi bi-box-arrow-right me-2"></i>Log out</button>
+                        </form>
+                    </li>
+                </ul>
+            </div>
+        </header>
+
+        <main class="p-4">
+            @yield('content')
+        </main>
+    </div>
 </div>
 </body>
 </html>
