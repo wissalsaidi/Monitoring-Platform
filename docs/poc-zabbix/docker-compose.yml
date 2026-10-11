@@ -1,0 +1,60 @@
+# POC SCRUM-18 : Zabbix en Docker + une fausse API à surveiller
+# Lancer : docker compose up -d   (premier démarrage ≈ 2-3 min, le temps que Zabbix crée sa base)
+
+services:
+  zabbix-db:
+    image: mysql:8.0
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_bin
+      - --log-bin-trust-function-creators=1
+    environment:
+      MYSQL_DATABASE: zabbix
+      MYSQL_USER: zabbix
+      MYSQL_PASSWORD: ${ZBX_DB_PASSWORD:-zabbix_pwd}
+      MYSQL_ROOT_PASSWORD: ${ZBX_DB_ROOT_PASSWORD:-root_pwd}
+    volumes:
+      - zabbix-db-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      retries: 10
+
+  zabbix-server:
+    image: zabbix/zabbix-server-mysql:alpine-7.0-latest
+    environment:
+      DB_SERVER_HOST: zabbix-db
+      MYSQL_DATABASE: zabbix
+      MYSQL_USER: zabbix
+      MYSQL_PASSWORD: ${ZBX_DB_PASSWORD:-zabbix_pwd}
+      MYSQL_ROOT_PASSWORD: ${ZBX_DB_ROOT_PASSWORD:-root_pwd}
+    depends_on:
+      zabbix-db:
+        condition: service_healthy
+
+  zabbix-web:
+    image: zabbix/zabbix-web-nginx-mysql:alpine-7.0-latest
+    environment:
+      ZBX_SERVER_HOST: zabbix-server
+      DB_SERVER_HOST: zabbix-db
+      MYSQL_DATABASE: zabbix
+      MYSQL_USER: zabbix
+      MYSQL_PASSWORD: ${ZBX_DB_PASSWORD:-zabbix_pwd}
+      PHP_TZ: Europe/Paris
+    ports:
+      - "8080:8080"   # interface Zabbix + API : http://localhost:8080
+    depends_on:
+      - zabbix-server
+
+  fake-api:
+    image: php:8.3-cli-alpine
+    command: php -S 0.0.0.0:8080 /app/index.php
+    environment:
+      PHP_CLI_SERVER_WORKERS: 4
+    volumes:
+      - ./fake-api:/app
+    ports:
+      - "8081:8080"   # fausse API : http://localhost:8081/health
+
+volumes:
+  zabbix-db-data:
