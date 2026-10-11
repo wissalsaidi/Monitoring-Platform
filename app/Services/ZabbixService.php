@@ -40,6 +40,17 @@ class ZabbixService
         return $this->call('apiinfo.version');
     }
 
+    public function getHostGroups(array $params = []): array
+    {
+        return $this->call('hostgroup.get', ['output' => 'extend', ...$params]);
+    }
+
+    /** @return string id du host group créé */
+    public function createHostGroup(string $name): string
+    {
+        return $this->call('hostgroup.create', ['name' => $name])['groupids'][0];
+    }
+
     public function getHosts(array $params = []): array
     {
         return $this->call('host.get', ['output' => 'extend', ...$params]);
@@ -59,6 +70,21 @@ class ZabbixService
     public function deleteHost(string ...$hostIds): void
     {
         $this->call('host.delete', $hostIds);
+    }
+
+    /** @return string id du web scenario créé */
+    public function createWebScenario(array $params): string
+    {
+        return $this->call('httptest.create', $params)['httptestids'][0];
+    }
+
+    /**
+     * @param  array  $triggers  un trigger ou une liste de triggers
+     * @return string[] ids des triggers créés
+     */
+    public function createTriggers(array $triggers): array
+    {
+        return $this->call('trigger.create', $triggers)['triggerids'];
     }
 
     public function getItems(array $params = []): array
