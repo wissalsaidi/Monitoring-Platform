@@ -1,0 +1,34 @@
+// Couleurs de statut de la plateforme (UP / WARNING / CRITICAL / UNKNOWN)
+$primary: #2f6fed;
+$success: #1f9d55;
+$warning: #e0a800;
+$danger:  #d64545;
+
+@import 'bootstrap/scss/bootstrap';
+@import 'bootstrap-icons/font/bootstrap-icons.css';
+
+body {
+    background-color: var(--bs-tertiary-bg);
+}
+
+.sidebar {
+    width: 240px;
+    min-height: 100vh;
+
+    .nav-link {
+        color: var(--bs-secondary-color);
+        border-radius: var(--bs-border-radius);
+
+        &:hover,
+        &.active {
+            color: var(--bs-emphasis-color);
+            background-color: var(--bs-secondary-bg);
+        }
+    }
+}
+
+.kpi-card .kpi-value {
+    font-size: 2rem;
+    font-weight: 600;
+    line-height: 1;
+}
