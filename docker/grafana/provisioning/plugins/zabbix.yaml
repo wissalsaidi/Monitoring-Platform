@@ -1,0 +1,6 @@
+# Active l'app Zabbix pour Grafana (installée via GF_INSTALL_PLUGINS)
+apiVersion: 1
+
+apps:
+  - type: alexanderzobnin-zabbix-app
+    disabled: false

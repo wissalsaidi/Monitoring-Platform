@@ -1,0 +1,130 @@
+# Environnement de développement complet (SCRUM-26, cahier des charges §41)
+# Les variables viennent du fichier .env de Laravel (docker compose le lit automatiquement).
+#
+#   docker compose up -d --build     premier démarrage ≈ 5 min (Zabbix crée sa base)
+#
+#   App Laravel  http://localhost:8000
+#   Zabbix       http://localhost:8080   (Admin / zabbix)
+#   Grafana      http://localhost:3000   (admin / GRAFANA_ADMIN_PASSWORD)
+#   Fake API     http://localhost:8081/health   et   /control?delay=1200
+
+services:
+  # ─── Application Laravel ───────────────────────────────────────────
+  app:
+    build: ./docker/php
+    volumes:
+      - ./:/var/www/html
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  nginx:
+    image: nginx:1.27-alpine
+    ports:
+      - "8000:80"
+    volumes:
+      - ./:/var/www/html:ro
+      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - app
+
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_DATABASE: ${DB_DATABASE}
+      MYSQL_USER: ${DB_USERNAME}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+    ports:
+      - "3307:3306"   # 3307 côté PC pour ne pas gêner un MySQL local (XAMPP)
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - redis-data:/data
+
+  # ─── Zabbix (base séparée de celle de Laravel) ─────────────────────
+  zabbix-db:
+    image: mysql:8.0
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_bin
+      - --log-bin-trust-function-creators=1
+    environment:
+      MYSQL_DATABASE: zabbix
+      MYSQL_USER: zabbix
+      MYSQL_PASSWORD: ${ZBX_DB_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${ZBX_DB_ROOT_PASSWORD}
+    volumes:
+      - zabbix-db-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      retries: 10
+
+  zabbix-server:
+    image: zabbix/zabbix-server-mysql:alpine-7.0-latest
+    environment:
+      DB_SERVER_HOST: zabbix-db
+      MYSQL_DATABASE: zabbix
+      MYSQL_USER: zabbix
+      MYSQL_PASSWORD: ${ZBX_DB_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${ZBX_DB_ROOT_PASSWORD}
+    depends_on:
+      zabbix-db:
+        condition: service_healthy
+
+  zabbix-web:
+    image: zabbix/zabbix-web-nginx-mysql:alpine-7.0-latest
+    environment:
+      ZBX_SERVER_HOST: zabbix-server
+      DB_SERVER_HOST: zabbix-db
+      MYSQL_DATABASE: zabbix
+      MYSQL_USER: zabbix
+      MYSQL_PASSWORD: ${ZBX_DB_PASSWORD}
+      PHP_TZ: Europe/Paris
+    ports:
+      - "8080:8080"
+    depends_on:
+      - zabbix-server
+
+  # ─── Grafana (V1, préparé dès maintenant) ──────────────────────────
+  grafana:
+    image: grafana/grafana:11.6.0
+    environment:
+      GF_INSTALL_PLUGINS: alexanderzobnin-zabbix-app
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
+      ZABBIX_USER: ${ZABBIX_USER}
+      ZABBIX_PASSWORD: ${ZABBIX_PASSWORD}
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./docker/grafana/provisioning:/etc/grafana/provisioning:ro
+    depends_on:
+      - zabbix-web
+
+  # ─── Démo : fausse API à surveiller (SCRUM-29) ─────────────────────
+  fake-api:
+    image: php:8.3-cli-alpine
+    command: php -S 0.0.0.0:8080 /app/index.php
+    environment:
+      PHP_CLI_SERVER_WORKERS: 4
+    volumes:
+      - ./docker/fake-api:/app:ro
+    ports:
+      - "8081:8080"
+
+volumes:
+  mysql-data:
+  redis-data:
+  zabbix-db-data:
+  grafana-data:

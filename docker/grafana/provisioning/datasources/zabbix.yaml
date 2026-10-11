@@ -1,0 +1,17 @@
+# Datasource Zabbix (cahier des charges §39) : Grafana lit les métriques via l'API Zabbix
+apiVersion: 1
+
+datasources:
+  - name: Zabbix
+    uid: zabbix
+    type: alexanderzobnin-zabbix-datasource
+    access: proxy
+    url: http://zabbix-web:8080/api_jsonrpc.php
+    isDefault: true
+    editable: true
+    jsonData:
+      authType: userLogin
+      username: ${ZABBIX_USER}
+      trends: true
+    secureJsonData:
+      password: ${ZABBIX_PASSWORD}
