@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" data-bs-theme="dark">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -8,49 +8,68 @@
     @vite(['resources/scss/app.scss', 'resources/js/app.js'])
 </head>
 <body>
-<div class="d-flex">
-    <aside class="sidebar bg-body border-end p-3 d-none d-md-block">
-        <a href="{{ route('dashboard') }}" class="d-flex align-items-center gap-2 mb-4 text-decoration-none text-body">
-            <i class="bi bi-activity fs-4 text-primary"></i>
-            <span class="fw-semibold">{{ config('app.name') }}</span>
+@php
+    $nav = [
+        ['route' => 'dashboard', 'match' => 'dashboard', 'icon' => 'bi-grid-1x2', 'label' => 'Dashboard'],
+        ['route' => 'targets.create', 'match' => 'targets.*', 'icon' => 'bi-hdd-network', 'label' => 'Monitoring'],
+        ['route' => null, 'match' => null, 'icon' => 'bi-bell', 'label' => 'Alerts (soon)'],
+        ['route' => null, 'match' => null, 'icon' => 'bi-graph-up', 'label' => 'Dashboards (soon)'],
+    ];
+@endphp
+
+<nav class="app-rail" aria-label="Main navigation">
+    <a href="{{ route('dashboard') }}" class="app-rail-brand" data-bs-toggle="tooltip" data-bs-placement="right" title="{{ config('app.name') }}">
+        <i class="bi bi-activity"></i>
+    </a>
+
+    @foreach ($nav as $item)
+        <a href="{{ $item['route'] ? route($item['route']) : '#' }}"
+           class="app-rail-link {{ $item['match'] && request()->routeIs($item['match']) ? 'active' : '' }} {{ $item['route'] ? '' : 'disabled' }}"
+           data-bs-toggle="tooltip" data-bs-placement="right" title="{{ $item['label'] }}" aria-label="{{ $item['label'] }}">
+            <i class="bi {{ $item['icon'] }}"></i>
         </a>
-        <nav class="nav flex-column gap-1">
-            <a class="nav-link {{ request()->routeIs('dashboard') ? 'active' : '' }}" href="{{ route('dashboard') }}">
-                <i class="bi bi-speedometer2 me-2"></i>Dashboard
-            </a>
-            <a class="nav-link disabled" href="#"><i class="bi bi-hdd-network me-2"></i>Monitoring</a>
-            <a class="nav-link disabled" href="#"><i class="bi bi-bell me-2"></i>Alerts</a>
-            <a class="nav-link disabled" href="#"><i class="bi bi-graph-up me-2"></i>Dashboards</a>
-            <a class="nav-link disabled" href="#"><i class="bi bi-gear me-2"></i>Settings</a>
-        </nav>
-    </aside>
+    @endforeach
 
-    <div class="flex-grow-1">
-        <header class="bg-body border-bottom px-4 py-2 d-flex justify-content-end">
-            <div class="dropdown">
-                <button class="btn btn-link text-body text-decoration-none dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-                    <i class="bi bi-person-circle me-1"></i>{{ auth()->user()->name }}
-                </button>
-                <ul class="dropdown-menu dropdown-menu-end shadow-sm">
-                    <li><h6 class="dropdown-header">{{ auth()->user()->email }}</h6></li>
-                    @if ($team = auth()->user()->defaultTeam())
-                        <li><span class="dropdown-item-text small text-body-secondary"><i class="bi bi-people me-1"></i>Team: {{ $team->name }}</span></li>
-                    @endif
-                    <li><hr class="dropdown-divider"></li>
-                    <li>
-                        <form method="POST" action="{{ route('logout') }}">
-                            @csrf
-                            <button type="submit" class="dropdown-item"><i class="bi bi-box-arrow-right me-2"></i>Log out</button>
-                        </form>
-                    </li>
-                </ul>
-            </div>
-        </header>
-
-        <main class="p-4">
-            @yield('content')
-        </main>
+    <div class="mt-auto dropup">
+        <button class="app-rail-link border-0 bg-transparent" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Account">
+            <i class="bi bi-person-circle"></i>
+        </button>
+        <ul class="dropdown-menu shadow">
+            <li><h6 class="dropdown-header text-body">{{ auth()->user()->name }}<br><span class="fw-normal text-body-secondary">{{ auth()->user()->email }}</span></h6></li>
+            @if ($team = auth()->user()->defaultTeam())
+                <li><span class="dropdown-item-text small text-body-secondary"><i class="bi bi-people me-1"></i>Team: {{ $team->name }}</span></li>
+            @endif
+            <li><hr class="dropdown-divider"></li>
+            <li>
+                <form method="POST" action="{{ route('logout') }}">
+                    @csrf
+                    <button type="submit" class="dropdown-item"><i class="bi bi-box-arrow-right me-2"></i>Log out</button>
+                </form>
+            </li>
+        </ul>
     </div>
+</nav>
+
+<div class="app-main">
+    <header class="app-topbar gap-3">
+        <h1 class="page-title">@yield('title', 'Dashboard')</h1>
+        <div class="ms-auto d-flex align-items-center gap-2">
+            @yield('actions')
+            <span class="text-body-secondary small d-none d-md-inline"><i class="bi bi-person me-1"></i>{{ auth()->user()->name }}</span>
+        </div>
+    </header>
+
+    <main class="app-content">
+        @foreach (['success' => 'check-circle', 'error' => 'exclamation-octagon'] as $type => $icon)
+            @if (session($type))
+                <div class="alert alert-{{ $type === 'error' ? 'danger' : 'success' }} d-flex align-items-center gap-2" role="alert">
+                    <i class="bi bi-{{ $icon }}"></i> {{ session($type) }}
+                </div>
+            @endif
+        @endforeach
+
+        @yield('content')
+    </main>
 </div>
 </body>
 </html>
