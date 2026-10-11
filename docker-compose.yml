@@ -7,6 +7,7 @@
 #   Zabbix       http://localhost:8080   (Admin / zabbix)
 #   Grafana      http://localhost:3000   (admin / GRAFANA_ADMIN_PASSWORD)
 #   Fake API     http://localhost:8081/health   et   /control?delay=1200
+#   Adminer      http://localhost:8082   (serveur "mysql" ou "zabbix-db", identifiants du .env)
 
 services:
   # ─── Application Laravel ───────────────────────────────────────────
@@ -115,6 +116,16 @@ services:
       - ./docker/grafana/provisioning:/etc/grafana/provisioning:ro
     depends_on:
       - zabbix-web
+
+  # ─── Dev : interface web pour les bases MySQL ──────────────────────
+  adminer:
+    image: adminer:4
+    environment:
+      ADMINER_DEFAULT_SERVER: mysql
+    ports:
+      - "127.0.0.1:8082:8080"   # accessible uniquement depuis ce PC
+    depends_on:
+      - mysql
 
   # ─── Démo : fausse API à surveiller (SCRUM-29) ─────────────────────
   fake-api:

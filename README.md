@@ -28,6 +28,7 @@ navigateur ──► grafana :3000 ── datasource Zabbix ──────�
 | `zabbix-server` + `zabbix-db` | — | Moteur Zabbix et sa propre base |
 | `grafana` | http://localhost:3000 (`admin` / `GRAFANA_ADMIN_PASSWORD`) | Dashboards |
 | `fake-api` | http://localhost:8081/health | API de démo à latence réglable |
+| `adminer` | http://localhost:8082 | Interface web des bases MySQL (dev) |
 
 ## Installation
 
@@ -61,6 +62,17 @@ Après toute modification de `composer.json` : `docker compose exec app composer
 
 Toutes les commandes `artisan` passent par le conteneur : `docker compose exec app php artisan …`
 (depuis Windows, les hôtes `mysql`, `redis` et `zabbix-web` n'existent pas).
+
+## Voir les bases de données (Adminer)
+
+http://localhost:8082. Le port 3307 est un port MySQL : il ne s'ouvre pas dans un navigateur.
+
+| Base | Serveur | Utilisateur | Mot de passe | Base |
+|---|---|---|---|---|
+| Laravel | `mysql` | `DB_USERNAME` | `DB_PASSWORD` | `DB_DATABASE` |
+| Zabbix | `zabbix-db` | `zabbix` | `ZBX_DB_PASSWORD` | `zabbix` |
+
+Valeurs dans `.env`. La base Zabbix se consulte en lecture seule : on la modifie toujours par l'API.
 
 ## Fausse API de démo
 
