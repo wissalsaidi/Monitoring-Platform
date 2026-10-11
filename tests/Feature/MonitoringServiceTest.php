@@ -11,79 +11,18 @@ use App\Models\Team;
 use App\Models\User;
 use App\Services\MonitoringService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Http\Client\Request;
-use Illuminate\Support\Facades\Http;
+use Tests\Concerns\FakesZabbix;
 use Tests\TestCase;
 
 class MonitoringServiceTest extends TestCase
 {
-    use RefreshDatabase;
-
-    private const URL = 'http://zabbix.test/api_jsonrpc.php';
-
-    /** @var array<int, array{method: string, params: mixed}> appels reçus par le faux Zabbix */
-    private array $calls = [];
-
-    /** @var array<string, array> réponses en erreur par méthode */
-    private array $failures = [];
-
-    private int $nextHostId = 10700;
-
-    private int $nextTriggerId = 500;
-
-    /** Host group déjà présent dans Zabbix (renvoyé par hostgroup.get) */
-    private ?string $existingGroupId = null;
-
-    /** Simule un Zabbix en panne (HTTP 502) */
-    private bool $zabbixDown = false;
+    use FakesZabbix, RefreshDatabase;
 
     protected function setUp(): void
     {
         parent::setUp();
 
-        config(['services.zabbix.url' => self::URL, 'services.zabbix.token' => 'token', 'services.zabbix.retry_delay' => 0]);
-        Http::preventStrayRequests();
-        Http::fake([self::URL => fn (Request $request) => $this->fakeZabbix($request)]);
-    }
-
-    /** Faux Zabbix : répond selon la méthode JSON-RPC et garde la trace des appels. */
-    private function fakeZabbix(Request $request)
-    {
-        $method = $request['method'];
-        $this->calls[] = ['method' => $method, 'params' => $request['params']];
-
-        if ($this->zabbixDown) {
-            return Http::response('Bad gateway', 502);
-        }
-
-        if (isset($this->failures[$method])) {
-            return Http::response(['jsonrpc' => '2.0', 'error' => $this->failures[$method], 'id' => 1]);
-        }
-
-        $result = match ($method) {
-            'hostgroup.get' => $this->existingGroupId ? [['groupid' => $this->existingGroupId]] : [],
-            'hostgroup.create' => ['groupids' => ['42']],
-            'host.create' => ['hostids' => [(string) $this->nextHostId++]],
-            'httptest.create' => ['httptestids' => ['30']],
-            'trigger.create' => ['triggerids' => [(string) $this->nextTriggerId++]],
-            'host.delete' => ['hostids' => $request['params']],
-        };
-
-        return Http::response(['jsonrpc' => '2.0', 'result' => $result, 'id' => 1]);
-    }
-
-    private function failOn(string $method, string $data = 'Something went wrong.'): void
-    {
-        $this->failures[$method] = ['code' => -32602, 'message' => 'Invalid params.', 'data' => $data];
-    }
-
-    /** @return array<int, mixed> paramètres des appels à une méthode */
-    private function callsTo(string $method): array
-    {
-        return array_values(array_map(
-            fn ($call) => $call['params'],
-            array_filter($this->calls, fn ($call) => $call['method'] === $method),
-        ));
+        $this->fakeZabbixApi();
     }
 
     private function createPaymentApi(?Team $team = null, ?User $creator = null): MonitoringTarget
