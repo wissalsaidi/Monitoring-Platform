@@ -45,6 +45,17 @@ npm install
 npm run build                      # ou "npm run dev" pendant le développement
 ```
 
+### Token API Zabbix
+
+Laravel s'authentifie auprès de Zabbix avec un **token API** (jamais avec un mot de passe) :
+
+1. Zabbix (http://localhost:8080) → *Users* › *API tokens* › **Create API token**
+   (nom : `laravel-app`, utilisateur : `Admin`, sans date d'expiration en dev)
+2. Copier le token dans `.env` → `ZABBIX_API_TOKEN=...`
+3. Vérifier : `docker compose exec app php artisan zabbix:check`
+
+Les appels sont journalisés dans `storage/logs/zabbix-<date>.log` (INFO / ERROR, sans token ni paramètres).
+
 Toutes les commandes `artisan` passent par le conteneur : `docker compose exec app php artisan …`
 (depuis Windows, les hôtes `mysql`, `redis` et `zabbix-web` n'existent pas).
 
