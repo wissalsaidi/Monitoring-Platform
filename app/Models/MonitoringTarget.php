@@ -5,6 +5,8 @@ namespace App\Models;
 use App\Enums\TargetStatus;
 use App\Enums\TargetType;
 use Database\Factories\MonitoringTargetFactory;
+use Illuminate\Database\Eloquent\Attributes\Scope;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -44,6 +46,16 @@ class MonitoringTarget extends Model
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    /**
+     * Targets des teams dont l'utilisateur est membre (SCRUM-31).
+     * Usage : MonitoringTarget::visibleTo($user)->get()
+     */
+    #[Scope]
+    protected function visibleTo(Builder $query, User $user): void
+    {
+        $query->whereIn('team_id', $user->teams()->select('teams.id'));
     }
 
     /** Nom technique du host Zabbix (unique, utilisé dans les expressions de triggers). */
