@@ -16,4 +16,15 @@ enum TargetStatus: string
     {
         return strtoupper($this->value);
     }
+
+    /** Icône Bootstrap Icons de la pastille de statut. */
+    public function icon(): string
+    {
+        return match ($this) {
+            self::Up => 'bi-check-circle-fill',
+            self::Warning => 'bi-exclamation-triangle-fill',
+            self::Critical => 'bi-x-octagon-fill',
+            self::Unknown => 'bi-question-circle-fill',
+        };
+    }
 }

@@ -165,6 +165,7 @@ class AlertService
 
     /**
      * Statut de chaque target : pire alerte active, sinon UP si Zabbix a déjà fait un check, sinon UNKNOWN.
+     * Recopie aussi l'heure et le temps de réponse du dernier check.
      *
      * @return int nombre de targets dont le statut a changé
      */
@@ -180,13 +181,16 @@ class AlertService
 
         DB::transaction(function () use ($targets, $items, $worst, &$changed) {
             foreach ($targets as $target) {
-                $checked = (int) ($items[$target->zabbix_host_id][self::failKey()]['lastclock'] ?? 0) > 0;
-                $status = $worst->get($target->id)?->targetStatus() ?? ($checked ? TargetStatus::Up : TargetStatus::Unknown);
+                $lastClock = (int) ($items[$target->zabbix_host_id][self::failKey()]['lastclock'] ?? 0);
+                $time = $items[$target->zabbix_host_id][self::timeKey()] ?? null;
+                $status = $worst->get($target->id)?->targetStatus() ?? ($lastClock > 0 ? TargetStatus::Up : TargetStatus::Unknown);
 
-                if ($target->status !== $status) {
-                    $target->update(['status' => $status]);
-                    $changed++;
-                }
+                $changed += $target->status !== $status ? 1 : 0;
+                $target->update([
+                    'status' => $status,
+                    'last_checked_at' => $lastClock > 0 ? Carbon::createFromTimestamp($lastClock) : null,
+                    'last_response_ms' => ($time['lastclock'] ?? '0') !== '0' ? round((float) $time['lastvalue'] * 1000, 3) : null,
+                ]);
             }
         });
 
@@ -201,7 +205,7 @@ class AlertService
     private function checkItems(array $hostIds): array
     {
         $items = $this->zabbix->getItems([
-            'output' => ['itemid', 'hostid', 'key_', 'lastclock'],
+            'output' => ['itemid', 'hostid', 'key_', 'lastclock', 'lastvalue'],
             'hostids' => $hostIds,
             'webitems' => true,
             'filter' => ['key_' => [self::failKey(), self::timeKey()]],

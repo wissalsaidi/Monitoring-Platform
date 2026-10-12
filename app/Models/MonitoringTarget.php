@@ -35,6 +35,7 @@ class MonitoringTarget extends Model
     protected $fillable = [
         'team_id', 'created_by', 'name', 'type', 'description', 'status', 'enabled',
         'url', 'check_interval', 'warning_threshold_ms', 'critical_threshold_ms', 'zabbix_host_id',
+        'last_checked_at', 'last_response_ms',
     ];
 
     protected $attributes = [
@@ -51,6 +52,8 @@ class MonitoringTarget extends Model
             'check_interval' => 'integer',
             'warning_threshold_ms' => 'integer',
             'critical_threshold_ms' => 'integer',
+            'last_checked_at' => 'datetime',
+            'last_response_ms' => 'float',
         ];
     }
 

@@ -19,7 +19,7 @@
             ['label' => 'Warning', 'value' => $counts['warning'], 'icon' => 'bi-exclamation-triangle', 'color' => 'warning'],
             ['label' => 'Critical', 'value' => $counts['critical'], 'icon' => 'bi-x-octagon', 'color' => 'danger'],
             ['label' => 'Unknown', 'value' => $counts['unknown'], 'icon' => 'bi-question-circle', 'color' => 'secondary'],
-            ['label' => 'Active alerts', 'value' => 0, 'icon' => 'bi-bell', 'color' => 'danger'], // SCRUM-40
+            ['label' => 'Active alerts', 'value' => $activeAlerts, 'icon' => 'bi-bell', 'color' => 'danger'],
         ];
     @endphp
 
@@ -47,6 +47,9 @@
         <div class="card-header d-flex align-items-center py-3">
             <span class="fw-semibold">Monitoring targets</span>
             <span class="badge text-bg-secondary ms-2">{{ $total }}</span>
+            @if ($total > 0)
+                <a href="{{ route('targets.index') }}" class="ms-auto small">View all<i class="bi bi-arrow-right ms-1"></i></a>
+            @endif
         </div>
 
         @if ($recentTargets->isEmpty())
