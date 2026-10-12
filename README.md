@@ -21,7 +21,7 @@ Cahier des charges : v1.2 · Suivi : Jira, projet `SCRUM`.
 
 ```
 navigateur ──► nginx :8000 ──► app (Laravel, PHP-FPM) ──► mysql (base Laravel)
-                                   │                  └─► redis (cache / queues)
+                                   │                  └─► redis (cache / queues) ◄── queue + scheduler
                                    └── API JSON-RPC ──► zabbix-web :8080 ──► zabbix-server ──► targets
                                                                   │                          (ex : fake-api)
 navigateur ──► grafana :3000 ── datasource Zabbix ────────────────┘
@@ -32,6 +32,7 @@ navigateur ──► grafana :3000 ── datasource Zabbix ──────�
 | `nginx` + `app` | http://localhost:8000 | Application Laravel |
 | `mysql` | `localhost:3307` | Base Laravel |
 | `redis` | — | Cache et queues |
+| `queue` + `scheduler` | — | Worker de la queue et Laravel Scheduler : synchro Zabbix chaque minute |
 | `zabbix-web` | http://localhost:8080 (`Admin` / `zabbix`) | Interface et API Zabbix |
 | `zabbix-server` + `zabbix-db` | — | Moteur Zabbix et sa propre base |
 | `grafana` | http://localhost:3000 (`admin` / `GRAFANA_ADMIN_PASSWORD`) | Dashboards |
@@ -64,6 +65,21 @@ Laravel s'authentifie auprès de Zabbix avec un **token API** (jamais avec un mo
 3. Vérifier : `docker compose exec app php artisan zabbix:check`
 
 Les appels sont journalisés dans `storage/logs/zabbix-<date>.log` (INFO / ERROR, sans token ni paramètres).
+
+### Synchronisation des alertes
+
+Chaque minute, le scheduler place le job `SyncZabbixEvents` dans la queue Redis : il lit les problèmes Zabbix,
+crée ou résout les alertes et met à jour le statut des targets (UP / WARNING / CRITICAL / UNKNOWN).
+
+| Zabbix | Plateforme |
+|---|---|
+| 0 Not classified, 1 Information | INFO |
+| 2 Warning, 3 Average | WARNING |
+| 4 High | HIGH |
+| 5 Disaster | CRITICAL |
+
+Lancer une synchro tout de suite : `docker compose exec app php artisan zabbix:sync`.
+Après une modification du code PHP, redémarrer le worker : `docker compose restart queue`.
 
 Sous Windows, `vendor/` du conteneur vit dans un volume Docker (sinon chaque page prend plusieurs secondes).
 Après toute modification de `composer.json` : `docker compose exec app composer install`.
