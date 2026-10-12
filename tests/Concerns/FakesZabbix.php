@@ -29,6 +29,18 @@ trait FakesZabbix
     /** Simule un Zabbix en panne (HTTP 502) */
     protected bool $zabbixDown = false;
 
+    /** @var array<int, array> réponse de problem.get */
+    protected array $zabbixProblems = [];
+
+    /** @var array<int, array> réponse de item.get */
+    protected array $zabbixItems = [];
+
+    /** @var array<int, array> événements connus de event.get (filtrés par eventids) */
+    protected array $zabbixEvents = [];
+
+    /** @var array<int, array> réponse de history.get */
+    protected array $zabbixHistory = [];
+
     protected function fakeZabbixApi(): void
     {
         config(['services.zabbix.url' => $this->zabbixUrl, 'services.zabbix.token' => 'token', 'services.zabbix.retry_delay' => 0]);
@@ -57,6 +69,13 @@ trait FakesZabbix
             'httptest.create' => ['httptestids' => ['30']],
             'trigger.create' => ['triggerids' => [(string) $this->nextTriggerId++]],
             'host.delete' => ['hostids' => $request['params']],
+            'problem.get' => $this->zabbixProblems,
+            'item.get' => $this->zabbixItems,
+            'event.get' => array_values(array_filter(
+                $this->zabbixEvents,
+                fn ($event) => in_array($event['eventid'], $request['params']['eventids'] ?? [], true),
+            )),
+            'history.get' => $this->zabbixHistory,
         };
 
         return Http::response(['jsonrpc' => '2.0', 'result' => $result, 'id' => 1]);

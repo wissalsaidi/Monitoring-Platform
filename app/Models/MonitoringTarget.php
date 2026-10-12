@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class MonitoringTarget extends Model
 {
@@ -61,6 +62,11 @@ class MonitoringTarget extends Model
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function alerts(): HasMany
+    {
+        return $this->hasMany(Alert::class);
     }
 
     /**
