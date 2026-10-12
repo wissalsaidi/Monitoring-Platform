@@ -21,7 +21,7 @@ class MonitoringService
 
     public const STEP = 'request';
 
-    /** Priorités Zabbix utilisées (le mapping vers la plateforme est l'objet de SCRUM-39). */
+    /** Priorités Zabbix utilisées : WARNING, HIGH et CRITICAL côté plateforme (voir AlertSeverity). */
     public const PRIORITY_WARNING = 2;
 
     public const PRIORITY_HIGH = 4;
