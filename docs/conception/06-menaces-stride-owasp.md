@@ -45,7 +45,7 @@ Frontières de confiance : le navigateur (non fiable) → l'application ; l'appl
 | Targets et alertes | **E** | Un Viewer qui modifie, supprime ou acquitte | Policies : Admin / Manager uniquement (403 sinon) | ✅ tests Feature |
 | API interne (graphiques) | **I** | Lire les mesures d'une target d'une autre team | Même authentification et policy `view` que les pages | ✅ |
 | Appels Zabbix | **I** | Fuite du token API | Token dans `.env` (jamais commité), jamais écrit dans les logs ; token dédié à l'application | ✅ |
-| Appels Zabbix | **T** | Saisir une URL interne pour sonder le réseau (SSRF via Zabbix) | URL limitée à `http`/`https` ; liste d'hôtes interdits (réseau interne) à ajouter | 🟡 |
+| Appels Zabbix | **T** | Saisir une URL interne pour sonder le réseau (SSRF via Zabbix) | URL limitée à `http`/`https` ; règle `PublicUrl` : refus des adresses locales, privées, link-local et réservées (IPv4 et IPv6), contrôlé sur les IP résolues ; liste blanche pour la démo (SCRUM-57) | ✅ |
 | Appels Zabbix | **D** | Zabbix lent ou en panne bloque l'appli | Timeout 15 s, nouvelles tentatives sur les lectures seulement ; pages servies depuis la base ; bandeau générique | ✅ |
 | Actions sensibles | **R** | Nier avoir supprimé une target ou acquitté une alerte | `audit_logs` : qui, quoi, quand, IP, anciennes et nouvelles valeurs | ✅ |
 | Erreurs | **I** | Lire une trace technique (chemins, requêtes) | Messages génériques (§47) ; `APP_DEBUG=false` en production | ✅ / ⏳ config de production |
@@ -66,8 +66,8 @@ Frontières de confiance : le navigateur (non fiable) → l'application ; l'appl
 | **A07 Identification et authentification** | Limitation des tentatives, vérification d'email, réinitialisation sécurisée | 2FA (optionnel, §28) |
 | **A08 Intégrité des données et du logiciel** | Une PR par ticket, CI verte avant chaque fusion, synchro idempotente | Protection de branche sur `main` (non disponible sur un dépôt privé gratuit) |
 | **A09 Journalisation et surveillance** | Audit des actions sensibles, logs Zabbix dédiés, log CRITICAL si la synchro échoue | Purge des journaux (1 an), alerte quand la synchro échoue plusieurs fois |
-| **A10 SSRF** | URL de target limitée à `http`/`https` | Refuser les adresses internes et `localhost` dans l'URL d'une target |
+| **A10 SSRF** | URL de target limitée à `http`/`https` ; adresses internes refusées après résolution DNS (SCRUM-57) | Limite connue : un nom dont l'adresse change après la validation (DNS rebinding) n'est pas recontrôlé |
 
 ## Conclusion
 
-Le MVP couvre les menaces principales : authentification, cloisonnement entre teams, injections, traçabilité et indisponibilité de Zabbix. Les points ouverts concernent surtout la **mise en production** (HTTPS, configuration, emails) et le **SSRF** : une target peut aujourd'hui viser une adresse du réseau interne, ce qui doit être bloqué avant d'ouvrir la plateforme à d'autres utilisateurs.
+Le MVP couvre les menaces principales : authentification, cloisonnement entre teams, injections, traçabilité et indisponibilité de Zabbix. Les points ouverts concernent surtout la **mise en production** (HTTPS, configuration, emails). Le **SSRF**, relevé par cette analyse, est corrigé depuis SCRUM-57 : une target ne peut plus viser une adresse du réseau interne.
