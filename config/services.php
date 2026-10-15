@@ -37,9 +37,10 @@ return [
 
     'zabbix' => [
         'url' => env('ZABBIX_URL', 'http://zabbix-web:8080/api_jsonrpc.php'),
-        'user' => env('ZABBIX_USER'),
-        'password' => env('ZABBIX_PASSWORD'),
+        'token' => env('ZABBIX_API_TOKEN'),
         'timeout' => (int) env('ZABBIX_TIMEOUT', 15),
+        'retries' => (int) env('ZABBIX_RETRIES', 2),
+        'retry_delay' => (int) env('ZABBIX_RETRY_DELAY', 200),
     ],
 
     'grafana' => [
