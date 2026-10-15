@@ -10,6 +10,7 @@ use App\Models\Alert;
 use App\Models\MonitoringTarget;
 use App\Services\AlertService;
 use App\Services\ZabbixService;
+use App\Support\ZabbixSyncHealth;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Queue;
@@ -311,6 +312,19 @@ class SyncZabbixEventsTest extends TestCase
         $this->app->forgetInstance(ZabbixService::class);
 
         return $spy;
+    }
+
+    public function test_a_failed_sync_is_remembered_until_the_next_successful_one(): void
+    {
+        $this->zabbixDown = true;
+        $this->artisan('zabbix:sync')->assertFailed();
+
+        $this->assertTrue(ZabbixSyncHealth::isFailing());
+
+        $this->zabbixDown = false;
+        $this->artisan('zabbix:sync')->assertSuccessful();
+
+        $this->assertFalse(ZabbixSyncHealth::isFailing());
     }
 
     public function test_the_job_is_scheduled_every_minute(): void

@@ -82,6 +82,16 @@ class MonitoringTarget extends Model
         $query->whereIn('team_id', $user->teams()->select('teams.id'));
     }
 
+    /**
+     * Données du dernier check trop anciennes : plus de 3 intervalles de check (+ 2 min pour la synchro)
+     * sans nouvelle mesure. Signe d'un Zabbix arrêté ou d'un check bloqué.
+     */
+    public function isStale(): bool
+    {
+        return $this->last_checked_at !== null
+            && $this->last_checked_at->lt(now()->subSeconds(3 * $this->check_interval + 120));
+    }
+
     /** Nom technique du host Zabbix (unique, utilisé dans les expressions de triggers). */
     public function zabbixHostName(): string
     {

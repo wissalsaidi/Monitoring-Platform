@@ -8,6 +8,7 @@ use App\Enums\TargetStatus;
 use App\Exceptions\Zabbix\ZabbixException;
 use App\Models\Alert;
 use App\Models\MonitoringTarget;
+use App\Support\ZabbixSyncHealth;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -29,6 +30,26 @@ class AlertService
      * @throws ZabbixException
      */
     public function syncFromZabbix(): array
+    {
+        try {
+            $stats = $this->synchronize();
+        } catch (ZabbixException $e) {
+            ZabbixSyncHealth::recordFailure();
+
+            throw $e;
+        }
+
+        ZabbixSyncHealth::recordSuccess();
+
+        return $stats;
+    }
+
+    /**
+     * @return array{problems: int, created: int, resolved: int, targets: int}
+     *
+     * @throws ZabbixException
+     */
+    private function synchronize(): array
     {
         $stats = ['problems' => 0, 'created' => 0, 'resolved' => 0, 'targets' => 0];
 
