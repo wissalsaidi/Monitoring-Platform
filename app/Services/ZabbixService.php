@@ -122,6 +122,12 @@ class ZabbixService
         ]);
     }
 
+    /** Tendances horaires (min / moyenne / max par heure) */
+    public function getTrends(array $params = []): array
+    {
+        return $this->call('trend.get', $params);
+    }
+
     public function getHistory(array $params = []): array
     {
         return $this->call('history.get', ['output' => 'extend', ...$params]);

@@ -3,6 +3,7 @@
 use App\Http\Controllers\AlertController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\MonitoringTargetController;
+use App\Http\Controllers\TargetMetricsController;
 use Illuminate\Support\Facades\Route;
 
 // Les routes de connexion / inscription / déconnexion sont fournies par Fortify.
@@ -18,4 +19,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/alerts/{alert}/acknowledge', [AlertController::class, 'acknowledge'])->name('alerts.acknowledge');
 
     Route::get('/targets/{target}', [MonitoringTargetController::class, 'show'])->name('targets.show');
+    // API interne des graphiques (JSON)
+    Route::get('/targets/{target}/metrics/response-time', [TargetMetricsController::class, 'responseTime'])
+        ->name('targets.metrics.response-time');
 });
