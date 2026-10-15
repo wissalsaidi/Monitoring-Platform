@@ -160,8 +160,11 @@ return [
     */
 
     'features' => [
-        // MVP : inscription + connexion. Mot de passe oublié et vérification d'email : SCRUM-32.
         Features::registration(),
+        // SCRUM-32 : lien de réinitialisation et vérification d'email, liens signés valables 60 min
+        // (config/auth.php : passwords.users.expire et verification.expire)
+        Features::resetPasswords(),
+        Features::emailVerification(),
     ],
 
 ];

@@ -38,6 +38,7 @@ navigateur ──► grafana :3000 ── datasource Zabbix ──────�
 | `grafana` | http://localhost:3000 (`admin` / `GRAFANA_ADMIN_PASSWORD`) | Dashboards |
 | `fake-api` | http://localhost:8081/health | API de démo à latence réglable |
 | `phpmyadmin` | http://localhost:8082 | phpMyAdmin : interface web des bases MySQL (dev) |
+| `mailpit` | http://localhost:8025 | Boîte mail de dev : reset de mot de passe, vérification d'email |
 
 ## Installation
 

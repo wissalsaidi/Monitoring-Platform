@@ -114,4 +114,9 @@ return [
 
     'password_timeout' => env('AUTH_PASSWORD_TIMEOUT', 10800),
 
+    // Durée de validité (minutes) du lien signé de vérification d'email (SCRUM-32)
+    'verification' => [
+        'expire' => 60,
+    ],
+
 ];

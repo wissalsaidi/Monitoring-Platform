@@ -5,6 +5,10 @@
 @section('content')
     <h2 class="h5 mb-4">Log in to your account</h2>
 
+    @if (session('status'))
+        <div class="alert alert-success small" role="status"><i class="bi bi-check-circle me-1"></i>{{ session('status') }}</div>
+    @endif
+
     <form method="POST" action="{{ route('login') }}" novalidate>
         @csrf
 
@@ -28,9 +32,12 @@
             @enderror
         </div>
 
-        <div class="form-check mb-4">
-            <input id="remember" type="checkbox" name="remember" class="form-check-input" @checked(old('remember'))>
-            <label for="remember" class="form-check-label">Remember me</label>
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div class="form-check mb-0">
+                <input id="remember" type="checkbox" name="remember" class="form-check-input" @checked(old('remember'))>
+                <label for="remember" class="form-check-label">Remember me</label>
+            </div>
+            <a href="{{ route('password.request') }}" class="small">Forgot password?</a>
         </div>
 
         <button type="submit" class="btn btn-primary w-100">

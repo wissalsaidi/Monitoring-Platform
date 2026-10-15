@@ -8,7 +8,8 @@ use Illuminate\Support\Facades\Route;
 
 // Les routes de connexion / inscription / déconnexion sont fournies par Fortify.
 
-Route::middleware('auth')->group(function () {
+// Email vérifié obligatoire (SCRUM-32) : sinon redirection vers la page « Verify your email »
+Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/', DashboardController::class)->name('dashboard');
 
     Route::get('/targets', [MonitoringTargetController::class, 'index'])->name('targets.index');
