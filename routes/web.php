@@ -20,6 +20,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/alerts/{alert}/acknowledge', [AlertController::class, 'acknowledge'])->name('alerts.acknowledge');
 
     Route::get('/targets/{target}', [MonitoringTargetController::class, 'show'])->name('targets.show');
+    Route::get('/targets/{target}/edit', [MonitoringTargetController::class, 'edit'])->name('targets.edit');
+    Route::put('/targets/{target}', [MonitoringTargetController::class, 'update'])->name('targets.update');
+    Route::delete('/targets/{target}', [MonitoringTargetController::class, 'destroy'])->name('targets.destroy');
     // API interne des graphiques (JSON)
     Route::get('/targets/{target}/metrics/response-time', [TargetMetricsController::class, 'responseTime'])
         ->name('targets.metrics.response-time');

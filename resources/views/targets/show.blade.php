@@ -2,6 +2,17 @@
 
 @section('title', $target->name)
 
+@section('actions')
+    @can('update', $target)
+        <a href="{{ route('targets.edit', $target) }}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-pencil me-1"></i>Edit</a>
+    @endcan
+    @can('delete', $target)
+        <button type="button" class="btn btn-outline-danger btn-sm" data-bs-toggle="modal" data-bs-target="#delete-target">
+            <i class="bi bi-trash me-1"></i>Delete
+        </button>
+    @endcan
+@endsection
+
 @section('content')
     {{-- En-tête de la target, façon « frontend » de la maquette --}}
     <div class="card mb-4">
@@ -194,4 +205,31 @@
             </div>
         </div>
     @endif
+
+    @can('delete', $target)
+        {{-- Confirmation de suppression (SCRUM-35) --}}
+        <div class="modal fade" id="delete-target" tabindex="-1" aria-labelledby="delete-target-title" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <form method="POST" action="{{ route('targets.destroy', $target) }}" class="modal-content">
+                    @csrf
+                    @method('DELETE')
+                    <div class="modal-header">
+                        <h2 class="modal-title h5" id="delete-target-title"><i class="bi bi-exclamation-triangle text-danger me-2"></i>Delete {{ $target->name }}?</h2>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body small">
+                        <p>This stops the monitoring and permanently deletes:</p>
+                        <ul class="mb-0">
+                            <li>the Zabbix host <code>{{ $target->zabbixHostName() }}</code>, its check and its measurement history;</li>
+                            <li>the {{ $alertCount }} {{ \Illuminate\Support\Str::plural('alert', $alertCount) }} of this target.</li>
+                        </ul>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-danger"><i class="bi bi-trash me-1"></i>Delete target</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    @endcan
 @endsection

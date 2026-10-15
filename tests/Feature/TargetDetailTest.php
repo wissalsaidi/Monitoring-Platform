@@ -29,6 +29,7 @@ class TargetDetailTest extends TestCase
 
         $this->withoutVite();
         Http::preventStrayRequests(); // la page ne doit jamais appeler Zabbix
+        $this->freezeSecond(); // « Checked 20 seconds ago » ne doit pas dépendre de la durée du test
         $team = Team::factory()->create();
         $this->user = User::factory()->create();
         $team->members()->attach($this->user, ['role' => TeamRole::Viewer]);

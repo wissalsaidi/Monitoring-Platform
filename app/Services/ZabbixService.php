@@ -83,6 +83,22 @@ class ZabbixService
         return $this->call('httptest.create', $params)['httptestids'][0];
     }
 
+    public function getWebScenarios(array $params = []): array
+    {
+        return $this->call('httptest.get', $params);
+    }
+
+    public function updateWebScenario(string $httpTestId, array $params): void
+    {
+        $this->call('httptest.update', ['httptestid' => $httpTestId, ...$params]);
+    }
+
+    /** @param  array  $triggers  liste de triggers, chacun avec son triggerid */
+    public function updateTriggers(array $triggers): void
+    {
+        $this->call('trigger.update', $triggers);
+    }
+
     /**
      * @param  array  $triggers  un trigger ou une liste de triggers
      * @return string[] ids des triggers créés
