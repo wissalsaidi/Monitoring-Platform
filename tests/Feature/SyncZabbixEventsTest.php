@@ -37,7 +37,7 @@ class SyncZabbixEventsTest extends TestCase
     {
         return [
             ['itemid' => '501', 'hostid' => $hostId, 'key_' => 'web.test.fail[api-check]', 'lastclock' => $lastclock],
-            ['itemid' => '502', 'hostid' => $hostId, 'key_' => 'web.test.time[api-check,request,resp]', 'lastclock' => $lastclock],
+            ['itemid' => '502', 'hostid' => $hostId, 'key_' => 'web.test.time[api-check,request,resp]', 'lastclock' => $lastclock, 'lastvalue' => '0.3204'],
         ];
     }
 
@@ -240,6 +240,25 @@ class SyncZabbixEventsTest extends TestCase
         $this->sync();
 
         $this->assertSame(TargetStatus::Up, $this->target->fresh()->status);
+    }
+
+    public function test_it_copies_the_last_check_time_and_response_time(): void
+    {
+        $this->sync();
+
+        $target = $this->target->fresh();
+        $this->assertSame(1791809000, $target->last_checked_at->timestamp);
+        $this->assertSame(320.4, $target->last_response_ms);
+    }
+
+    public function test_a_target_never_checked_has_no_last_check(): void
+    {
+        $this->zabbixItems = $this->checkItems('10684', lastclock: '0');
+
+        $this->sync();
+
+        $this->assertNull($this->target->fresh()->last_checked_at);
+        $this->assertNull($this->target->fresh()->last_response_ms);
     }
 
     public function test_problems_of_unknown_targets_are_ignored(): void

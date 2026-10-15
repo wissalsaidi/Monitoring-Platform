@@ -11,7 +11,7 @@
 @php
     $nav = [
         ['route' => 'dashboard', 'match' => 'dashboard', 'icon' => 'bi-grid-1x2', 'label' => 'Dashboard'],
-        ['route' => 'targets.create', 'match' => 'targets.*', 'icon' => 'bi-hdd-network', 'label' => 'Monitoring'],
+        ['route' => 'targets.index', 'match' => 'targets.*', 'icon' => 'bi-hdd-network', 'label' => 'Monitoring'],
         ['route' => null, 'match' => null, 'icon' => 'bi-bell', 'label' => 'Alerts (soon)'],
         ['route' => null, 'match' => null, 'icon' => 'bi-graph-up', 'label' => 'Dashboards (soon)'],
     ];

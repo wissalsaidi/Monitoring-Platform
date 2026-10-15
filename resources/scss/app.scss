@@ -220,7 +220,7 @@ $rail-width: 64px;
     }
 }
 
-// Pastilles de statut, comme « 1 problem » sur la maquette
+// Pastilles de statut (couleur + icône), comme « 1 problem » sur la maquette
 .status-pill {
     display: inline-flex;
     align-items: center;
@@ -232,12 +232,8 @@ $rail-width: 64px;
     line-height: 1.5;
     white-space: nowrap;
 
-    &::before {
-        content: '';
-        width: .45rem;
-        height: .45rem;
-        border-radius: 50%;
-        background: currentColor;
+    .bi {
+        font-size: .7rem;
     }
 }
 
