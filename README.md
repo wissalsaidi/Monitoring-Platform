@@ -11,11 +11,13 @@ Cahier des charges : v1.2 · Suivi : Jira, projet `SCRUM`.
 
 ## Aperçu
 
-| Dashboard | Ajout d'une target |
+| **Dashboard** | **Page d'une target** |
 |---|---|
-| ![Dashboard](docs/screenshots/6-dashboard.png) | ![Formulaire](docs/screenshots/3-form.png) |
-| **Page d'une target** | **Connexion** |
-| ![Target](docs/screenshots/5-target-page.png) | ![Login](docs/screenshots/1-login.png) |
+| ![Dashboard](docs/screenshots/02-dashboard.png) | ![Target](docs/screenshots/05-target-overview.png) |
+| **Historique des alertes** | **Ajouter une target** |
+| ![Alertes](docs/screenshots/08-alerts-history.png) | ![Formulaire](docs/screenshots/04-target-form.png) |
+
+Tous les écrans, annotés : [docs/conception/07-ecrans.md](docs/conception/07-ecrans.md).
 
 ## Architecture
 
