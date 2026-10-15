@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\TargetStatus;
 use App\Enums\TargetType;
 use App\Exceptions\Zabbix\ZabbixException;
 use App\Http\Requests\StoreApiTargetRequest;
@@ -26,11 +27,13 @@ class MonitoringTargetController extends Controller
     {
         $filters = $request->validate([
             'type' => ['nullable', Rule::enum(TargetType::class)],
+            'status' => ['nullable', Rule::enum(TargetStatus::class)],
             'q' => ['nullable', 'string', 'max:100'],
         ]);
 
         $targets = MonitoringTarget::visibleTo($request->user())
             ->when($filters['type'] ?? null, fn ($query, $type) => $query->where('type', $type))
+            ->when($filters['status'] ?? null, fn ($query, $status) => $query->where('status', $status))
             ->when($filters['q'] ?? null, fn ($query, $q) => $query->whereLike('name', '%'.addcslashes($q, '%_\\').'%'))
             ->orderBy('name')
             ->paginate(self::PER_PAGE)
@@ -40,6 +43,7 @@ class MonitoringTargetController extends Controller
             'targets' => $targets,
             'filters' => $filters,
             'types' => TargetType::cases(),
+            'statuses' => TargetStatus::cases(),
             'canCreate' => ($team = $request->user()->defaultTeam()) && $request->user()->can('create', [MonitoringTarget::class, $team]),
         ]);
     }
