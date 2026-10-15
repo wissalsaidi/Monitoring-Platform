@@ -57,4 +57,15 @@ enum AlertSeverity: string
     {
         return strtoupper($this->value);
     }
+
+    /** Icône Bootstrap Icons du badge de sévérité. */
+    public function icon(): string
+    {
+        return match ($this) {
+            self::Info => 'bi-info-circle-fill',
+            self::Warning => 'bi-exclamation-triangle-fill',
+            self::High => 'bi-exclamation-octagon-fill',
+            self::Critical => 'bi-x-octagon-fill',
+        };
+    }
 }

@@ -67,6 +67,9 @@ return [
 
     'timezone' => 'UTC',
 
+    // Les dates sont stockées en UTC et affichées dans ce fuseau ($date->toDisplay(), AppServiceProvider).
+    'display_timezone' => env('APP_DISPLAY_TIMEZONE', 'Europe/Paris'),
+
     /*
     |--------------------------------------------------------------------------
     | Application Locale Configuration

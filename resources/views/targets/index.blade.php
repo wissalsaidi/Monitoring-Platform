@@ -92,7 +92,7 @@
                                 </td>
                                 <td class="text-end pe-3 small text-body-secondary text-nowrap">
                                     @if ($target->last_checked_at)
-                                        <time datetime="{{ $target->last_checked_at->toIso8601String() }}" title="{{ $target->last_checked_at->format('d/m/Y H:i:s') }}">{{ $target->last_checked_at->diffForHumans() }}</time>
+                                        <time datetime="{{ $target->last_checked_at->toIso8601String() }}" title="{{ $target->last_checked_at->toDisplay()->format('d/m/Y H:i:s') }}">{{ $target->last_checked_at->diffForHumans() }}</time>
                                     @else
                                         Never
                                     @endif

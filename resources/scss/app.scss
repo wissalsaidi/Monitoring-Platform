@@ -237,6 +237,14 @@ $rail-width: 64px;
     }
 }
 
+// Sévérités des alertes (SCRUM-41), même forme que les pastilles de statut
+@each $severity, $color in (info: $info, warning: $warning, high: #f2844b, critical: $danger) {
+    .severity-#{$severity} {
+        color: lighten($color, 6%);
+        background: rgba($color, .16);
+    }
+}
+
 @each $status, $color in (up: $success, warning: $warning, critical: $danger, unknown: $secondary) {
     .status-#{$status} {
         color: lighten($color, 6%);
