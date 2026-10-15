@@ -41,6 +41,9 @@ trait FakesZabbix
     /** @var array<int, array> réponse de history.get */
     protected array $zabbixHistory = [];
 
+    /** @var array<int, array> réponse de trend.get */
+    protected array $zabbixTrends = [];
+
     protected function fakeZabbixApi(): void
     {
         config(['services.zabbix.url' => $this->zabbixUrl, 'services.zabbix.token' => 'token', 'services.zabbix.retry_delay' => 0]);
@@ -76,6 +79,7 @@ trait FakesZabbix
                 fn ($event) => in_array($event['eventid'], $request['params']['eventids'] ?? [], true),
             )),
             'history.get' => $this->zabbixHistory,
+            'trend.get' => $this->zabbixTrends,
             'event.acknowledge' => ['eventids' => $request['params']['eventids']],
         };
 

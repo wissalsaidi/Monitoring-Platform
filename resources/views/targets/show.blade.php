@@ -106,6 +106,32 @@
             </div>
         </div>
 
+        {{-- Graphique du temps de réponse (SCRUM-44) : données chargées en JS depuis l'API interne --}}
+        <div class="card mb-4" data-response-time-chart data-url="{{ route('targets.metrics.response-time', $target) }}" data-period="1h">
+            <div class="card-header d-flex flex-wrap align-items-center gap-2 py-3">
+                <span class="fw-semibold">Response time</span>
+                <div class="btn-group btn-group-sm ms-auto" role="group" aria-label="Period">
+                    @foreach (\App\Services\MetricsService::PERIODS as $period => $seconds)
+                        <button type="button" class="btn btn-outline-secondary" data-period="{{ $period }}" aria-pressed="false">{{ $period }}</button>
+                    @endforeach
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="row g-3 mb-3 small">
+                    @foreach (['avg' => 'Average', 'min' => 'Minimum', 'max' => 'Maximum', 'count' => 'Samples'] as $key => $label)
+                        <div class="col-6 col-md-3">
+                            <div class="kpi-label">{{ $label }}</div>
+                            <div class="fs-5 fw-semibold" data-stat="{{ $key }}">—</div>
+                        </div>
+                    @endforeach
+                </div>
+                <div class="position-relative" data-chart-frame style="height: 280px; transition: opacity .15s ease">
+                    <canvas role="img" aria-label="Response time chart"></canvas>
+                    <div class="position-absolute top-50 start-50 translate-middle small text-body-secondary text-center d-none" data-chart-message role="status"></div>
+                </div>
+            </div>
+        </div>
+
         <div class="card">
             <div class="card-header d-flex align-items-center py-3">
                 <span class="fw-semibold">Active alerts</span>

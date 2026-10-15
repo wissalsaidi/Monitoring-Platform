@@ -1,5 +1,6 @@
 import './bootstrap';
 import * as bootstrap from 'bootstrap';
+import './response-time-chart';
 
 window.bootstrap = bootstrap;
 
