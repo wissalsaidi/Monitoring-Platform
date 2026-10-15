@@ -19,7 +19,7 @@ class Alert extends Model
 
     protected $fillable = [
         'monitoring_target_id', 'zabbix_event_id', 'zabbix_trigger_id', 'severity', 'status', 'message',
-        'metric', 'value', 'threshold', 'started_at', 'acknowledged_at', 'resolved_at',
+        'metric', 'value', 'threshold', 'started_at', 'acknowledged_at', 'acknowledged_by', 'resolved_at',
     ];
 
     protected $attributes = [
@@ -42,6 +42,12 @@ class Alert extends Model
     public function target(): BelongsTo
     {
         return $this->belongsTo(MonitoringTarget::class, 'monitoring_target_id');
+    }
+
+    /** Utilisateur qui a acquitté l'alerte (null si acquittée dans Zabbix). */
+    public function acknowledger(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'acknowledged_by');
     }
 
     /**

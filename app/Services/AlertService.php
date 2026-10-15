@@ -5,9 +5,12 @@ namespace App\Services;
 use App\Enums\AlertSeverity;
 use App\Enums\AlertStatus;
 use App\Enums\TargetStatus;
+use App\Exceptions\Zabbix\ZabbixApiException;
 use App\Exceptions\Zabbix\ZabbixException;
 use App\Models\Alert;
+use App\Models\AuditLog;
 use App\Models\MonitoringTarget;
+use App\Models\User;
 use App\Support\ZabbixSyncHealth;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -20,6 +23,43 @@ use Illuminate\Support\Facades\Log;
 class AlertService
 {
     public function __construct(private readonly ZabbixService $zabbix) {}
+
+    /**
+     * Acquitte une alerte (SCRUM-42) : d'abord dans Zabbix, puis en base, avec une trace d'audit.
+     * Si Zabbix refuse ou est injoignable, rien n'est modifié.
+     *
+     * @throws ZabbixException
+     */
+    public function acknowledge(Alert $alert, User $user): void
+    {
+        try {
+            $this->zabbix->acknowledgeEvents([$alert->zabbix_event_id], "Acknowledged by {$user->name} from Monitoring Platform");
+        } catch (ZabbixApiException $e) {
+            // Déjà acquittée dans Zabbix (avant la synchro suivante) : l'acquittement local reste valable.
+            if (! $this->isAcknowledgedInZabbix($alert)) {
+                throw $e;
+            }
+        }
+
+        $alert->update([
+            'status' => AlertStatus::Acknowledged,
+            'acknowledged_at' => now(),
+            'acknowledged_by' => $user->id,
+        ]);
+
+        AuditLog::record('alert.acknowledge', $user, $alert, [
+            'target' => $alert->target->name,
+            'severity' => $alert->severity->value,
+            'zabbix_event_id' => $alert->zabbix_event_id,
+        ]);
+    }
+
+    private function isAcknowledgedInZabbix(Alert $alert): bool
+    {
+        $events = $this->zabbix->getEvents(['output' => ['eventid', 'acknowledged'], 'eventids' => [$alert->zabbix_event_id]]);
+
+        return ($events[0]['acknowledged'] ?? '0') === '1';
+    }
 
     /**
      * Synchronise les problèmes Zabbix des targets dans la table alerts, puis le statut des targets.

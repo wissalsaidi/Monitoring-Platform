@@ -31,6 +31,7 @@ services:
     build: ./docker/php
     command: php artisan queue:work --sleep=3 --tries=1 --max-time=3600
     restart: unless-stopped
+    user: www-data   # même utilisateur que PHP-FPM : sinon les logs créés ici ne sont plus modifiables par le site
     volumes:
       - ./:/var/www/html
       - vendor:/var/www/html/vendor
@@ -42,6 +43,7 @@ services:
     build: ./docker/php
     command: php artisan schedule:work
     restart: unless-stopped
+    user: www-data
     volumes:
       - ./:/var/www/html
       - vendor:/var/www/html/vendor

@@ -24,6 +24,11 @@ class ZabbixService
     /** Messages d'erreur Zabbix qui signifient un problème d'authentification. */
     private const AUTH_ERRORS = ['not authorized', 'session terminated', 'api token expired', 'login name or password is incorrect'];
 
+    /** event.acknowledge : actions combinables (masque de bits) */
+    public const ACK_ACKNOWLEDGE = 2;
+
+    public const ACK_ADD_MESSAGE = 4;
+
     private int $requestId = 1;
 
     public function __construct(
@@ -105,6 +110,16 @@ class ZabbixService
     public function getEvents(array $params = []): array
     {
         return $this->call('event.get', ['output' => 'extend', ...$params]);
+    }
+
+    /** Acquitte les événements et y ajoute un message (visible dans Zabbix). */
+    public function acknowledgeEvents(array $eventIds, string $message): void
+    {
+        $this->call('event.acknowledge', [
+            'eventids' => $eventIds,
+            'action' => self::ACK_ACKNOWLEDGE | self::ACK_ADD_MESSAGE,
+            'message' => $message,
+        ]);
     }
 
     public function getHistory(array $params = []): array
