@@ -5,6 +5,7 @@ namespace App\Http\Requests;
 use App\Enums\TargetType;
 use App\Models\MonitoringTarget;
 use App\Models\Team;
+use App\Rules\PublicUrl;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -29,7 +30,8 @@ class StoreApiTargetRequest extends FormRequest
                 'required', 'string', 'max:100',
                 Rule::unique('monitoring_targets')->where('team_id', $this->team()?->id),
             ],
-            'url' => ['required', 'string', 'max:2048', 'url:http,https'],
+            // Protection SSRF : pas d'adresse locale ou interne (SCRUM-57)
+            'url' => ['required', 'string', 'max:2048', 'url:http,https', 'bail', new PublicUrl],
             'check_interval' => ['required', 'integer', Rule::in(array_keys(MonitoringTarget::CHECK_INTERVALS))],
             'warning_threshold_ms' => ['required', 'integer', 'min:1', 'max:'.MonitoringTarget::MAX_THRESHOLD_MS],
             'critical_threshold_ms' => ['required', 'integer', 'gt:warning_threshold_ms', 'max:'.MonitoringTarget::MAX_THRESHOLD_MS],
