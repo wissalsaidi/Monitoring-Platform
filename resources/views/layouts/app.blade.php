@@ -60,6 +60,14 @@
     </header>
 
     <main class="app-content">
+        @if (\App\Support\ZabbixSyncHealth::isFailing())
+            {{-- Zabbix injoignable lors de la dernière synchro (§47) : message générique, détail dans les logs --}}
+            <div class="alert alert-warning d-flex align-items-center gap-2" role="status">
+                <i class="bi bi-exclamation-triangle"></i>
+                <span>Monitoring service temporarily unavailable. Statuses and alerts may be out of date.</span>
+            </div>
+        @endif
+
         @foreach (['success' => 'check-circle', 'error' => 'exclamation-octagon'] as $type => $icon)
             @if (session($type))
                 <div class="alert alert-{{ $type === 'error' ? 'danger' : 'success' }} d-flex align-items-center gap-2" role="alert">

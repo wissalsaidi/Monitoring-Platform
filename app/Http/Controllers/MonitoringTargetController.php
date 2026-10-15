@@ -7,6 +7,7 @@ use App\Exceptions\Zabbix\ZabbixException;
 use App\Http\Requests\StoreApiTargetRequest;
 use App\Models\MonitoringTarget;
 use App\Services\MonitoringService;
+use App\Support\ZabbixSyncHealth;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -16,6 +17,9 @@ use Illuminate\View\View;
 class MonitoringTargetController extends Controller
 {
     public const PER_PAGE = 15;
+
+    /** Onglets de la page d'une target (§14). Metrics et History arrivent en V1. */
+    public const TABS = ['overview', 'alerts', 'configuration'];
 
     /** Liste des targets des teams de l'utilisateur, filtrable par type et par nom (SCRUM-34). */
     public function index(Request $request): View
@@ -69,13 +73,22 @@ class MonitoringTargetController extends Controller
             ->with('success', "Monitoring started for {$target->name}. First results within a minute.");
     }
 
-    public function show(MonitoringTarget $target): View
+    public function show(Request $request, MonitoringTarget $target): View
     {
         Gate::authorize('view', $target);
 
+        $tab = in_array($request->query('tab'), self::TABS, true) ? $request->query('tab') : 'overview';
+
         return view('targets.show', [
             'target' => $target->load('team', 'creator'),
+            'tab' => $tab,
             'intervals' => MonitoringTarget::CHECK_INTERVALS,
+            'activeAlerts' => $target->alerts()->active()->orderByDesc('started_at')->get(),
+            'alertCount' => $target->alerts()->count(),
+            'alerts' => $tab === 'alerts'
+                ? $target->alerts()->orderByDesc('started_at')->orderByDesc('id')->paginate(AlertController::PER_PAGE)->withQueryString()
+                : null,
+            'zabbixFailing' => ZabbixSyncHealth::isFailing(),
         ]);
     }
 }

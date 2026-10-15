@@ -96,7 +96,7 @@ class TargetCreationTest extends TestCase
         $this->actingAs($user)
             ->get(route('targets.show', MonitoringTarget::sole()))
             ->assertOk()
-            ->assertSee(['Payment API', 'http://fake-api:8080/health', 'UNKNOWN', '500', '1000']);
+            ->assertSee(['Payment API', 'http://fake-api:8080/health', 'UNKNOWN', '500', '1,000']);
     }
 
     public function test_users_cannot_see_targets_of_other_teams(): void
