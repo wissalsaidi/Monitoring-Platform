@@ -73,6 +73,15 @@ return [
             'replace_placeholders' => true,
         ],
 
+        // Sauvegardes et restaurations des bases (SCRUM-62)
+        'backup' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/backup.log'),
+            'level' => env('LOG_LEVEL', 'debug'),
+            'days' => 30,
+            'replace_placeholders' => true,
+        ],
+
         'zabbix' => [
             'driver' => 'daily',
             'path' => storage_path('logs/zabbix.log'),
