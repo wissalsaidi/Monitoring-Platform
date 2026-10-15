@@ -25,6 +25,29 @@ services:
       redis:
         condition: service_started
 
+  # Worker de la queue Redis : exécute les jobs (SyncZabbixEvents…)
+  # Après une modification du code PHP : docker compose restart queue
+  queue:
+    build: ./docker/php
+    command: php artisan queue:work --sleep=3 --tries=1 --max-time=3600
+    restart: unless-stopped
+    volumes:
+      - ./:/var/www/html
+      - vendor:/var/www/html/vendor
+    depends_on:
+      - app
+
+  # Laravel Scheduler : place SyncZabbixEvents dans la queue chaque minute (routes/console.php)
+  scheduler:
+    build: ./docker/php
+    command: php artisan schedule:work
+    restart: unless-stopped
+    volumes:
+      - ./:/var/www/html
+      - vendor:/var/www/html/vendor
+    depends_on:
+      - app
+
   nginx:
     image: nginx:1.27-alpine
     ports:
