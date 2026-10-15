@@ -11,7 +11,8 @@
                 <th class="text-end">Value</th>
                 <th class="text-end">Threshold</th>
                 <th>Status</th>
-                <th class="text-end pe-3">Duration</th>
+                <th class="text-end">Duration</th>
+                <th class="pe-3"><span class="visually-hidden">Actions</span></th>
             </tr>
         </thead>
         <tbody>
@@ -41,17 +42,30 @@
                                 @break
                             @case(\App\Enums\AlertStatus::Acknowledged)
                                 <span class="text-warning"><i class="bi bi-eye-fill me-1"></i>{{ $alert->status->label() }}</span>
+                                @if ($alert->acknowledged_at)
+                                    <div class="text-body-secondary" title="{{ $alert->acknowledged_at->toDisplay()->format('d/m/Y H:i:s') }}">
+                                        by {{ $alert->acknowledger?->name ?? 'Zabbix' }} · {{ $alert->acknowledged_at->toDisplay()->format('d/m H:i') }}
+                                    </div>
+                                @endif
                                 @break
                             @default
                                 <span class="text-success"><i class="bi bi-check-circle-fill me-1"></i>{{ $alert->status->label() }}</span>
                         @endswitch
                     </td>
-                    <td class="text-end pe-3 small text-nowrap" title="{{ $alert->resolved_at ? 'Resolved '.$alert->resolved_at->toDisplay()->format('d/m/Y H:i:s') : 'Ongoing' }}">
+                    <td class="text-end small text-nowrap" title="{{ $alert->resolved_at ? 'Resolved '.$alert->resolved_at->toDisplay()->format('d/m/Y H:i:s') : 'Ongoing' }}">
                         @if ($alert->resolved_at)
                             {{ $alert->durationForHumans() }}
                         @else
                             <span class="text-body-secondary">ongoing · </span>{{ $alert->durationForHumans() }}
                         @endif
+                    </td>
+                    <td class="pe-3 text-end">
+                        @can('acknowledge', $alert)
+                            <form method="POST" action="{{ route('alerts.acknowledge', $alert) }}">
+                                @csrf
+                                <button type="submit" class="btn btn-outline-warning btn-sm text-nowrap"><i class="bi bi-eye me-1"></i>Acknowledge</button>
+                            </form>
+                        @endcan
                     </td>
                 </tr>
             @endforeach

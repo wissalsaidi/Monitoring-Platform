@@ -76,6 +76,7 @@ trait FakesZabbix
                 fn ($event) => in_array($event['eventid'], $request['params']['eventids'] ?? [], true),
             )),
             'history.get' => $this->zabbixHistory,
+            'event.acknowledge' => ['eventids' => $request['params']['eventids']],
         };
 
         return Http::response(['jsonrpc' => '2.0', 'result' => $result, 'id' => 1]);

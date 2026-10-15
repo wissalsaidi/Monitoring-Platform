@@ -15,6 +15,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/targets', [MonitoringTargetController::class, 'store'])->name('targets.store');
     Route::get('/alerts', [AlertController::class, 'active'])->name('alerts.index');
     Route::get('/alerts/history', [AlertController::class, 'history'])->name('alerts.history');
+    Route::post('/alerts/{alert}/acknowledge', [AlertController::class, 'acknowledge'])->name('alerts.acknowledge');
 
     Route::get('/targets/{target}', [MonitoringTargetController::class, 'show'])->name('targets.show');
 });

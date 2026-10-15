@@ -78,16 +78,25 @@ class MonitoringTargetController extends Controller
         Gate::authorize('view', $target);
 
         $tab = in_array($request->query('tab'), self::TABS, true) ? $request->query('tab') : 'overview';
+        $target->load('team', 'creator');
+
+        $activeAlerts = $target->alerts()->active()->with('acknowledger:id,name')->orderByDesc('started_at')->get();
+        $alerts = $tab === 'alerts'
+            ? $target->alerts()->with('acknowledger:id,name')->orderByDesc('started_at')->orderByDesc('id')
+                ->paginate(AlertController::PER_PAGE)->withQueryString()
+            : null;
+
+        // La policy d'acquittement lit $alert->target->team : on réutilise la target déjà chargée.
+        $activeAlerts->each->setRelation('target', $target);
+        $alerts?->getCollection()->each->setRelation('target', $target);
 
         return view('targets.show', [
-            'target' => $target->load('team', 'creator'),
+            'target' => $target,
             'tab' => $tab,
             'intervals' => MonitoringTarget::CHECK_INTERVALS,
-            'activeAlerts' => $target->alerts()->active()->orderByDesc('started_at')->get(),
+            'activeAlerts' => $activeAlerts,
             'alertCount' => $target->alerts()->count(),
-            'alerts' => $tab === 'alerts'
-                ? $target->alerts()->orderByDesc('started_at')->orderByDesc('id')->paginate(AlertController::PER_PAGE)->withQueryString()
-                : null,
+            'alerts' => $alerts,
             'zabbixFailing' => ZabbixSyncHealth::isFailing(),
         ]);
     }
