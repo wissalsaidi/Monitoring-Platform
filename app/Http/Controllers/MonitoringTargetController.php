@@ -6,6 +6,8 @@ use App\Enums\TargetStatus;
 use App\Enums\TargetType;
 use App\Exceptions\Zabbix\ZabbixException;
 use App\Http\Requests\StoreApiTargetRequest;
+use App\Http\Requests\UpdateApiTargetRequest;
+use App\Models\AuditLog;
 use App\Models\MonitoringTarget;
 use App\Services\MonitoringService;
 use App\Support\ZabbixSyncHealth;
@@ -54,8 +56,9 @@ class MonitoringTargetController extends Controller
         abort_if($team === null, 403);
         Gate::authorize('create', [MonitoringTarget::class, $team]);
 
-        return view('targets.create', [
+        return view('targets.form', [
             'team' => $team,
+            'target' => null,
             'intervals' => MonitoringTarget::CHECK_INTERVALS,
         ]);
     }
@@ -73,8 +76,60 @@ class MonitoringTargetController extends Controller
             return back()->withInput()->with('error', $e->userMessage().' The target was not created, please try again.');
         }
 
+        AuditLog::record('target.create', $request->user(), $target, ['name' => $target->name, 'url' => $target->url]);
+
         return to_route('targets.show', $target)
             ->with('success', "Monitoring started for {$target->name}. First results within a minute.");
+    }
+
+    /** Formulaire de modification (SCRUM-35) : Admin / Manager de la team */
+    public function edit(MonitoringTarget $target): View
+    {
+        Gate::authorize('update', $target);
+
+        return view('targets.form', [
+            'team' => $target->team,
+            'target' => $target,
+            'intervals' => MonitoringTarget::CHECK_INTERVALS,
+        ]);
+    }
+
+    public function update(UpdateApiTargetRequest $request, MonitoringTarget $target, MonitoringService $monitoring): RedirectResponse
+    {
+        try {
+            $changes = $monitoring->updateApiTarget($target, $request->validated());
+        } catch (ZabbixException $e) {
+            return back()->withInput()->with('error', $e->userMessage().' The target was not modified, please try again.');
+        }
+
+        if ($changes === []) {
+            return to_route('targets.show', $target)->with('success', 'No change to save.');
+        }
+
+        AuditLog::record('target.update', $request->user(), $target, ['changes' => $changes]);
+
+        return to_route('targets.show', [$target, 'tab' => 'configuration'])
+            ->with('success', "{$target->name} updated. Zabbix applies the new settings at the next check.");
+    }
+
+    /** Suppression (SCRUM-35) : host Zabbix, target et alertes */
+    public function destroy(Request $request, MonitoringTarget $target, MonitoringService $monitoring): RedirectResponse
+    {
+        Gate::authorize('delete', $target);
+
+        try {
+            $monitoring->deleteTarget($target);
+        } catch (ZabbixException $e) {
+            return back()->with('error', $e->userMessage().' The target was not deleted, please try again.');
+        }
+
+        AuditLog::record('target.delete', $request->user(), $target, [
+            'name' => $target->name,
+            'url' => $target->url,
+            'zabbix_host_id' => $target->zabbix_host_id,
+        ]);
+
+        return to_route('targets.index')->with('success', "{$target->name} deleted, with its Zabbix monitoring and its alerts.");
     }
 
     public function show(Request $request, MonitoringTarget $target): View

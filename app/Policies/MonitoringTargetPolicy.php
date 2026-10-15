@@ -23,4 +23,15 @@ class MonitoringTargetPolicy
     {
         return in_array($user->roleIn($team), [TeamRole::Admin, TeamRole::Manager], true);
     }
+
+    /** SCRUM-35 : modifier ou supprimer = Admin ou Manager de la team de la target */
+    public function update(User $user, MonitoringTarget $target): bool
+    {
+        return $this->create($user, $target->team);
+    }
+
+    public function delete(User $user, MonitoringTarget $target): bool
+    {
+        return $this->create($user, $target->team);
+    }
 }

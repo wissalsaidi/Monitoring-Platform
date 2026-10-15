@@ -44,6 +44,19 @@ trait FakesZabbix
     /** @var array<int, array> réponse de trend.get */
     protected array $zabbixTrends = [];
 
+    /** @var array<int, array> réponse de httptest.get */
+    protected array $zabbixScenarios = [['httptestid' => '30', 'steps' => [['httpstepid' => '7']]]];
+
+    /** @var array<int, array> réponse de trigger.get : les 3 triggers d'une target, reconnus par leur tag "level" */
+    protected array $zabbixTriggers = [
+        ['triggerid' => '500', 'tags' => [['tag' => 'level', 'value' => 'unavailable']]],
+        ['triggerid' => '501', 'tags' => [['tag' => 'level', 'value' => 'critical']]],
+        ['triggerid' => '502', 'tags' => [['tag' => 'level', 'value' => 'warning']]],
+    ];
+
+    /** @var array<int, array> réponse de host.get */
+    protected array $zabbixHosts = [];
+
     protected function fakeZabbixApi(): void
     {
         config(['services.zabbix.url' => $this->zabbixUrl, 'services.zabbix.token' => 'token', 'services.zabbix.retry_delay' => 0]);
@@ -81,6 +94,12 @@ trait FakesZabbix
             'history.get' => $this->zabbixHistory,
             'trend.get' => $this->zabbixTrends,
             'event.acknowledge' => ['eventids' => $request['params']['eventids']],
+            'host.get' => $this->zabbixHosts,
+            'host.update' => ['hostids' => [$request['params']['hostid']]],
+            'httptest.get' => $this->zabbixScenarios,
+            'httptest.update' => ['httptestids' => [$request['params']['httptestid']]],
+            'trigger.get' => $this->zabbixTriggers,
+            'trigger.update' => ['triggerids' => array_column($request['params'], 'triggerid')],
         };
 
         return Http::response(['jsonrpc' => '2.0', 'result' => $result, 'id' => 1]);
