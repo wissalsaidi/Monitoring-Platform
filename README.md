@@ -9,6 +9,14 @@ Plateforme web Full-Stack pour déclarer, surveiller et visualiser des ressource
 
 Cahier des charges : v1.2 · Suivi : Jira, projet `SCRUM`.
 
+## Aperçu
+
+| Dashboard | Ajout d'une target |
+|---|---|
+| ![Dashboard](docs/screenshots/6-dashboard.png) | ![Formulaire](docs/screenshots/3-form.png) |
+| **Page d'une target** | **Connexion** |
+| ![Target](docs/screenshots/5-target-page.png) | ![Login](docs/screenshots/1-login.png) |
+
 ## Architecture
 
 ```

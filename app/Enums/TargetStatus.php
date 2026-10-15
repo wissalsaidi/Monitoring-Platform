@@ -11,4 +11,9 @@ enum TargetStatus: string
     case Up = 'up';
     case Warning = 'warning';
     case Critical = 'critical';
+
+    public function label(): string
+    {
+        return strtoupper($this->value);
+    }
 }

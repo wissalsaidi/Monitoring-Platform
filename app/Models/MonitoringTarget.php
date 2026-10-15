@@ -16,6 +16,21 @@ class MonitoringTarget extends Model
     /** @use HasFactory<MonitoringTargetFactory> */
     use HasFactory;
 
+    /** Intervalles de check proposés dans le formulaire (secondes => libellé). */
+    public const CHECK_INTERVALS = [
+        30 => '30 seconds',
+        60 => '1 minute',
+        120 => '2 minutes',
+        300 => '5 minutes',
+        600 => '10 minutes',
+        900 => '15 minutes',
+        1800 => '30 minutes',
+        3600 => '1 hour',
+    ];
+
+    /** Seuil maximal : au-delà, le timeout du web scenario Zabbix (15 s) se déclenche avant. */
+    public const MAX_THRESHOLD_MS = 10000;
+
     protected $fillable = [
         'team_id', 'created_by', 'name', 'type', 'description', 'status', 'enabled',
         'url', 'check_interval', 'warning_threshold_ms', 'critical_threshold_ms', 'zabbix_host_id',
