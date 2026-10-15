@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\AlertSeverity;
 use App\Enums\AlertStatus;
+use Carbon\CarbonInterface;
 use Database\Factories\AlertFactory;
 use Illuminate\Database\Eloquent\Attributes\Scope;
 use Illuminate\Database\Eloquent\Builder;
@@ -41,6 +42,26 @@ class Alert extends Model
     public function target(): BelongsTo
     {
         return $this->belongsTo(MonitoringTarget::class, 'monitoring_target_id');
+    }
+
+    /**
+     * Durée de l'incident : jusqu'à la résolution, ou jusqu'à maintenant s'il est en cours.
+     * Ex. « 12m 4s », « 1h 5m ».
+     */
+    public function durationForHumans(): string
+    {
+        return $this->started_at->diffForHumans($this->resolved_at ?? now(), CarbonInterface::DIFF_ABSOLUTE, true, 2);
+    }
+
+    /** Libellé de la métrique surveillée (tag "metric" du trigger). */
+    public function metricLabel(): string
+    {
+        return match ($this->metric) {
+            'response_time' => 'Response time',
+            'availability' => 'Availability',
+            null => 'Zabbix problem',
+            default => ucfirst(str_replace('_', ' ', $this->metric)),
+        };
     }
 
     /** Alertes non résolues (OPEN ou ACKNOWLEDGED). */

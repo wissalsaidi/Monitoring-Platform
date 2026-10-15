@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Services\ZabbixService;
 use Illuminate\Pagination\Paginator;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\ServiceProvider;
 
@@ -30,5 +31,8 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Paginator::useBootstrapFive();
+
+        // Date stockée en UTC → heure affichée à l'utilisateur
+        Carbon::macro('toDisplay', fn () => $this->copy()->setTimezone(config('app.display_timezone')));
     }
 }
