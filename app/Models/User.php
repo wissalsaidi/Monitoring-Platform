@@ -62,10 +62,17 @@ class User extends Authenticatable
         return $this->teams()->whereKey($team->id)->exists();
     }
 
+    /** @var array<int, ?TeamRole> rôles déjà lus, par team (évite une requête par ligne dans les listes) */
+    private array $rolesByTeam = [];
+
     /** Rôle de l'utilisateur dans une team, null s'il n'en est pas membre. */
     public function roleIn(Team $team): ?TeamRole
     {
-        return $this->teams()->whereKey($team->id)->first()?->pivot->role;
+        if (! array_key_exists($team->id, $this->rolesByTeam)) {
+            $this->rolesByTeam[$team->id] = $this->teams()->whereKey($team->id)->first()?->pivot->role;
+        }
+
+        return $this->rolesByTeam[$team->id];
     }
 
     /**

@@ -19,7 +19,15 @@
                 <input type="search" name="q" value="{{ $filters['q'] ?? '' }}" class="form-control" placeholder="Search by name" aria-label="Search by name" maxlength="100">
             </div>
         </div>
-        <div class="col-8 col-md-4 col-lg-3">
+        <div class="col-6 col-md-3 col-lg-2">
+            <select name="status" class="form-select form-select-sm" aria-label="Filter by status" onchange="this.form.submit()">
+                <option value="">All statuses</option>
+                @foreach ($statuses as $status)
+                    <option value="{{ $status->value }}" @selected(($filters['status'] ?? null) === $status->value)>{{ $status->label() }}</option>
+                @endforeach
+            </select>
+        </div>
+        <div class="col-6 col-md-3 col-lg-2">
             <select name="type" class="form-select form-select-sm" aria-label="Filter by type" onchange="this.form.submit()">
                 <option value="">All types</option>
                 @foreach ($types as $type)

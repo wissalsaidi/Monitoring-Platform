@@ -297,3 +297,15 @@ $rail-width: 64px;
         radial-gradient(circle at 85% 90%, rgba($danger, .10), transparent 40%),
         $app-bg;
 }
+
+// Cartes KPI cliquables du dashboard (SCRUM-43)
+a.kpi-card {
+    color: inherit;
+    transition: border-color .15s ease, transform .15s ease;
+
+    &:hover,
+    &:focus-visible {
+        border-color: rgba($primary, .6);
+        transform: translateY(-2px);
+    }
+}
