@@ -7,6 +7,8 @@
 #   Zabbix       http://localhost:8080   (Admin / zabbix)
 #   Grafana      http://localhost:3000   (admin / GRAFANA_ADMIN_PASSWORD)
 #   Fake API     http://localhost:8081/health   et   /control?delay=1200
+#   phpMyAdmin   http://localhost:8082   (serveur Laravel ou Zabbix, identifiants du .env)
+#   Mailpit      http://localhost:8025   (emails envoyés par l'app)
 
 services:
   # ─── Application Laravel ───────────────────────────────────────────
@@ -14,11 +16,40 @@ services:
     build: ./docker/php
     volumes:
       - ./:/var/www/html
+      # vendor/ dans un volume Docker : sous Windows (WSL2), lire des milliers de fichiers
+      # depuis le disque Windows rend chaque requête lente de plusieurs secondes.
+      # Après un changement de composer.json : docker compose exec app composer install
+      - vendor:/var/www/html/vendor
     depends_on:
       mysql:
         condition: service_healthy
       redis:
         condition: service_started
+
+  # Worker de la queue Redis : exécute les jobs (SyncZabbixEvents…)
+  # Après une modification du code PHP : docker compose restart queue
+  queue:
+    build: ./docker/php
+    command: php artisan queue:work --sleep=3 --tries=1 --max-time=3600
+    restart: unless-stopped
+    user: www-data   # même utilisateur que PHP-FPM : sinon les logs créés ici ne sont plus modifiables par le site
+    volumes:
+      - ./:/var/www/html
+      - vendor:/var/www/html/vendor
+    depends_on:
+      - app
+
+  # Laravel Scheduler : place SyncZabbixEvents dans la queue chaque minute (routes/console.php)
+  scheduler:
+    build: ./docker/php
+    command: php artisan schedule:work
+    restart: unless-stopped
+    user: www-data
+    volumes:
+      - ./:/var/www/html
+      - vendor:/var/www/html/vendor
+    depends_on:
+      - app
 
   nginx:
     image: nginx:1.27-alpine
@@ -112,6 +143,29 @@ services:
     depends_on:
       - zabbix-web
 
+  # ─── Dev : interface web pour les bases MySQL ──────────────────────
+  phpmyadmin:
+    image: phpmyadmin:5
+    environment:
+      PMA_HOSTS: mysql,zabbix-db             # liste déroulante "Serveur" sur la page de connexion
+      PMA_VERBOSES: Laravel,Zabbix
+      UPLOAD_LIMIT: 64M
+    ports:
+      - "127.0.0.1:8082:80"     # accessible uniquement depuis ce PC
+    depends_on:
+      - mysql
+      - zabbix-db
+
+  # ─── Dev : boîte mail locale (SCRUM-32) ────────────────────────────
+  # Tous les emails de l'app (reset de mot de passe, vérification) arrivent ici, rien ne part sur Internet.
+  mailpit:
+    image: axllent/mailpit:v1.27
+    ports:
+      - "127.0.0.1:8025:8025"   # interface web
+    environment:
+      MP_SMTP_AUTH_ACCEPT_ANY: 1
+      MP_SMTP_AUTH_ALLOW_INSECURE: 1
+
   # ─── Démo : fausse API à surveiller (SCRUM-29) ─────────────────────
   fake-api:
     image: php:8.3-cli-alpine
@@ -124,6 +178,7 @@ services:
       - "8081:8080"
 
 volumes:
+  vendor:
   mysql-data:
   redis-data:
   zabbix-db-data:

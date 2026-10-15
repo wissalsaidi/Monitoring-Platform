@@ -1,34 +1,311 @@
-// Couleurs de statut de la plateforme (UP / WARNING / CRITICAL / UNKNOWN)
-$primary: #2f6fed;
-$success: #1f9d55;
-$warning: #e0a800;
-$danger:  #d64545;
+// Thème sombre « observability » (SCRUM-45) : Bootstrap 5.3 en mode dark, couleurs surchargées.
 
+// ─── Palette ──────────────────────────────────────────────────────────
+$app-bg:        #15162a;   // fond de page (bleu nuit)
+$app-rail:      #101120;   // barre latérale
+$app-surface:   #1e2036;   // cartes
+$app-surface-2: #272a44;   // champs, survols
+$app-border:    #2f3250;
+$app-text:      #e6e7f2;
+$app-muted:     #9396b4;
+
+// Couleurs de statut de la plateforme (UP / WARNING / CRITICAL / UNKNOWN)
+$primary: #5b8def;
+$success: #2fbf9b;
+$warning: #f2b84b;
+$danger:  #f0545c;
+$info:    #7c8cff;
+$secondary: #6b6f91;
+
+// ─── Bootstrap : variables du mode sombre ────────────────────────────
+$font-family-sans-serif: 'Inter Variable', system-ui, -apple-system, 'Segoe UI', sans-serif;
+$font-size-base: .9375rem;
+$border-radius: .5rem;
+$border-radius-lg: .75rem;
+$enable-shadows: false;
+
+$body-bg-dark: $app-bg;
+$body-color-dark: $app-text;
+$body-secondary-color-dark: $app-muted;
+$body-secondary-bg-dark: $app-surface-2;
+$body-tertiary-bg-dark: $app-surface;
+$body-emphasis-color-dark: #ffffff;
+$border-color-dark: $app-border;
+$headings-color-dark: #ffffff;
+$link-color-dark: $primary;
+$link-hover-color-dark: lighten($primary, 8%);
+
+$card-bg: $app-surface;
+$card-border-color: $app-border;
+$card-cap-bg: transparent;
+$input-bg: $app-surface-2;
+$input-border-color: $app-border;
+$dropdown-dark-bg: $app-surface;
+$tooltip-bg: #000;
+
+@import '@fontsource-variable/inter';
 @import 'bootstrap/scss/bootstrap';
 @import 'bootstrap-icons/font/bootstrap-icons.css';
 
-body {
-    background-color: var(--bs-tertiary-bg);
-}
+// Bootstrap applique ces variables via [data-bs-theme=dark] : on y raccroche les surfaces des composants.
+[data-bs-theme=dark] {
+    --bs-card-bg: #{$app-surface};
+    --bs-dropdown-bg: #{$app-surface};
+    --bs-dropdown-border-color: #{$app-border};
+    --bs-dropdown-link-hover-bg: #{$app-surface-2};
 
-.sidebar {
-    width: 240px;
-    min-height: 100vh;
+    .card {
+        --bs-card-bg: #{$app-surface};
+        --bs-card-border-color: #{$app-border};
+    }
 
-    .nav-link {
-        color: var(--bs-secondary-color);
-        border-radius: var(--bs-border-radius);
+    .table {
+        --bs-table-bg: transparent;
+        --bs-table-hover-bg: #{rgba($app-surface-2, .6)};
+        --bs-table-border-color: #{$app-border};
 
-        &:hover,
-        &.active {
-            color: var(--bs-emphasis-color);
-            background-color: var(--bs-secondary-bg);
+        > thead th {
+            font-size: .8rem;
+            font-weight: 500;
+            color: $app-muted;
+        }
+    }
+
+    .form-control,
+    .form-select {
+        background-color: $app-surface-2;
+        border-color: $app-border;
+
+        &:focus {
+            background-color: $app-surface-2;
         }
     }
 }
 
-.kpi-card .kpi-value {
-    font-size: 2rem;
+// ─── Mise en page ─────────────────────────────────────────────────────
+$rail-width: 64px;
+
+.app-rail {
+    position: fixed;
+    inset: 0 auto 0 0;
+    width: $rail-width;
+    z-index: 1030;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: .75rem 0;
+    background: $app-rail;
+    border-right: 1px solid $app-border;
+
+    .app-rail-brand {
+        display: grid;
+        place-items: center;
+        width: 40px;
+        height: 40px;
+        margin-bottom: 1.25rem;
+        border-radius: .6rem;
+        background: rgba($primary, .15);
+        color: $primary;
+        font-size: 1.25rem;
+    }
+
+    .app-rail-link {
+        position: relative;
+        display: grid;
+        place-items: center;
+        width: 40px;
+        height: 40px;
+        margin-bottom: .35rem;
+        border-radius: .5rem;
+        color: $app-muted;
+        font-size: 1.15rem;
+        text-decoration: none;
+        transition: background-color .15s, color .15s;
+
+        &:hover,
+        &:focus-visible {
+            color: #fff;
+            background: $app-surface-2;
+        }
+
+        &.active {
+            color: #fff;
+            background: rgba($primary, .18);
+
+            &::before {
+                content: '';
+                position: absolute;
+                left: -12px;
+                top: 8px;
+                bottom: 8px;
+                width: 3px;
+                border-radius: 0 3px 3px 0;
+                background: $primary;
+            }
+        }
+
+        &.disabled {
+            opacity: .35;
+            pointer-events: none;
+        }
+    }
+}
+
+.app-main {
+    margin-left: $rail-width;
+    min-height: 100vh;
+}
+
+.app-topbar {
+    position: sticky;
+    top: 0;
+    z-index: 1020;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    padding: 0 1.5rem;
+    background: rgba($app-bg, .85);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid $app-border;
+}
+
+.app-content {
+    padding: 1.5rem;
+    max-width: 1400px;
+}
+
+.page-title {
+    font-size: 1.35rem;
     font-weight: 600;
-    line-height: 1;
+    margin: 0;
+}
+
+// ─── Composants ───────────────────────────────────────────────────────
+.card {
+    border-radius: $border-radius-lg;
+}
+
+.section-label {
+    font-size: .75rem;
+    font-weight: 600;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: $app-muted;
+}
+
+.kpi-card {
+    .kpi-label {
+        font-size: .8rem;
+        color: $app-muted;
+    }
+
+    .kpi-value {
+        font-size: 2.25rem;
+        font-weight: 700;
+        line-height: 1.1;
+        color: #fff;
+        font-variant-numeric: tabular-nums;
+    }
+
+    .kpi-bar {
+        height: 4px;
+        border-radius: 2px;
+        background: $app-surface-2;
+        overflow: hidden;
+
+        > span {
+            display: block;
+            height: 100%;
+        }
+    }
+}
+
+// Pastilles de statut (couleur + icône), comme « 1 problem » sur la maquette
+.status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: .35rem;
+    padding: .15rem .55rem;
+    border-radius: .35rem;
+    font-size: .75rem;
+    font-weight: 600;
+    line-height: 1.5;
+    white-space: nowrap;
+
+    .bi {
+        font-size: .7rem;
+    }
+}
+
+// Sévérités des alertes (SCRUM-41), même forme que les pastilles de statut
+@each $severity, $color in (info: $info, warning: $warning, high: #f2844b, critical: $danger) {
+    .severity-#{$severity} {
+        color: lighten($color, 6%);
+        background: rgba($color, .16);
+    }
+}
+
+@each $status, $color in (up: $success, warning: $warning, critical: $danger, unknown: $secondary) {
+    .status-#{$status} {
+        color: lighten($color, 6%);
+        background: rgba($color, .16);
+    }
+}
+
+// Cartes de choix du type de target
+.type-option {
+    .btn-check + .btn {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: .35rem;
+        width: 100%;
+        padding: .9rem .5rem;
+        border: 1px solid $app-border;
+        background: $app-surface-2;
+        color: $app-muted;
+
+        i {
+            font-size: 1.35rem;
+        }
+    }
+
+    .btn-check:checked + .btn {
+        border-color: $primary;
+        background: rgba($primary, .14);
+        color: #fff;
+    }
+
+    .btn-check:disabled + .btn {
+        opacity: .4;
+    }
+}
+
+.form-text {
+    color: $app-muted;
+}
+
+.font-monospace-sm {
+    font-family: $font-family-monospace;
+    font-size: .85em;
+}
+
+// Pages de connexion
+.guest-bg {
+    background:
+        radial-gradient(circle at 20% 10%, rgba($primary, .18), transparent 40%),
+        radial-gradient(circle at 85% 90%, rgba($danger, .10), transparent 40%),
+        $app-bg;
+}
+
+// Cartes KPI cliquables du dashboard (SCRUM-43)
+a.kpi-card {
+    color: inherit;
+    transition: border-color .15s ease, transform .15s ease;
+
+    &:hover,
+    &:focus-visible {
+        border-color: rgba($primary, .6);
+        transform: translateY(-2px);
+    }
 }
