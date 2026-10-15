@@ -8,6 +8,7 @@
 #   Grafana      http://localhost:3000   (admin / GRAFANA_ADMIN_PASSWORD)
 #   Fake API     http://localhost:8081/health   et   /control?delay=1200
 #   phpMyAdmin   http://localhost:8082   (serveur Laravel ou Zabbix, identifiants du .env)
+#   Mailpit      http://localhost:8025   (emails envoyés par l'app)
 
 services:
   # ─── Application Laravel ───────────────────────────────────────────
@@ -154,6 +155,16 @@ services:
     depends_on:
       - mysql
       - zabbix-db
+
+  # ─── Dev : boîte mail locale (SCRUM-32) ────────────────────────────
+  # Tous les emails de l'app (reset de mot de passe, vérification) arrivent ici, rien ne part sur Internet.
+  mailpit:
+    image: axllent/mailpit:v1.27
+    ports:
+      - "127.0.0.1:8025:8025"   # interface web
+    environment:
+      MP_SMTP_AUTH_ACCEPT_ANY: 1
+      MP_SMTP_AUTH_ALLOW_INSECURE: 1
 
   # ─── Démo : fausse API à surveiller (SCRUM-29) ─────────────────────
   fake-api:
