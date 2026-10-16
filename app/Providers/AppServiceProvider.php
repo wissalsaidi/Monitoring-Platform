@@ -2,9 +2,13 @@
 
 namespace App\Providers;
 
+use App\Enums\Permission;
+use App\Models\Team;
+use App\Models\User;
 use App\Services\ZabbixService;
 use Illuminate\Pagination\Paginator;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\ServiceProvider;
 
@@ -31,6 +35,11 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Paginator::useBootstrapFive();
+
+        // Chaque permission est aussi une ability : @can('user.create', $team), Gate::authorize('configuration.manage', $team)
+        foreach (Permission::cases() as $permission) {
+            Gate::define($permission->value, fn (User $user, Team $team) => $user->hasPermission($permission, $team));
+        }
 
         // Date stockée en UTC → heure affichée à l'utilisateur
         Carbon::macro('toDisplay', fn () => $this->copy()->setTimezone(config('app.display_timezone')));

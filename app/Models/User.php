@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\Permission;
 use App\Enums\TeamRole;
 use Database\Factories\UserFactory;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
@@ -76,6 +77,12 @@ class User extends Authenticatable implements MustVerifyEmail
         }
 
         return $this->rolesByTeam[$team->id];
+    }
+
+    /** L'utilisateur a-t-il cette permission dans la team ? (matrice : TeamRole::permissions, SCRUM-58) */
+    public function hasPermission(Permission $permission, Team $team): bool
+    {
+        return $this->roleIn($team)?->can($permission) ?? false;
     }
 
     /**
