@@ -2,8 +2,10 @@
 
 namespace App\Models;
 
+use App\Enums\Permission;
 use App\Enums\TargetStatus;
 use App\Enums\TargetType;
+use App\Enums\TeamRole;
 use Database\Factories\MonitoringTargetFactory;
 use Illuminate\Database\Eloquent\Attributes\Scope;
 use Illuminate\Database\Eloquent\Builder;
@@ -79,7 +81,10 @@ class MonitoringTarget extends Model
     #[Scope]
     protected function visibleTo(Builder $query, User $user): void
     {
-        $query->whereIn('team_id', $user->teams()->select('teams.id'));
+        // Teams où le rôle de l'utilisateur donne target.view (aujourd'hui : tous les rôles, SCRUM-58)
+        $roles = array_map(fn (TeamRole $role) => $role->value, TeamRole::withPermission(Permission::TargetView));
+
+        $query->whereIn('team_id', $user->teams()->wherePivotIn('role', $roles)->select('teams.id'));
     }
 
     /**

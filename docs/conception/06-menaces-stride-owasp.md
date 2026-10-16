@@ -42,7 +42,7 @@ Frontières de confiance : le navigateur (non fiable) → l'application ; l'appl
 | Formulaires | **T** | Injection SQL | Eloquent / requêtes préparées ; recherche `LIKE` échappée | ✅ |
 | Pages | **T / I** | Injection de script (XSS) via un nom de target | Échappement automatique Blade (`{{ }}`) | ✅ |
 | Targets et alertes | **I** | Voir les targets d'une autre team en changeant l'id dans l'URL | Policies `view/update/delete`, scope `visibleTo`, filtres limités aux targets visibles | ✅ tests Feature |
-| Targets et alertes | **E** | Un Viewer qui modifie, supprime ou acquitte | Policies : Admin / Manager uniquement (403 sinon) | ✅ tests Feature |
+| Targets et alertes | **E** | Un Viewer qui modifie, supprime ou acquitte | Permissions nommées par rôle (`target.update`, `alert.acknowledge`…), matrice unique dans `TeamRole` ; 403 sinon (SCRUM-58) | ✅ tests Feature (matrice complète) |
 | API interne (graphiques) | **I** | Lire les mesures d'une target d'une autre team | Même authentification et policy `view` que les pages | ✅ |
 | Appels Zabbix | **I** | Fuite du token API | Token dans `.env` (jamais commité), jamais écrit dans les logs ; token dédié à l'application | ✅ |
 | Appels Zabbix | **T** | Saisir une URL interne pour sonder le réseau (SSRF via Zabbix) | URL limitée à `http`/`https` ; règle `PublicUrl` : refus des adresses locales, privées, link-local et réservées (IPv4 et IPv6), contrôlé sur les IP résolues ; liste blanche pour la démo (SCRUM-57) | ✅ |
@@ -57,7 +57,7 @@ Frontières de confiance : le navigateur (non fiable) → l'application ; l'appl
 
 | Catégorie | Ce qui est en place | Reste à faire |
 |---|---|---|
-| **A01 Contrôle d'accès défaillant** | Policies Laravel sur chaque action, cloisonnement par team, filtres limités aux données visibles, tests d'accès croisé | RBAC fin (permissions `target.create`…) en V1 |
+| **A01 Contrôle d'accès défaillant** | Policies Laravel sur chaque action, permissions nommées par rôle (RBAC, SCRUM-58), cloisonnement par team, filtres limités aux données visibles, tests de toute la matrice rôle × action | Pages de gestion des membres (SCRUM-59) |
 | **A02 Défaillances cryptographiques** | bcrypt pour les mots de passe, URLs signées, `APP_KEY` secrète | HTTPS + cookies `Secure` en production |
 | **A03 Injection** | Requêtes préparées, `LIKE` échappé, validation serveur (FormRequest), échappement Blade | — |
 | **A04 Conception non sécurisée** | Analyse STRIDE, création « tout ou rien », aucune page dépendante de Zabbix | Revoir à chaque nouvelle fonctionnalité V1 |

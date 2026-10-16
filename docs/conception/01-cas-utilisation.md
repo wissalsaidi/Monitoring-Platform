@@ -17,6 +17,16 @@
 
 Les rôles s'emboîtent : **Viewer ⊂ Manager ⊂ Admin**. Chaque personne ne voit que les targets et les alertes des teams dont elle est membre.
 
+Depuis la V1 (SCRUM-58), chaque rôle correspond à une liste de **permissions nommées** :
+
+| Permission | Viewer | Manager | Admin |
+|---|:---:|:---:|:---:|
+| `dashboard.view`, `target.view`, `alert.view` | ✅ | ✅ | ✅ |
+| `target.create`, `target.update`, `target.delete` | — | ✅ | ✅ |
+| `alert.acknowledge` | — | ✅ | ✅ |
+| `user.view`, `user.create`, `user.update`, `user.delete` | — | — | ✅ |
+| `configuration.manage` | — | — | ✅ |
+
 ## Diagramme de cas d'utilisation
 
 ```mermaid
