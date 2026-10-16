@@ -87,4 +87,4 @@ flowchart LR
 | Supprimer une target | Manager | Après confirmation : suppression du host Zabbix, de la target et de ses alertes. | SCRUM-35 |
 | Acquitter une alerte | Manager | L'alerte passe en ACKNOWLEDGED avec l'auteur ; l'acquittement est envoyé à Zabbix. | SCRUM-42 |
 | Synchroniser les problèmes Zabbix | Scheduler | Chaque minute : nouveaux problèmes → alertes, résolutions → alertes RESOLVED, statut des targets mis à jour. | SCRUM-40 |
-| Gérer les membres de la team | Admin | Inviter, retirer, changer un rôle. **Prévu en V1/V2** (RBAC, SCRUM-14). | — |
+| Gérer les membres de la team | Admin | Inviter par email (lien signé valable 7 jours), changer un rôle, retirer un membre. La team garde toujours au moins un Admin. | SCRUM-59 |
