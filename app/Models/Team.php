@@ -25,6 +25,12 @@ class Team extends Model
             ->withTimestamps();
     }
 
+    /** Invitations en attente (SCRUM-59) */
+    public function invitations(): HasMany
+    {
+        return $this->hasMany(TeamInvitation::class);
+    }
+
     public function monitoringTargets(): HasMany
     {
         return $this->hasMany(MonitoringTarget::class);

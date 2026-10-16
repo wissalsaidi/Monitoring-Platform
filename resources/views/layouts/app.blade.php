@@ -13,6 +13,9 @@
         ['route' => 'dashboard', 'match' => 'dashboard', 'icon' => 'bi-grid-1x2', 'label' => 'Dashboard'],
         ['route' => 'targets.index', 'match' => 'targets.*', 'icon' => 'bi-hdd-network', 'label' => 'Monitoring'],
         ['route' => 'alerts.index', 'match' => 'alerts.*', 'icon' => 'bi-bell', 'label' => 'Alerts'],
+        // Membres de la team (SCRUM-59) : seulement pour qui a user.view dans au moins une team
+        ...(auth()->user()->teams->contains(fn ($team) => auth()->user()->hasPermission(\App\Enums\Permission::UserView, $team))
+            ? [['route' => 'teams.current', 'match' => 'teams.*', 'icon' => 'bi-people', 'label' => 'Team members']] : []),
         ['route' => null, 'match' => null, 'icon' => 'bi-graph-up', 'label' => 'Dashboards (soon)'],
     ];
 @endphp
