@@ -20,4 +20,5 @@ enum Permission: string
     case UserDelete = 'user.delete';
     case DashboardView = 'dashboard.view';
     case ConfigurationManage = 'configuration.manage';
+    case AuditView = 'audit.view';
 }
