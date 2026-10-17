@@ -15,7 +15,10 @@
         ['route' => 'alerts.index', 'match' => 'alerts.*', 'icon' => 'bi-bell', 'label' => 'Alerts'],
         // Membres de la team (SCRUM-59) : seulement pour qui a user.view dans au moins une team
         ...(auth()->user()->teams->contains(fn ($team) => auth()->user()->hasPermission(\App\Enums\Permission::UserView, $team))
-            ? [['route' => 'teams.current', 'match' => 'teams.*', 'icon' => 'bi-people', 'label' => 'Team members']] : []),
+            ? [['route' => 'teams.current', 'match' => 'teams.members.*', 'icon' => 'bi-people', 'label' => 'Team members']] : []),
+        // Journal d'audit (SCRUM-60) : seulement pour qui a audit.view dans au moins une team
+        ...(auth()->user()->teams->contains(fn ($team) => auth()->user()->hasPermission(\App\Enums\Permission::AuditView, $team))
+            ? [['route' => 'teams.audit.current', 'match' => 'teams.audit.*', 'icon' => 'bi-journal-text', 'label' => 'Audit log']] : []),
         ['route' => null, 'match' => null, 'icon' => 'bi-graph-up', 'label' => 'Dashboards (soon)'],
     ];
 @endphp

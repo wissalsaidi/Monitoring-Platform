@@ -65,7 +65,7 @@ Frontières de confiance : le navigateur (non fiable) → l'application ; l'appl
 | **A06 Composants vulnérables** | `composer audit` dans la CI, versions majeures des images Docker fixées | `npm audit` dans la CI ; épingler les images Zabbix (`7.0-latest`) sur une version précise |
 | **A07 Identification et authentification** | Limitation des tentatives, vérification d'email, réinitialisation sécurisée | 2FA (optionnel, §28) |
 | **A08 Intégrité des données et du logiciel** | Une PR par ticket, CI verte avant chaque fusion, synchro idempotente | Protection de branche sur `main` (non disponible sur un dépôt privé gratuit) |
-| **A09 Journalisation et surveillance** | Audit des actions sensibles, logs Zabbix dédiés, log CRITICAL si la synchro échoue | Purge des journaux (1 an), alerte quand la synchro échoue plusieurs fois |
+| **A09 Journalisation et surveillance** | Audit des actions sensibles, consultable par l'Admin de la team et purgé après 1 an (SCRUM-60), logs Zabbix dédiés, log CRITICAL si la synchro échoue | Alerte quand la synchro échoue plusieurs fois |
 | **A10 SSRF** | URL de target limitée à `http`/`https` ; adresses internes refusées après résolution DNS (SCRUM-57) | Limite connue : un nom dont l'adresse change après la validation (DNS rebinding) n'est pas recontrôlé |
 
 ## Conclusion

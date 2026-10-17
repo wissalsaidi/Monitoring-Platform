@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AlertController;
+use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\MonitoringTargetController;
 use App\Http\Controllers\TargetMetricsController;
@@ -37,6 +38,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/teams/{team}/invitations', [TeamInvitationController::class, 'store'])
         ->middleware('throttle:20,1')->name('teams.invitations.store');
     Route::delete('/teams/{team}/invitations/{invitation}', [TeamInvitationController::class, 'destroy'])->name('teams.invitations.destroy');
+
+    // Journal d'audit de la team (SCRUM-60) : Admin (permission audit.view)
+    Route::get('/audit', [AuditLogController::class, 'current'])->name('teams.audit.current');
+    Route::get('/teams/{team}/audit', [AuditLogController::class, 'index'])->name('teams.audit.index');
 
     // Lien reçu par email : signature vérifiée dans le contrôleur pour afficher un message clair
     Route::get('/invitations/{invitation}/accept', [TeamInvitationController::class, 'accept'])
