@@ -81,6 +81,7 @@ trait FakesZabbix
         $result = match ($method) {
             'hostgroup.get' => $this->existingGroupId ? [['groupid' => $this->existingGroupId]] : [],
             'hostgroup.create' => ['groupids' => ['42']],
+            'hostgroup.delete' => ['groupids' => $request['params']],
             'host.create' => ['hostids' => [(string) $this->nextHostId++]],
             'httptest.create' => ['httptestids' => ['30']],
             'trigger.create' => ['triggerids' => [(string) $this->nextTriggerId++]],

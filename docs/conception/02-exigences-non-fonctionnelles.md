@@ -59,7 +59,7 @@ Légende du statut : ✅ atteint dans le MVP (v0.1.0-mvp) · 🟡 partiel · ⏳
 |---|---|---|---|
 | RGPD-1 | Données personnelles limitées au nécessaire | Nom, email, mot de passe haché, IP (sessions et audit) | ✅ |
 | RGPD-2 | Actions sensibles tracées | Création, modification, suppression de target et acquittement dans `audit_logs` | ✅ |
-| RGPD-3 | Durée de conservation des journaux d'audit | 1 an, puis suppression automatique | ⏳ purge à ajouter |
+| RGPD-3 | Durée de conservation des journaux d'audit | 1 an, puis suppression automatique | ✅ `audit:purge` chaque nuit (SCRUM-60) |
 | RGPD-4 | Durée de conservation des logs techniques | Logs Zabbix : 14 jours (rotation quotidienne) | 🟡 le log Laravel principal n'a pas encore de rotation |
-| RGPD-5 | Droit à l'effacement | Suppression de son compte et de ses données personnelles | ⏳ |
+| RGPD-5 | Droit à l'effacement | Suppression de son compte et de ses données personnelles | ✅ page My account, audit anonymisé (SCRUM-63) |
 | RGPD-6 | Hébergement maîtrisé | Toutes les données restent sur l'infrastructure de l'utilisateur (Docker), aucune donnée envoyée à un service tiers | ✅ |

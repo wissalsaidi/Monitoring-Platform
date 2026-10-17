@@ -46,6 +46,7 @@
                 <li><span class="dropdown-item-text small text-body-secondary"><i class="bi bi-people me-1"></i>Team: {{ $team->name }}</span></li>
             @endif
             <li><hr class="dropdown-divider"></li>
+            <li><a class="dropdown-item" href="{{ route('account.edit') }}"><i class="bi bi-person-gear me-2"></i>My account</a></li>
             <li>
                 <form method="POST" action="{{ route('logout') }}">
                     @csrf

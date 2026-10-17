@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AccountController;
 use App\Http\Controllers\AlertController;
 use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\DashboardController;
@@ -38,6 +39,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/teams/{team}/invitations', [TeamInvitationController::class, 'store'])
         ->middleware('throttle:20,1')->name('teams.invitations.store');
     Route::delete('/teams/{team}/invitations/{invitation}', [TeamInvitationController::class, 'destroy'])->name('teams.invitations.destroy');
+
+    // Mon compte et droit à l'effacement (RGPD-5, SCRUM-63)
+    Route::get('/account', [AccountController::class, 'edit'])->name('account.edit');
+    Route::delete('/account', [AccountController::class, 'destroy'])->middleware('throttle:6,1')->name('account.destroy');
 
     // Journal d'audit de la team (SCRUM-60) : Admin (permission audit.view)
     Route::get('/audit', [AuditLogController::class, 'current'])->name('teams.audit.current');

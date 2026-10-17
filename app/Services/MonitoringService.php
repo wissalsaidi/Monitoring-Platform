@@ -158,6 +158,31 @@ class MonitoringService
     }
 
     /**
+     * Supprime une team, ses targets (hosts Zabbix compris) et son host group Zabbix
+     * (suppression de compte du dernier membre, SCRUM-63).
+     *
+     * @throws ZabbixException si un host ne peut pas être supprimé : la team est alors gardée
+     */
+    public function deleteTeam(Team $team): void
+    {
+        foreach ($team->monitoringTargets()->get() as $target) {
+            $this->deleteTarget($target);
+        }
+
+        if ($team->zabbix_hostgroup_id !== null) {
+            try {
+                $this->zabbix->deleteHostGroup($team->zabbix_hostgroup_id);
+            } catch (ZabbixException $e) {
+                // Un host group vide oublié dans Zabbix ne bloque pas la suppression
+                Log::warning('Zabbix host group not deleted with its team', ['team_id' => $team->id, 'groupid' => $team->zabbix_hostgroup_id, 'error' => $e->getMessage()]);
+            }
+        }
+
+        $team->delete();
+        Log::info('Team deleted', ['team_id' => $team->id]);
+    }
+
+    /**
      * Supprime la supervision Zabbix d'une target (host, scenario et triggers).
      */
     public function deprovision(MonitoringTarget $target): void
