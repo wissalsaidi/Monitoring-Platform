@@ -62,7 +62,7 @@ Frontières de confiance : le navigateur (non fiable) → l'application ; l'appl
 | **A03 Injection** | Requêtes préparées, `LIKE` échappé, validation serveur (FormRequest), échappement Blade | — |
 | **A04 Conception non sécurisée** | Analyse STRIDE, création « tout ou rien », aucune page dépendante de Zabbix | Revoir à chaque nouvelle fonctionnalité V1 |
 | **A05 Mauvaise configuration de sécurité** | `.env` hors du dépôt, ports de dev limités à la machine locale | `APP_DEBUG=false`, en-têtes de sécurité (CSP, HSTS) en production ; ne plus publier MySQL |
-| **A06 Composants vulnérables** | `composer audit` dans la CI, versions majeures des images Docker fixées | `npm audit` dans la CI ; épingler les images Zabbix (`7.0-latest`) sur une version précise |
+| **A06 Composants vulnérables** | `composer audit` et `npm audit --audit-level=high` dans la CI ; images Zabbix épinglées sur une version précise ; mises à jour mensuelles documentées (SCRUM-64) | Images encore épinglées sur la version majeure seulement (`phpmyadmin:5`, `redis:7`) : outils de dev |
 | **A07 Identification et authentification** | Limitation des tentatives, vérification d'email, réinitialisation sécurisée | 2FA (optionnel, §28) |
 | **A08 Intégrité des données et du logiciel** | Une PR par ticket, CI verte avant chaque fusion, synchro idempotente | Protection de branche sur `main` (non disponible sur un dépôt privé gratuit) |
 | **A09 Journalisation et surveillance** | Audit des actions sensibles, consultable par l'Admin de la team et purgé après 1 an (SCRUM-60), logs Zabbix dédiés, log CRITICAL si la synchro échoue | Alerte quand la synchro échoue plusieurs fois |
