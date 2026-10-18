@@ -19,7 +19,7 @@
 
     <form method="GET" action="{{ $history ? route('alerts.history') : route('alerts.index') }}" class="row g-2 align-items-center mb-3">
         <div class="col-6 col-md-3">
-            <select name="severity" class="form-select form-select-sm" aria-label="Filter by severity" onchange="this.form.submit()">
+            <select name="severity" class="form-select form-select-sm" aria-label="Filter by severity" data-auto-submit>
                 <option value="">All severities</option>
                 @foreach ($severities as $severity)
                     <option value="{{ $severity->value }}" @selected(($filters['severity'] ?? null) === $severity->value)>{{ $severity->label() }}</option>
@@ -27,7 +27,7 @@
             </select>
         </div>
         <div class="col-6 col-md-4">
-            <select name="target" class="form-select form-select-sm" aria-label="Filter by target" onchange="this.form.submit()">
+            <select name="target" class="form-select form-select-sm" aria-label="Filter by target" data-auto-submit>
                 <option value="">All targets</option>
                 @foreach ($targets as $target)
                     <option value="{{ $target->id }}" @selected((int) ($filters['target'] ?? 0) === $target->id)>{{ $target->name }}</option>

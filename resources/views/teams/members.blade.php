@@ -54,7 +54,7 @@
                                                 @csrf
                                                 @method('PATCH')
                                                 <select name="role" class="form-select form-select-sm w-auto" aria-label="Role of {{ $member->name }}"
-                                                        onchange="this.form.submit()" @disabled($lastAdmin)
+                                                        data-auto-submit @disabled($lastAdmin)
                                                         @if ($lastAdmin) title="A team must keep at least one Admin" @endif>
                                                     @foreach ($roles as $role)
                                                         <option value="{{ $role->value }}" @selected($member->pivot->role === $role)>{{ ucfirst($role->value) }}</option>
@@ -70,7 +70,7 @@
                                         @can('user.delete', $team)
                                             @unless ($lastAdmin)
                                                 <form method="POST" action="{{ route('teams.members.destroy', [$team, $member]) }}"
-                                                      onsubmit="return confirm({{ Js::from($isMe ? 'Leave the '.$team->name.' team?' : 'Remove '.$member->name.' from the team?') }})">
+                                                      data-confirm="{{ $isMe ? 'Leave the '.$team->name.' team?' : 'Remove '.$member->name.' from the team?' }}">
                                                     @csrf
                                                     @method('DELETE')
                                                     <button type="submit" class="btn btn-outline-danger btn-sm text-nowrap">

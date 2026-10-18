@@ -44,7 +44,7 @@
                         </ul>
                         <p class="small fw-semibold">This cannot be undone.</p>
 
-                        <form method="POST" action="{{ route('account.destroy') }}" onsubmit="return confirm('Delete your account permanently?')" novalidate>
+                        <form method="POST" action="{{ route('account.destroy') }}" data-confirm="Delete your account permanently?" novalidate>
                             @csrf
                             @method('DELETE')
                             <div class="mb-3">

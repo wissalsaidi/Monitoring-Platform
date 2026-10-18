@@ -36,7 +36,7 @@ Frontières de confiance : le navigateur (non fiable) → l'application ; l'appl
 |---|---|---|---|---|
 | Authentification | **S** | Deviner un mot de passe par force brute | 5 essais / min par email + IP ; mots de passe hachés bcrypt (coût 12), 8 caractères minimum | ✅ |
 | Authentification | **S** | Créer un compte avec l'email de quelqu'un d'autre | Vérification d'email obligatoire avant tout accès | ✅ |
-| Authentification | **S** | Voler une session | Cookies `HttpOnly` et `SameSite=Lax`, session régénérée à la connexion ; `Secure` + HTTPS en production | 🟡 HTTPS à la mise en ligne |
+| Authentification | **S** | Voler une session | Cookies `HttpOnly` et `SameSite=Lax`, session régénérée à la connexion ; en production : HTTPS obligatoire, HSTS, cookies `Secure` (SCRUM-61) | ✅ |
 | Réinitialisation du mot de passe | **S / T** | Réutiliser ou forger un lien | Jeton aléatoire valable 60 min, usage unique ; liens de vérification signés | ✅ |
 | Formulaires | **T** | Faire agir un utilisateur connecté à son insu (CSRF) | Jeton CSRF sur tous les formulaires `POST/PUT/DELETE` | ✅ |
 | Formulaires | **T** | Injection SQL | Eloquent / requêtes préparées ; recherche `LIKE` échappée | ✅ |
@@ -48,20 +48,20 @@ Frontières de confiance : le navigateur (non fiable) → l'application ; l'appl
 | Appels Zabbix | **T** | Saisir une URL interne pour sonder le réseau (SSRF via Zabbix) | URL limitée à `http`/`https` ; règle `PublicUrl` : refus des adresses locales, privées, link-local et réservées (IPv4 et IPv6), contrôlé sur les IP résolues ; liste blanche pour la démo (SCRUM-57) | ✅ |
 | Appels Zabbix | **D** | Zabbix lent ou en panne bloque l'appli | Timeout 15 s, nouvelles tentatives sur les lectures seulement ; pages servies depuis la base ; bandeau générique | ✅ |
 | Actions sensibles | **R** | Nier avoir supprimé une target ou acquitté une alerte | `audit_logs` : qui, quoi, quand, IP, anciennes et nouvelles valeurs | ✅ |
-| Erreurs | **I** | Lire une trace technique (chemins, requêtes) | Messages génériques (§47) ; `APP_DEBUG=false` en production | ✅ / ⏳ config de production |
+| Erreurs | **I** | Lire une trace technique (chemins, requêtes) | Messages génériques (§47) ; `APP_DEBUG=false` en production, contrôlé par `php artisan security:check` (SCRUM-61) | ✅ |
 | Emails | **S** | Faux emails de réinitialisation (phishing) | Expéditeur unique `noreply@…` ; SPF/DKIM à configurer en production | ⏳ |
 | Webhooks (V2) | **S / T** | Appeler un webhook entrant sans y être autorisé | Signature HMAC des webhooks prévue avec la fonctionnalité | ⏳ V2 |
-| Base de données | **I / D** | Accès direct à MySQL ou phpMyAdmin | Ports réservés à la machine locale (phpMyAdmin sur `127.0.0.1`) ; non exposés en production | 🟡 MySQL encore publié sur le port 3307 en dev |
+| Base de données | **I / D** | Accès direct à MySQL ou phpMyAdmin | Ports réservés à la machine locale (phpMyAdmin sur `127.0.0.1`) ; non exposés en production : `docker-compose.prod.yml` retire le port MySQL et arrête phpMyAdmin (SCRUM-61) | ✅ (MySQL publié sur `127.0.0.1:3307` en dev seulement) |
 
 ## Checklist OWASP Top 10 (2021) appliquée au projet
 
 | Catégorie | Ce qui est en place | Reste à faire |
 |---|---|---|
-| **A01 Contrôle d'accès défaillant** | Policies Laravel sur chaque action, permissions nommées par rôle (RBAC, SCRUM-58), cloisonnement par team, filtres limités aux données visibles, tests de toute la matrice rôle × action | Pages de gestion des membres (SCRUM-59) |
-| **A02 Défaillances cryptographiques** | bcrypt pour les mots de passe, URLs signées, `APP_KEY` secrète | HTTPS + cookies `Secure` en production |
+| **A01 Contrôle d'accès défaillant** | Policies Laravel sur chaque action, permissions nommées par rôle (RBAC, SCRUM-58), cloisonnement par team, filtres limités aux données visibles, tests de toute la matrice rôle × action ; gestion des membres et invitations (SCRUM-59) | — |
+| **A02 Défaillances cryptographiques** | bcrypt pour les mots de passe, URLs signées, `APP_KEY` secrète ; en production : HTTPS (TLS 1.2 / 1.3), HSTS, cookies `Secure` et session chiffrée (SCRUM-61) | — |
 | **A03 Injection** | Requêtes préparées, `LIKE` échappé, validation serveur (FormRequest), échappement Blade | — |
 | **A04 Conception non sécurisée** | Analyse STRIDE, création « tout ou rien », aucune page dépendante de Zabbix | Revoir à chaque nouvelle fonctionnalité V1 |
-| **A05 Mauvaise configuration de sécurité** | `.env` hors du dépôt, ports de dev limités à la machine locale | `APP_DEBUG=false`, en-têtes de sécurité (CSP, HSTS) en production ; ne plus publier MySQL |
+| **A05 Mauvaise configuration de sécurité** | `.env` hors du dépôt, ports de dev limités à la machine locale ; CSP sans script inline, `X-Frame-Options`, `nosniff`, `Referrer-Policy` ; `.env.production.example` (`APP_DEBUG=false`) vérifié par `security:check` ; MySQL non publié en production (SCRUM-61) | Styles inline encore autorisés par la CSP (`'unsafe-inline'` sur `style-src`) |
 | **A06 Composants vulnérables** | `composer audit` et `npm audit --audit-level=high` dans la CI ; images Zabbix épinglées sur une version précise ; mises à jour mensuelles documentées (SCRUM-64) | Images encore épinglées sur la version majeure seulement (`phpmyadmin:5`, `redis:7`) : outils de dev |
 | **A07 Identification et authentification** | Limitation des tentatives, vérification d'email, réinitialisation sécurisée | 2FA (optionnel, §28) |
 | **A08 Intégrité des données et du logiciel** | Une PR par ticket, CI verte avant chaque fusion, synchro idempotente | Protection de branche sur `main` (non disponible sur un dépôt privé gratuit) |
@@ -70,4 +70,4 @@ Frontières de confiance : le navigateur (non fiable) → l'application ; l'appl
 
 ## Conclusion
 
-Le MVP couvre les menaces principales : authentification, cloisonnement entre teams, injections, traçabilité et indisponibilité de Zabbix. Les points ouverts concernent surtout la **mise en production** (HTTPS, configuration, emails). Le **SSRF**, relevé par cette analyse, est corrigé depuis SCRUM-57 : une target ne peut plus viser une adresse du réseau interne.
+Le MVP couvre les menaces principales : authentification, cloisonnement entre teams, injections, traçabilité et indisponibilité de Zabbix. La **configuration de production** (HTTPS, en-têtes, `APP_DEBUG=false`, logs) est prête depuis SCRUM-61 ; il reste à configurer SPF/DKIM pour les emails. Le **SSRF**, relevé par cette analyse, est corrigé depuis SCRUM-57 : une target ne peut plus viser une adresse du réseau interne.

@@ -22,3 +22,7 @@
 Homestead.json
 Homestead.yaml
 Thumbs.db
+
+# Certificats TLS (SCRUM-61) : jamais dans le dépôt
+/docker/nginx/certs/*
+!/docker/nginx/certs/.gitkeep
