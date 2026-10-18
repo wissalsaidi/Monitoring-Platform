@@ -90,6 +90,33 @@ Après toute modification de `composer.json` : `docker compose exec app composer
 Toutes les commandes `artisan` passent par le conteneur : `docker compose exec app php artisan …`
 (depuis Windows, les hôtes `mysql`, `redis` et `zabbix-web` n'existent pas).
 
+## Équipes, rôles et sécurité
+
+| Rôle | Peut |
+|---|---|
+| **Viewer** | voir le dashboard, les targets et les alertes |
+| **Manager** | + créer, modifier, supprimer des targets et acquitter les alertes |
+| **Admin** | + inviter et gérer les membres, consulter le journal d'audit, configurer la team |
+
+- **Membres** (`/teams/{team}/members`) : invitation par email (lien signé valable 7 jours), changement de rôle, retrait ;
+  une team garde toujours au moins un Admin.
+- **Journal d'audit** (`/teams/{team}/audit`) : qui a fait quoi et quand, filtres par action, membre et période ;
+  purgé après 1 an (`audit:purge`).
+- **My account** : suppression du compte et des données personnelles (RGPD), audit anonymisé.
+- **SSRF** : une target ne peut pas viser une adresse interne (`localhost`, réseau privé…), contrôlé après résolution DNS.
+- **En-têtes** : CSP sans script inline, `X-Frame-Options`, `nosniff`, HSTS en HTTPS. Pas de `onclick=` / `onchange=`
+  dans les vues : utiliser `data-auto-submit` et `data-confirm`.
+
+Analyse de menaces : [docs/conception/06-menaces-stride-owasp.md](docs/conception/06-menaces-stride-owasp.md).
+
+## Exploitation
+
+| Sujet | Commande | Documentation |
+|---|---|---|
+| Sauvegardes des 2 bases (chaque nuit à 2 h 30, 7 jours) | `php artisan backup:run`, `backup:list`, `backup:restore` | [sauvegardes.md](docs/exploitation/sauvegardes.md) |
+| Mise en production (HTTPS, `APP_DEBUG=false`, logs 14 jours) | `docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d`, puis `php artisan security:check` | [production.md](docs/exploitation/production.md) |
+| Mises à jour des dépendances et des images | routine mensuelle, `npm audit` et `composer audit` dans la CI | [mises-a-jour.md](docs/exploitation/mises-a-jour.md) |
+
 ## Voir les bases de données (phpMyAdmin)
 
 http://localhost:8082. Le port 3307 est un port MySQL : il ne s'ouvre pas dans un navigateur.
@@ -118,10 +145,12 @@ php artisan test          # tests (SQLite en mémoire, pas besoin de Docker)
 vendor/bin/pint           # style de code (PSR-12 / Laravel)
 ```
 
-La CI GitHub Actions (`.github/workflows/ci.yml`) lance : syntaxe PHP, Pint, `composer audit`,
+La CI GitHub Actions (`.github/workflows/ci.yml`) lance : syntaxe PHP, Pint, `composer audit`, `npm audit`,
 tests, build Vite et build de l'image Docker.
 
 ## Documentation
 
+- [`docs/conception/`](docs/conception/README.md) : cas d'utilisation, exigences, risques, modèle de données, séquences, STRIDE, écrans
+- [`docs/exploitation/`](docs/exploitation/) : sauvegardes, mise en production, mises à jour
 - [`docs/poc-zabbix/`](docs/poc-zabbix/README.md) : POC SCRUM-18, pilotage de Zabbix par l'API (validé)
 - [`CONTRIBUTING.md`](CONTRIBUTING.md) : branches, commits, pull requests
