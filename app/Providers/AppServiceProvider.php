@@ -5,6 +5,7 @@ namespace App\Providers;
 use App\Enums\Permission;
 use App\Models\Team;
 use App\Models\User;
+use App\Monitoring\ProvisionerRegistry;
 use App\Services\ZabbixService;
 use Illuminate\Pagination\Paginator;
 use Illuminate\Support\Carbon;
@@ -19,6 +20,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        $this->app->singleton(ProvisionerRegistry::class);
+
         $this->app->singleton(ZabbixService::class, fn () => new ZabbixService(
             url: config('services.zabbix.url'),
             token: config('services.zabbix.token'),

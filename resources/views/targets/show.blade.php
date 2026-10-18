@@ -200,7 +200,7 @@
                     <dt class="col-sm-3 fw-normal text-body-secondary">Host group</dt>
                     <dd class="col-sm-9 font-monospace-sm">{{ $target->team->zabbixHostGroupName() }}</dd>
                     <dt class="col-sm-3 fw-normal text-body-secondary">Check</dt>
-                    <dd class="col-sm-9 mb-0">Web scenario <code>{{ \App\Services\MonitoringService::SCENARIO }}</code>, 2xx expected</dd>
+                    <dd class="col-sm-9 mb-0">Web scenario <code>{{ \App\Monitoring\Provisioners\ApiProvisioner::SCENARIO }}</code>, 2xx expected</dd>
                 </dl>
             </div>
         </div>

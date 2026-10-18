@@ -6,6 +6,8 @@ use App\Enums\Permission;
 use App\Enums\TargetStatus;
 use App\Enums\TargetType;
 use App\Enums\TeamRole;
+use App\Monitoring\ProvisionerRegistry;
+use App\Monitoring\TargetProvisioner;
 use Database\Factories\MonitoringTargetFactory;
 use Illuminate\Database\Eloquent\Attributes\Scope;
 use Illuminate\Database\Eloquent\Builder;
@@ -36,7 +38,7 @@ class MonitoringTarget extends Model
 
     protected $fillable = [
         'team_id', 'created_by', 'name', 'type', 'description', 'status', 'enabled',
-        'url', 'check_interval', 'warning_threshold_ms', 'critical_threshold_ms', 'zabbix_host_id',
+        'url', 'check_interval', 'warning_threshold_ms', 'critical_threshold_ms', 'settings', 'zabbix_host_id',
         'last_checked_at', 'last_response_ms',
     ];
 
@@ -54,9 +56,25 @@ class MonitoringTarget extends Model
             'check_interval' => 'integer',
             'warning_threshold_ms' => 'integer',
             'critical_threshold_ms' => 'integer',
+            'settings' => 'array',
             'last_checked_at' => 'datetime',
             'last_response_ms' => 'float',
         ];
+    }
+
+    /**
+     * Valeur de la configuration propre au type (colonne JSON settings, SCRUM-66).
+     * Ex. : $target->setting('port', 10050)
+     */
+    public function setting(string $key, mixed $default = null): mixed
+    {
+        return data_get($this->settings, $key, $default);
+    }
+
+    /** Provisioner Zabbix du type de la target. */
+    public function provisioner(): TargetProvisioner
+    {
+        return app(ProvisionerRegistry::class)->for($this->type);
     }
 
     public function team(): BelongsTo

@@ -1,18 +1,19 @@
 @extends('layouts.app')
 
+@use('App\Enums\TargetType')
+
 @section('title', $target ? 'Edit '.$target->name : 'Add Monitoring Target')
 
 @section('content')
     @php
-        // Types du cahier des charges §5 : seul API est disponible dans le MVP
-        $types = [
-            ['value' => 'api', 'label' => 'API', 'icon' => 'bi-braces', 'enabled' => true],
-            ['value' => 'website', 'label' => 'Website', 'icon' => 'bi-globe2', 'enabled' => false],
-            ['value' => 'server', 'label' => 'Server', 'icon' => 'bi-hdd-rack', 'enabled' => false],
-            ['value' => 'container', 'label' => 'Container', 'icon' => 'bi-box-seam', 'enabled' => false],
-            ['value' => 'database', 'label' => 'Database', 'icon' => 'bi-database', 'enabled' => false],
-            ['value' => 'network', 'label' => 'Network', 'icon' => 'bi-diagram-3', 'enabled' => false],
-        ];
+        // Types du cahier des charges §5 : disponibles s'ils ont un provisioner (config monitoring.provisioners, SCRUM-66)
+        $types = collect([TargetType::Api, TargetType::Website, TargetType::Server, TargetType::Container, TargetType::Database, TargetType::Network])
+            ->map(fn (TargetType $type) => [
+                'value' => $type->value,
+                'label' => $type->label(),
+                'icon' => $type->icon(),
+                'enabled' => in_array($type, $supportedTypes, true),
+            ]);
     @endphp
 
     <div class="row g-4">

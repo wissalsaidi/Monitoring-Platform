@@ -27,7 +27,7 @@ class MonitoringServiceTest extends TestCase
 
     private function createPaymentApi(?Team $team = null, ?User $creator = null): MonitoringTarget
     {
-        return app(MonitoringService::class)->createApiTarget($team ?? Team::factory()->create(), $creator, [
+        return app(MonitoringService::class)->createTarget($team ?? Team::factory()->create(), $creator, TargetType::Api, [
             'name' => 'Payment API',
             'url' => 'http://fake-api:8080/health',
             'check_interval' => 30,
@@ -133,7 +133,7 @@ class MonitoringServiceTest extends TestCase
 
     public function test_thresholds_are_converted_to_seconds_without_rounding_errors(): void
     {
-        app(MonitoringService::class)->createApiTarget(Team::factory()->create(), null, [
+        app(MonitoringService::class)->createTarget(Team::factory()->create(), null, TargetType::Api, [
             'name' => 'Slow API', 'url' => 'https://api.example.com', 'check_interval' => 60,
             'warning_threshold_ms' => 1250, 'critical_threshold_ms' => 3000,
         ]);
