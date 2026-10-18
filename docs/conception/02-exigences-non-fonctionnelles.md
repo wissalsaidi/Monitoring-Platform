@@ -30,8 +30,9 @@ Légende du statut : ✅ atteint dans le MVP (v0.1.0-mvp) · 🟡 partiel · ⏳
 | SEC-8 | Moindre privilège | Viewer en lecture seule ; création, modification, suppression et acquittement réservés aux Admin/Manager | ✅ |
 | SEC-9 | Secrets hors du code | Token API Zabbix et mots de passe uniquement dans `.env` (jamais commité) ; le token n'apparaît jamais dans les logs | ✅ |
 | SEC-10 | Aucune erreur technique montrée | Message générique quand Zabbix est indisponible (§47) | ✅ |
-| SEC-11 | HTTPS | Tout le trafic en HTTPS, cookies `secure` | ⏳ à la mise en ligne (en local : HTTP) |
+| SEC-11 | HTTPS | Tout le trafic en HTTPS, cookies `secure` | ✅ configuration de production prête : `docker-compose.prod.yml`, redirection HTTP → HTTPS, HSTS, `SESSION_SECURE_COOKIE` (SCRUM-61) ; en local : HTTP |
 | SEC-12 | Dépendances sans faille connue | `composer audit` sans alerte à chaque push | ✅ dans la CI |
+| SEC-13 | En-têtes de sécurité | CSP sans script inline, `X-Frame-Options`, `nosniff`, `Referrer-Policy` sur toutes les pages | ✅ middleware `SecurityHeaders` (SCRUM-61) |
 
 ## Disponibilité et fiabilité
 
@@ -60,6 +61,6 @@ Légende du statut : ✅ atteint dans le MVP (v0.1.0-mvp) · 🟡 partiel · ⏳
 | RGPD-1 | Données personnelles limitées au nécessaire | Nom, email, mot de passe haché, IP (sessions et audit) | ✅ |
 | RGPD-2 | Actions sensibles tracées | Création, modification, suppression de target et acquittement dans `audit_logs` | ✅ |
 | RGPD-3 | Durée de conservation des journaux d'audit | 1 an, puis suppression automatique | ✅ `audit:purge` chaque nuit (SCRUM-60) |
-| RGPD-4 | Durée de conservation des logs techniques | Logs Zabbix : 14 jours (rotation quotidienne) | 🟡 le log Laravel principal n'a pas encore de rotation |
+| RGPD-4 | Durée de conservation des logs techniques | Logs Laravel et Zabbix : 14 jours (rotation quotidienne) | ✅ `LOG_STACK=daily` (SCRUM-61) |
 | RGPD-5 | Droit à l'effacement | Suppression de son compte et de ses données personnelles | ✅ page My account, audit anonymisé (SCRUM-63) |
 | RGPD-6 | Hébergement maîtrisé | Toutes les données restent sur l'infrastructure de l'utilisateur (Docker), aucune donnée envoyée à un service tiers | ✅ |

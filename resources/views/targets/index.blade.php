@@ -20,7 +20,7 @@
             </div>
         </div>
         <div class="col-6 col-md-3 col-lg-2">
-            <select name="status" class="form-select form-select-sm" aria-label="Filter by status" onchange="this.form.submit()">
+            <select name="status" class="form-select form-select-sm" aria-label="Filter by status" data-auto-submit>
                 <option value="">All statuses</option>
                 @foreach ($statuses as $status)
                     <option value="{{ $status->value }}" @selected(($filters['status'] ?? null) === $status->value)>{{ $status->label() }}</option>
@@ -28,7 +28,7 @@
             </select>
         </div>
         <div class="col-6 col-md-3 col-lg-2">
-            <select name="type" class="form-select form-select-sm" aria-label="Filter by type" onchange="this.form.submit()">
+            <select name="type" class="form-select form-select-sm" aria-label="Filter by type" data-auto-submit>
                 <option value="">All types</option>
                 @foreach ($types as $type)
                     <option value="{{ $type->value }}" @selected(($filters['type'] ?? null) === $type->value)>{{ $type->label() }}</option>
