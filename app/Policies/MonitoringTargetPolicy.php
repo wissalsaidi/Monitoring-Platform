@@ -2,36 +2,34 @@
 
 namespace App\Policies;
 
-use App\Enums\TeamRole;
+use App\Enums\Permission;
 use App\Models\MonitoringTarget;
 use App\Models\Team;
 use App\Models\User;
 
 /**
- * MVP : un membre d'une team voit les targets de sa team (SCRUM-31),
- * seuls les Admin et Manager de la team en créent (SCRUM-33, rôles du §26).
- * Les permissions fines (target.create, target.delete…) viendront avec le RBAC (V1).
+ * Accès aux targets : permission demandée dans la team de la target (RBAC, SCRUM-58).
+ * Un utilisateur sans rôle dans la team n'a aucune permission : il ne voit pas la target.
  */
 class MonitoringTargetPolicy
 {
     public function view(User $user, MonitoringTarget $target): bool
     {
-        return $user->belongsToTeam($target->team);
+        return $user->hasPermission(Permission::TargetView, $target->team);
     }
 
     public function create(User $user, Team $team): bool
     {
-        return in_array($user->roleIn($team), [TeamRole::Admin, TeamRole::Manager], true);
+        return $user->hasPermission(Permission::TargetCreate, $team);
     }
 
-    /** SCRUM-35 : modifier ou supprimer = Admin ou Manager de la team de la target */
     public function update(User $user, MonitoringTarget $target): bool
     {
-        return $this->create($user, $target->team);
+        return $user->hasPermission(Permission::TargetUpdate, $target->team);
     }
 
     public function delete(User $user, MonitoringTarget $target): bool
     {
-        return $this->create($user, $target->team);
+        return $user->hasPermission(Permission::TargetDelete, $target->team);
     }
 }

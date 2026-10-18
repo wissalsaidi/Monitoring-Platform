@@ -43,10 +43,15 @@ jobs:
           node-version: '22'
           cache: npm
 
+      - name: Install front dependencies
+        run: npm ci
+
+      # Dépendances JavaScript avec une faille connue de gravité haute ou critique : CI en échec (SCRUM-64)
+      - name: Security check (npm audit)
+        run: npm audit --audit-level=high
+
       - name: Build front (Vite)
-        run: |
-          npm ci
-          npm run build
+        run: npm run build
 
   docker:
     name: Docker build

@@ -56,6 +56,11 @@ class ZabbixService
         return $this->call('hostgroup.create', ['name' => $name])['groupids'][0];
     }
 
+    public function deleteHostGroup(string ...$groupIds): void
+    {
+        $this->call('hostgroup.delete', $groupIds);
+    }
+
     public function getHosts(array $params = []): array
     {
         return $this->call('host.get', ['output' => 'extend', ...$params]);

@@ -13,6 +13,12 @@
         ['route' => 'dashboard', 'match' => 'dashboard', 'icon' => 'bi-grid-1x2', 'label' => 'Dashboard'],
         ['route' => 'targets.index', 'match' => 'targets.*', 'icon' => 'bi-hdd-network', 'label' => 'Monitoring'],
         ['route' => 'alerts.index', 'match' => 'alerts.*', 'icon' => 'bi-bell', 'label' => 'Alerts'],
+        // Membres de la team (SCRUM-59) : seulement pour qui a user.view dans au moins une team
+        ...(auth()->user()->teams->contains(fn ($team) => auth()->user()->hasPermission(\App\Enums\Permission::UserView, $team))
+            ? [['route' => 'teams.current', 'match' => 'teams.members.*', 'icon' => 'bi-people', 'label' => 'Team members']] : []),
+        // Journal d'audit (SCRUM-60) : seulement pour qui a audit.view dans au moins une team
+        ...(auth()->user()->teams->contains(fn ($team) => auth()->user()->hasPermission(\App\Enums\Permission::AuditView, $team))
+            ? [['route' => 'teams.audit.current', 'match' => 'teams.audit.*', 'icon' => 'bi-journal-text', 'label' => 'Audit log']] : []),
         ['route' => null, 'match' => null, 'icon' => 'bi-graph-up', 'label' => 'Dashboards (soon)'],
     ];
 @endphp
@@ -40,6 +46,7 @@
                 <li><span class="dropdown-item-text small text-body-secondary"><i class="bi bi-people me-1"></i>Team: {{ $team->name }}</span></li>
             @endif
             <li><hr class="dropdown-divider"></li>
+            <li><a class="dropdown-item" href="{{ route('account.edit') }}"><i class="bi bi-person-gear me-2"></i>My account</a></li>
             <li>
                 <form method="POST" action="{{ route('logout') }}">
                     @csrf
