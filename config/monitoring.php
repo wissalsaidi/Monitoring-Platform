@@ -23,4 +23,13 @@ return [
         'api' => ApiProvisioner::class,
     ],
 
+    /*
+    | Agent Zabbix 2 (SCRUM-67) : adresse vue depuis zabbix-server, utilisée par défaut pour l'interface agent
+    | des hosts (conteneurs, bases de données…). En local : le service zabbix-agent2 du docker-compose.
+    */
+    'agent' => [
+        'host' => env('ZABBIX_AGENT_HOST', 'zabbix-agent2'),
+        'port' => (int) env('ZABBIX_AGENT_PORT', 10050),
+    ],
+
 ];
