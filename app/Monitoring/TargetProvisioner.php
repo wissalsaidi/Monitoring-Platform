@@ -68,6 +68,21 @@ interface TargetProvisioner
      */
     public function statusItemKeys(): array;
 
+    /**
+     * Autres valeurs recopiées sur la target à chaque synchro (colonne last_metrics, SCRUM-68), pour les afficher
+     * sans appel Zabbix : nom de la métrique → clé de l'item. Ex. ['http_code' => 'web.test.rspcode[…]'].
+     *
+     * @return array<string, string>
+     */
+    public function metricItemKeys(): array;
+
     /** Seuil d'un niveau d'alerte (tag "level"), enregistré avec l'alerte. */
     public function threshold(MonitoringTarget $target, string $level): int|float|null;
+
+    /**
+     * Ce que Zabbix vérifie, en clair, pour l'onglet Configuration de la target (une ligne par check).
+     *
+     * @return list<string>
+     */
+    public function checkSummary(MonitoringTarget $target): array;
 }

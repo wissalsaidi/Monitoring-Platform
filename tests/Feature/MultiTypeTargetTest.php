@@ -68,7 +68,7 @@ class MultiTypeTargetTest extends TestCase
     {
         $registry = app(ProvisionerRegistry::class);
 
-        $this->assertSame([TargetType::Api], $registry->supportedTypes());
+        $this->assertSame([TargetType::Api, TargetType::Website], $registry->supportedTypes());
         $this->assertInstanceOf(ApiProvisioner::class, $registry->for(TargetType::Api));
         $this->assertFalse($registry->supports(TargetType::Server));
 
@@ -229,8 +229,9 @@ class MultiTypeTargetTest extends TestCase
         app(AlertService::class)->syncFromZabbix();
 
         // Une seule lecture d'items pour tous les types, avec les clés déclarées par chaque provisioner
+        // (statut, puis métriques recopiées sur la target : code HTTP de l'API, SCRUM-68)
         $this->assertEqualsCanonicalizing(
-            ['agent.ping', 'web.test.fail[api-check]', 'web.test.time[api-check,request,resp]'],
+            ['agent.ping', 'web.test.fail[api-check]', 'web.test.time[api-check,request,resp]', 'web.test.rspcode[api-check,request]'],
             $this->callsTo('item.get')[0]['filter']['key_'],
         );
 

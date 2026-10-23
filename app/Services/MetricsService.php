@@ -4,7 +4,6 @@ namespace App\Services;
 
 use App\Exceptions\Zabbix\ZabbixException;
 use App\Models\MonitoringTarget;
-use App\Monitoring\Provisioners\ApiProvisioner;
 use Illuminate\Support\Facades\Cache;
 
 /**
@@ -46,7 +45,7 @@ class MetricsService
     {
         $to = now()->timestamp;
         $from = $to - self::PERIODS[$period];
-        $itemId = $target->zabbix_host_id ? $this->responseTimeItemId($target->zabbix_host_id) : null;
+        $itemId = $target->zabbix_host_id ? $this->responseTimeItemId($target) : null;
 
         [$source, $points, $stats] = match (true) {
             $itemId === null => ['none', [], self::stats([])],
@@ -115,10 +114,18 @@ class MetricsService
         ];
     }
 
-    /** Id de l'item « temps de réponse » du web scenario ; il ne change pas, on le garde un jour. */
-    private function responseTimeItemId(string $hostId): ?string
+    /**
+     * Id de l'item « temps de réponse » déclaré par le provisioner du type (null si le type n'en a pas) ;
+     * il ne change pas, on le garde un jour.
+     */
+    private function responseTimeItemId(MonitoringTarget $target): ?string
     {
-        $key = ApiProvisioner::responseTimeKey();
+        $key = $target->provisioner()->statusItemKeys()['response_time'] ?? null;
+        $hostId = $target->zabbix_host_id;
+
+        if ($key === null) {
+            return null;
+        }
 
         return Cache::remember("zabbix:item:response-time:$hostId", now()->addDay(), fn () => $this->zabbix->getItems([
             'output' => ['itemid'],

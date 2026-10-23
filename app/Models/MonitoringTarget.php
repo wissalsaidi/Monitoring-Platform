@@ -39,7 +39,7 @@ class MonitoringTarget extends Model
     protected $fillable = [
         'team_id', 'created_by', 'name', 'type', 'description', 'status', 'enabled',
         'url', 'check_interval', 'warning_threshold_ms', 'critical_threshold_ms', 'settings', 'zabbix_host_id',
-        'last_checked_at', 'last_response_ms',
+        'last_checked_at', 'last_response_ms', 'last_metrics',
     ];
 
     protected $attributes = [
@@ -59,6 +59,7 @@ class MonitoringTarget extends Model
             'settings' => 'array',
             'last_checked_at' => 'datetime',
             'last_response_ms' => 'float',
+            'last_metrics' => 'array',
         ];
     }
 
@@ -69,6 +70,15 @@ class MonitoringTarget extends Model
     public function setting(string $key, mixed $default = null): mixed
     {
         return data_get($this->settings, $key, $default);
+    }
+
+    /**
+     * Dernière valeur d'une métrique propre au type, recopiée par la synchro (SCRUM-68) ; null si pas encore mesurée.
+     * Ex. : $target->lastMetric('certificate_days')
+     */
+    public function lastMetric(string $name): int|float|null
+    {
+        return $this->last_metrics[$name] ?? null;
     }
 
     /** Provisioner Zabbix du type de la target. */

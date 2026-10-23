@@ -57,7 +57,10 @@
                         @error('url')
                             <div class="invalid-feedback">{{ $message }}</div>
                         @else
-                            <div class="form-text">Zabbix calls this URL and expects a 2xx response. Demo API: <code>http://fake-api:8080/health</code></div>
+                            <div class="form-text">
+                                Zabbix calls this URL and expects a 2xx response. Demo API: <code>http://fake-api:8080/health</code>.
+                                For a website with an <code>https://</code> URL, the SSL certificate expiry is checked too.
+                            </div>
                         @enderror
                     </div>
 

@@ -23,6 +23,8 @@ trait FakesZabbix
 
     protected int $nextTriggerId = 500;
 
+    protected int $nextItemId = 800;
+
     /** Host group déjà présent dans Zabbix (renvoyé par hostgroup.get) */
     protected ?string $existingGroupId = null;
 
@@ -88,6 +90,10 @@ trait FakesZabbix
             'host.delete' => ['hostids' => $request['params']],
             'problem.get' => $this->zabbixProblems,
             'item.get' => $this->zabbixItems,
+            'item.create' => ['itemids' => array_map(fn () => (string) $this->nextItemId++, array_is_list($request['params']) ? $request['params'] : [1])],
+            'item.update' => ['itemids' => array_column($request['params'], 'itemid')],
+            'item.delete' => ['itemids' => $request['params']],
+            'task.create' => ['taskids' => array_keys($request['params'])],
             'event.get' => array_values(array_filter(
                 $this->zabbixEvents,
                 fn ($event) => in_array($event['eventid'], $request['params']['eventids'] ?? [], true),
