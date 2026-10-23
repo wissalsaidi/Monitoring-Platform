@@ -3,7 +3,8 @@
 namespace App\Enums;
 
 /**
- * Types de ressources monitorables (cahier des charges §5). Le MVP ne gère que API.
+ * Types de ressources monitorables (cahier des charges §5). Seuls les types qui ont un provisioner
+ * (config monitoring.provisioners, SCRUM-66) peuvent être créés.
  */
 enum TargetType: string
 {

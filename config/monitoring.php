@@ -1,5 +1,7 @@
 <?php
 
+use App\Monitoring\Provisioners\ApiProvisioner;
+
 return [
 
     /*
@@ -11,5 +13,14 @@ return [
         'trim',
         explode(',', (string) env('TARGET_ALLOWED_INTERNAL_HOSTS', 'fake-api')),
     ))),
+
+    /*
+    | Provisioner Zabbix de chaque type de target (SCRUM-66) : interface App\Monitoring\TargetProvisioner.
+    | Un type absent de cette liste n'est pas proposé à la création. Nouveau type : écrire son provisioner
+    | (règles de validation, checks et triggers tagués target_id / metric / level) et l'ajouter ici.
+    */
+    'provisioners' => [
+        'api' => ApiProvisioner::class,
+    ],
 
 ];

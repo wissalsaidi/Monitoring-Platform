@@ -4,7 +4,7 @@ namespace Tests\Unit;
 
 use App\Enums\AlertSeverity;
 use App\Enums\TargetStatus;
-use App\Services\MonitoringService;
+use App\Monitoring\ZabbixProvisioner;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -38,9 +38,9 @@ class AlertSeverityTest extends TestCase
 
     public function test_the_triggers_created_by_the_platform_map_to_warning_high_and_critical(): void
     {
-        $this->assertSame(AlertSeverity::Warning, AlertSeverity::fromZabbix(MonitoringService::PRIORITY_WARNING));
-        $this->assertSame(AlertSeverity::High, AlertSeverity::fromZabbix(MonitoringService::PRIORITY_HIGH));
-        $this->assertSame(AlertSeverity::Critical, AlertSeverity::fromZabbix(MonitoringService::PRIORITY_DISASTER));
+        $this->assertSame(AlertSeverity::Warning, AlertSeverity::fromZabbix(ZabbixProvisioner::PRIORITY_WARNING));
+        $this->assertSame(AlertSeverity::High, AlertSeverity::fromZabbix(ZabbixProvisioner::PRIORITY_HIGH));
+        $this->assertSame(AlertSeverity::Critical, AlertSeverity::fromZabbix(ZabbixProvisioner::PRIORITY_DISASTER));
     }
 
     public function test_each_severity_gives_a_target_status(): void

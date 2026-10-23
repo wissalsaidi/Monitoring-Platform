@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Exceptions\Zabbix\ZabbixException;
 use App\Models\MonitoringTarget;
+use App\Monitoring\Provisioners\ApiProvisioner;
 use Illuminate\Support\Facades\Cache;
 
 /**
@@ -117,7 +118,7 @@ class MetricsService
     /** Id de l'item « temps de réponse » du web scenario ; il ne change pas, on le garde un jour. */
     private function responseTimeItemId(string $hostId): ?string
     {
-        $key = sprintf('web.test.time[%s,%s,resp]', MonitoringService::SCENARIO, MonitoringService::STEP);
+        $key = ApiProvisioner::responseTimeKey();
 
         return Cache::remember("zabbix:item:response-time:$hostId", now()->addDay(), fn () => $this->zabbix->getItems([
             'output' => ['itemid'],

@@ -52,14 +52,15 @@ erDiagram
         bigint team_id FK
         bigint created_by FK "null si l'auteur est supprimé"
         varchar name
-        varchar type "api (MVP), website, server…"
+        varchar type "api, website, server… (types avec provisioner)"
         text description
         varchar status "unknown, up, warning, critical"
         boolean enabled
-        varchar url
-        int check_interval "secondes"
-        int warning_threshold_ms
-        int critical_threshold_ms
+        varchar url "check HTTP (API, site web), sinon null"
+        int check_interval "secondes, tous les types"
+        int warning_threshold_ms "check HTTP, sinon null"
+        int critical_threshold_ms "check HTTP, sinon null"
+        json settings "configuration propre au type (SCRUM-66)"
         varchar zabbix_host_id UK
         timestamp last_checked_at
         decimal last_response_ms
