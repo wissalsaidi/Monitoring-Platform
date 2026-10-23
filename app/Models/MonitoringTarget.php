@@ -38,9 +38,15 @@ class MonitoringTarget extends Model
 
     protected $fillable = [
         'team_id', 'created_by', 'name', 'type', 'description', 'status', 'enabled',
-        'url', 'check_interval', 'warning_threshold_ms', 'critical_threshold_ms', 'settings', 'zabbix_host_id',
+        'url', 'check_interval', 'warning_threshold_ms', 'critical_threshold_ms', 'settings', 'credentials', 'zabbix_host_id',
         'last_checked_at', 'last_response_ms', 'last_metrics',
     ];
+
+    /** Secrets (SCRUM-71) : jamais sérialisés (JSON, toArray) */
+    protected $hidden = ['credentials'];
+
+    /** Attributs secrets : jamais affichés ni journalisés en clair (audit, logs) */
+    public const SECRET_ATTRIBUTES = ['credentials'];
 
     protected $attributes = [
         'status' => 'unknown',
@@ -57,6 +63,7 @@ class MonitoringTarget extends Model
             'warning_threshold_ms' => 'integer',
             'critical_threshold_ms' => 'integer',
             'settings' => 'array',
+            'credentials' => 'encrypted:array',     // chiffré avec APP_KEY (SCRUM-71)
             'last_checked_at' => 'datetime',
             'last_response_ms' => 'float',
             'last_metrics' => 'array',
@@ -70,6 +77,12 @@ class MonitoringTarget extends Model
     public function setting(string $key, mixed $default = null): mixed
     {
         return data_get($this->settings, $key, $default);
+    }
+
+    /** Secret de la target (SCRUM-71), ex. $target->credential('password') ; ne jamais l'afficher. */
+    public function credential(string $key): ?string
+    {
+        return $this->credentials[$key] ?? null;
     }
 
     /**

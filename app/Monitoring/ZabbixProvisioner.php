@@ -24,6 +24,11 @@ abstract class ZabbixProvisioner implements TargetProvisioner
 
     public function __construct(protected readonly ZabbixService $zabbix) {}
 
+    public function updateRules(): array
+    {
+        return $this->rules();
+    }
+
     public function messages(): array
     {
         return [];

@@ -24,6 +24,14 @@ interface TargetProvisioner
      */
     public function rules(): array;
 
+    /**
+     * Règles à la modification : en général les mêmes. Un secret (mot de passe, SCRUM-71) y devient facultatif :
+     * laissé vide, l'ancien est gardé.
+     *
+     * @return array<string, mixed>
+     */
+    public function updateRules(): array;
+
     /** @return array<string, string> messages de validation propres au type */
     public function messages(): array;
 

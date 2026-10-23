@@ -2,6 +2,7 @@
 
 use App\Monitoring\Provisioners\ApiProvisioner;
 use App\Monitoring\Provisioners\ContainerProvisioner;
+use App\Monitoring\Provisioners\DatabaseProvisioner;
 use App\Monitoring\Provisioners\ServerProvisioner;
 use App\Monitoring\Provisioners\WebsiteProvisioner;
 
@@ -27,6 +28,7 @@ return [
         'website' => WebsiteProvisioner::class,
         'server' => ServerProvisioner::class,
         'container' => ContainerProvisioner::class,
+        'database' => DatabaseProvisioner::class,
     ],
 
     /*

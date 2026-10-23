@@ -25,7 +25,7 @@ class UpdateTargetRequest extends StoreTargetRequest
                 'required', 'string', 'max:100',
                 Rule::unique('monitoring_targets')->where('team_id', $this->target()->team_id)->ignore($this->target()->id),
             ],
-            ...$this->provisioner()->rules(),
+            ...$this->provisioner()->updateRules(),
         ];
     }
 
@@ -34,9 +34,16 @@ class UpdateTargetRequest extends StoreTargetRequest
         return $this->target()->type;
     }
 
+    /** Secret laissé vide (mot de passe d'une base, SCRUM-71) : on garde celui qui est enregistré. */
     public function targetData(): array
     {
-        return $this->validated();
+        $data = $this->validated();
+
+        if (blank(data_get($data, 'credentials.password'))) {
+            unset($data['credentials']);
+        }
+
+        return $data;
     }
 
     public function target(): MonitoringTarget

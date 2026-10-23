@@ -88,6 +88,7 @@
                                     @if ($target->last_response_ms !== null)
                                         @php
                                             $color = match (true) {
+                                                $target->critical_threshold_ms === null => '',     // base de données : pas de seuils en ms
                                                 $target->last_response_ms > $target->critical_threshold_ms => 'text-danger',
                                                 $target->last_response_ms > $target->warning_threshold_ms => 'text-warning',
                                                 default => '',

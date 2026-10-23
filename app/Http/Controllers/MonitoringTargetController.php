@@ -76,7 +76,8 @@ class MonitoringTargetController extends Controller
             );
         } catch (ZabbixException $e) {
             // Le détail technique est dans storage/logs/zabbix-*.log ; l'utilisateur voit un message propre (§47).
-            return back()->withInput()->with('error', $e->userMessage().' The target was not created, please try again.');
+            // Jamais de secret dans la session (mot de passe d'une base, SCRUM-71)
+            return back()->withInput($request->except(MonitoringTarget::SECRET_ATTRIBUTES))->with('error', $e->userMessage().' The target was not created, please try again.');
         }
 
         AuditLog::record('target.create', $request->user(), $target, ['name' => $target->name, 'url' => $target->url]);
@@ -103,7 +104,7 @@ class MonitoringTargetController extends Controller
         try {
             $changes = $monitoring->updateTarget($target, $request->targetData());
         } catch (ZabbixException $e) {
-            return back()->withInput()->with('error', $e->userMessage().' The target was not modified, please try again.');
+            return back()->withInput($request->except(MonitoringTarget::SECRET_ATTRIBUTES))->with('error', $e->userMessage().' The target was not modified, please try again.');
         }
 
         if ($changes === []) {
