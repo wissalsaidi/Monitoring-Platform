@@ -81,6 +81,29 @@ abstract class ZabbixProvisioner implements TargetProvisioner
     }
 
     /**
+     * Interface agent d'un host déjà créé (son interfaceid sert à créer les items d'agent).
+     *
+     * @return array{interfaceid: string}
+     *
+     * @throws ZabbixException
+     */
+    protected function agentInterfaceOf(string $hostId): array
+    {
+        return collect($this->zabbix->getHosts(['output' => ['hostid'], 'hostids' => [$hostId], 'selectInterfaces' => ['interfaceid', 'type']])[0]['interfaces'] ?? [])
+            ->firstWhere('type', (string) self::INTERFACE_AGENT)
+            ?? throw new ZabbixException('Agent interface of the host not found in Zabbix.', 'host.get');
+    }
+
+    /** Modification d'une target : nouvelle adresse / nouveau port de l'agent sur l'interface existante. */
+    protected function updateAgentInterface(string $hostId, ?string $address, ?int $port): void
+    {
+        $interface = $this->agentInterfaceOf($hostId);
+        $settings = $this->agentInterface($address, $port)['interfaces'][0];
+
+        $this->zabbix->updateHostInterface($interface['interfaceid'], Arr::only($settings, ['useip', 'ip', 'dns', 'port']));
+    }
+
+    /**
      * Description, expression, priorité et tags de chaque trigger, indexés par niveau (tag "level"),
      * du plus grave au moins grave : chacun dépend du précédent de la même chaîne (voir createChainedTriggers).
      * Clé facultative "chain" : triggers indépendants des autres (ex. le certificat d'un site web, SCRUM-68).

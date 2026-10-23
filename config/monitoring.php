@@ -1,6 +1,7 @@
 <?php
 
 use App\Monitoring\Provisioners\ApiProvisioner;
+use App\Monitoring\Provisioners\ContainerProvisioner;
 use App\Monitoring\Provisioners\ServerProvisioner;
 use App\Monitoring\Provisioners\WebsiteProvisioner;
 
@@ -25,6 +26,7 @@ return [
         'api' => ApiProvisioner::class,
         'website' => WebsiteProvisioner::class,
         'server' => ServerProvisioner::class,
+        'container' => ContainerProvisioner::class,
     ],
 
     /*

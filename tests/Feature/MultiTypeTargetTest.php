@@ -71,7 +71,7 @@ class MultiTypeTargetTest extends TestCase
     {
         $registry = app(ProvisionerRegistry::class);
 
-        $this->assertSame([TargetType::Api, TargetType::Website], $registry->supportedTypes());
+        $this->assertSame([TargetType::Api, TargetType::Website, TargetType::Container], $registry->supportedTypes());
         $this->assertInstanceOf(ApiProvisioner::class, $registry->for(TargetType::Api));
         $this->assertFalse($registry->supports(TargetType::Server));
 

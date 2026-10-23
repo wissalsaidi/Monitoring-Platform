@@ -81,7 +81,10 @@ class MonitoringTarget extends Model
         return $this->last_metrics[$name] ?? null;
     }
 
-    /** Ce que surveille la target, pour les listes : l'URL, ou adresse:port de l'agent d'un serveur (SCRUM-69). */
+    /**
+     * Ce que surveille la target, pour les listes : l'URL, adresse:port de l'agent d'un serveur (SCRUM-69),
+     * ou « conteneur @ hôte:port » (SCRUM-70).
+     */
     public function displayAddress(): ?string
     {
         if ($this->url !== null) {
@@ -89,8 +92,10 @@ class MonitoringTarget extends Model
         }
 
         $address = $this->setting('address');
+        $agent = $address !== null ? $address.($this->setting('port') ? ':'.$this->setting('port') : '') : null;
+        $container = $this->setting('container');
 
-        return $address !== null ? $address.($this->setting('port') ? ':'.$this->setting('port') : '') : null;
+        return $container !== null ? $container.($agent !== null ? ' @ '.$agent : '') : $agent;
     }
 
     /** Provisioner Zabbix du type de la target. */
