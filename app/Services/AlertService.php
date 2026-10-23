@@ -124,6 +124,12 @@ class AlertService
                 continue;
             }
 
+            // Seuls nos triggers (tag "level") deviennent des alertes. Ceux d'un template lié (Linux pour les serveurs,
+            // SCRUM-69) restent visibles dans Zabbix : seuils fixes, doublons de nos alertes CPU / mémoire / disque.
+            if (self::tag($problem, 'level') === null) {
+                continue;
+            }
+
             $seen[] = $problem['eventid'];
             $alert = $this->upsertAlert($target, $problem, $items);
 
@@ -327,11 +333,11 @@ class AlertService
     }
 
     /**
-     * Dernières valeurs des métriques propres au type (code HTTP, jours avant l'expiration du certificat…),
-     * null pour une métrique pas encore mesurée.
+     * Dernières valeurs des métriques propres au type (code HTTP, jours avant l'expiration du certificat, OS…),
+     * null pour une métrique pas encore mesurée. Les textes (OS) sont gardés tels quels, coupés à 255 caractères.
      *
      * @param  array<string, array<string, array>>  $items
-     * @return array<string, int|float|null>|null
+     * @return array<string, int|float|string|null>|null
      */
     private function lastMetrics(array $items, MonitoringTarget $target): ?array
     {
@@ -344,7 +350,11 @@ class AlertService
         return array_map(function (string $key) use ($items, $target) {
             $item = $items[$target->zabbix_host_id][$key] ?? null;
 
-            return ($item['lastclock'] ?? '0') !== '0' && is_numeric($item['lastvalue']) ? $item['lastvalue'] + 0 : null;
+            if (($item['lastclock'] ?? '0') === '0') {
+                return null;
+            }
+
+            return is_numeric($item['lastvalue']) ? $item['lastvalue'] + 0 : mb_substr((string) $item['lastvalue'], 0, 255);
         }, $keys);
     }
 

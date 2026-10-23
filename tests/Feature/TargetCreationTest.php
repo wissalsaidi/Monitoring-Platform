@@ -131,7 +131,7 @@ class TargetCreationTest extends TestCase
             'seuil trop grand' => [['critical_threshold_ms' => 20000], 'critical_threshold_ms'],
             'seuil négatif' => [['warning_threshold_ms' => -5], 'warning_threshold_ms'],
             'intervalle non proposé' => [['check_interval' => 0], 'check_interval'],
-            'type pas encore disponible' => [['type' => 'server'], 'type'],
+            'type pas encore disponible' => [['type' => 'container'], 'type'],
         ];
     }
 

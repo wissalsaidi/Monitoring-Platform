@@ -74,11 +74,23 @@ class MonitoringTarget extends Model
 
     /**
      * Dernière valeur d'une métrique propre au type, recopiée par la synchro (SCRUM-68) ; null si pas encore mesurée.
-     * Ex. : $target->lastMetric('certificate_days')
+     * Ex. : $target->lastMetric('certificate_days'), $target->lastMetric('os') (texte)
      */
-    public function lastMetric(string $name): int|float|null
+    public function lastMetric(string $name): int|float|string|null
     {
         return $this->last_metrics[$name] ?? null;
+    }
+
+    /** Ce que surveille la target, pour les listes : l'URL, ou adresse:port de l'agent d'un serveur (SCRUM-69). */
+    public function displayAddress(): ?string
+    {
+        if ($this->url !== null) {
+            return $this->url;
+        }
+
+        $address = $this->setting('address');
+
+        return $address !== null ? $address.($this->setting('port') ? ':'.$this->setting('port') : '') : null;
     }
 
     /** Provisioner Zabbix du type de la target. */

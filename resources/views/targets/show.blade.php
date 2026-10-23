@@ -70,6 +70,11 @@
             </div>
         @endif
 
+        @php
+            // Types avec un temps de réponse (API, site web) : cartes en ms et graphique ; serveur : ressources (SCRUM-69)
+            $hasResponseTime = ($target->provisioner()->statusItemKeys()['response_time'] ?? null) !== null;
+            $isServer = $target->type === \App\Enums\TargetType::Server;
+        @endphp
         <p class="section-label mb-2">Current state</p>
         <div class="row g-3 mb-4">
             <div class="col-6 col-lg-3">
@@ -85,6 +90,7 @@
                     </span>
                 </div></div>
             </div>
+            @if ($hasResponseTime)
             <div class="col-6 col-lg-3">
                 <div class="card kpi-card h-100"><div class="card-body">
                     <span class="kpi-label">Last response time</span>
@@ -115,7 +121,14 @@
                     <div class="kpi-value text-danger">{{ number_format($target->critical_threshold_ms) }}<small class="fs-6 text-body-secondary ms-1">ms</small></div>
                 </div></div>
             </div>
+            @elseif ($isServer)
+                @include('targets._server-overview', ['part' => 'identity'])
+            @endif
         </div>
+
+        @if ($isServer)
+            @include('targets._server-overview', ['part' => 'resources'])
+        @endif
 
         {{-- Métriques propres au type (SCRUM-68), recopiées par la synchro : aucun appel Zabbix ici --}}
         @php
@@ -169,6 +182,7 @@
         @endif
 
         {{-- Graphique du temps de réponse (SCRUM-44) : données chargées en JS depuis l'API interne --}}
+        @if ($hasResponseTime)
         <div class="card mb-4" data-response-time-chart data-url="{{ route('targets.metrics.response-time', $target) }}" data-period="1h">
             <div class="card-header d-flex flex-wrap align-items-center gap-2 py-3">
                 <span class="fw-semibold">Response time</span>
@@ -193,6 +207,8 @@
                 </div>
             </div>
         </div>
+
+        @endif
 
         <div class="card">
             <div class="card-header d-flex align-items-center py-3">
@@ -228,16 +244,18 @@
                 <dl class="row small">
                     <dt class="col-sm-3 fw-normal text-body-secondary">Type</dt>
                     <dd class="col-sm-9"><i class="bi {{ $target->type->icon() }} me-1"></i>{{ $target->type->label() }}</dd>
-                    <dt class="col-sm-3 fw-normal text-body-secondary">URL</dt>
-                    <dd class="col-sm-9 font-monospace-sm text-break">{{ $target->url }}</dd>
+                    <dt class="col-sm-3 fw-normal text-body-secondary">{{ $target->url !== null ? 'URL' : 'Address' }}</dt>
+                    <dd class="col-sm-9 font-monospace-sm text-break">{{ $target->displayAddress() }}</dd>
                     <dt class="col-sm-3 fw-normal text-body-secondary">Check interval</dt>
                     <dd class="col-sm-9">{{ $intervals[$target->check_interval] ?? $target->check_interval.' s' }}</dd>
-                    <dt class="col-sm-3 fw-normal text-body-secondary">Thresholds</dt>
-                    <dd class="col-sm-9">
-                        <span class="text-warning">Warning &gt; {{ number_format($target->warning_threshold_ms) }} ms</span> ·
-                        <span class="text-danger">Critical &gt; {{ number_format($target->critical_threshold_ms) }} ms</span> ·
-                        Unavailable if the response is not 2xx
-                    </dd>
+                    @if ($target->warning_threshold_ms !== null)
+                        <dt class="col-sm-3 fw-normal text-body-secondary">Thresholds</dt>
+                        <dd class="col-sm-9">
+                            <span class="text-warning">Warning &gt; {{ number_format($target->warning_threshold_ms) }} ms</span> ·
+                            <span class="text-danger">Critical &gt; {{ number_format($target->critical_threshold_ms) }} ms</span> ·
+                            Unavailable if the response is not 2xx
+                        </dd>
+                    @endif
                     @if ($target->description)
                         <dt class="col-sm-3 fw-normal text-body-secondary">Description</dt>
                         <dd class="col-sm-9">{{ $target->description }}</dd>

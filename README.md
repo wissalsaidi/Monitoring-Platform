@@ -102,8 +102,12 @@ Toutes les commandes `artisan` passent par le conteneur : `docker compose exec a
 | **API** | Web scenario `api-check` : code 2xx attendu, temps de réponse, code HTTP | Indisponible (CRITICAL), lenteur (WARNING / HIGH selon les seuils) |
 | **Website** | Comme l'API (web scenario `website-check`) + pour une URL `https://`, date d'expiration du certificat SSL lue chaque heure par l'agent Zabbix 2 | Mêmes alertes + certificat qui expire dans moins de 14 jours (WARNING) puis 3 jours (HIGH) ; un certificat expiré déclenche HIGH |
 
-Les autres types (serveur, conteneur, base de données, réseau) apparaissent grisés dans le formulaire tant qu'ils ne
+| **Server** | Agent Zabbix installé sur le serveur (adresse + port), template `Linux by Zabbix agent` : CPU, mémoire, disque /, charge, uptime, OS | Indisponible (pas de réponse depuis 3 min, CRITICAL), CPU / mémoire / disque au-dessus des seuils en % (WARNING puis HIGH, moyenne sur 5 min) |
+
+Les autres types (conteneur, base de données, réseau) apparaissent grisés dans le formulaire tant qu'ils ne
 sont pas disponibles. Même protection SSRF pour tous les types qui appellent une URL.
+Pour un serveur, seuls les triggers créés par la plateforme deviennent des alertes : ceux du template Linux restent
+visibles dans Zabbix. Serveur de démo : `zabbix-agent2`, port `10050`.
 
 ## Équipes, rôles et sécurité
 

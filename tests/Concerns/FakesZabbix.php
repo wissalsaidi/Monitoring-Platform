@@ -94,6 +94,8 @@ trait FakesZabbix
             'item.update' => ['itemids' => array_column($request['params'], 'itemid')],
             'item.delete' => ['itemids' => $request['params']],
             'task.create' => ['taskids' => array_keys($request['params'])],
+            'template.get' => [['templateid' => '10001', 'host' => 'Linux by Zabbix agent']],
+            'hostinterface.update' => ['interfaceids' => [$request['params']['interfaceid']]],
             'event.get' => array_values(array_filter(
                 $this->zabbixEvents,
                 fn ($event) => in_array($event['eventid'], $request['params']['eventids'] ?? [], true),

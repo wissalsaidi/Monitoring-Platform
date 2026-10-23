@@ -66,6 +66,9 @@ class Alert extends Model
             'response_time' => 'Response time',
             'availability' => 'Availability',
             'certificate' => 'SSL certificate',
+            'cpu' => 'CPU',
+            'memory' => 'Memory',
+            'disk' => 'Disk',
             null => 'Zabbix problem',
             default => ucfirst(str_replace('_', ' ', $this->metric)),
         };
@@ -93,6 +96,7 @@ class Alert extends Model
         return match ($this->metric) {
             'response_time' => ' ms',
             'certificate' => ' days',
+            'cpu', 'memory', 'disk' => ' %',
             default => '',
         };
     }
