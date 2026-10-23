@@ -48,7 +48,16 @@ class MonitoringService
             ]);
             $target->setRelation('team', $team);
 
-            $target->update(['zabbix_host_id' => $this->provision($target)]);
+            $hostId = $this->provision($target);
+
+            // La transaction annule la target, mais pas le host : le supprimer si l'enregistrement échoue
+            try {
+                $target->update(['zabbix_host_id' => $hostId]);
+            } catch (Throwable $e) {
+                $this->rollback($target, $hostId);
+
+                throw $e;
+            }
 
             return $target;
         });
@@ -77,6 +86,9 @@ class MonitoringService
             ]);
 
             $provisioner->create($target, $hostId);
+
+            // Dans le try : un log impossible à écrire ne doit pas laisser un host orphelin dans Zabbix
+            Log::info('Monitoring target provisioned in Zabbix', ['target_id' => $target->id, 'type' => $target->type->value, 'zabbix_host_id' => $hostId]);
         } catch (Throwable $e) {
             if ($hostId !== null) {
                 $this->rollback($target, $hostId);
@@ -84,8 +96,6 @@ class MonitoringService
 
             throw $e;
         }
-
-        Log::info('Monitoring target provisioned in Zabbix', ['target_id' => $target->id, 'type' => $target->type->value, 'zabbix_host_id' => $hostId]);
 
         return $hostId;
     }
