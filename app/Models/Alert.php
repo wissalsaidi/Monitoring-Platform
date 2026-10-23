@@ -69,6 +69,8 @@ class Alert extends Model
             'cpu' => 'CPU',
             'memory' => 'Memory',
             'disk' => 'Disk',
+            'container_memory' => 'Memory',
+            'restarts' => 'Restarts',
             null => 'Zabbix problem',
             default => ucfirst(str_replace('_', ' ', $this->metric)),
         };
@@ -97,6 +99,8 @@ class Alert extends Model
             'response_time' => ' ms',
             'certificate' => ' days',
             'cpu', 'memory', 'disk' => ' %',
+            'container_memory' => ' MB',
+            'restarts' => ' restarts',
             default => '',
         };
     }

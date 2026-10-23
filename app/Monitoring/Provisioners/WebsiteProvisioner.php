@@ -186,9 +186,7 @@ class WebsiteProvisioner extends HttpCheckProvisioner
     /** Item agent (JSON du certificat) + item dépendant (jours restants), puis premier relevé immédiat. */
     private function createCertificateItems(MonitoringTarget $target, string $hostId): void
     {
-        $interfaceId = collect($this->zabbix->getHosts(['output' => ['hostid'], 'hostids' => [$hostId], 'selectInterfaces' => ['interfaceid', 'type']])[0]['interfaces'] ?? [])
-            ->firstWhere('type', (string) self::INTERFACE_AGENT)['interfaceid']
-            ?? throw new ZabbixException('Agent interface of the host not found in Zabbix.', 'host.get');
+        $interfaceId = $this->agentInterfaceOf($hostId)['interfaceid'];
 
         [$certificateId] = $this->zabbix->createItems([
             'hostid' => $hostId,

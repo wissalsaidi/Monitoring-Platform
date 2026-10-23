@@ -74,6 +74,7 @@
             // Types avec un temps de réponse (API, site web) : cartes en ms et graphique ; serveur : ressources (SCRUM-69)
             $hasResponseTime = ($target->provisioner()->statusItemKeys()['response_time'] ?? null) !== null;
             $isServer = $target->type === \App\Enums\TargetType::Server;
+            $isContainer = $target->type === \App\Enums\TargetType::Container;
         @endphp
         <p class="section-label mb-2">Current state</p>
         <div class="row g-3 mb-4">
@@ -123,11 +124,15 @@
             </div>
             @elseif ($isServer)
                 @include('targets._server-overview', ['part' => 'identity'])
+            @elseif ($isContainer)
+                @include('targets._container-overview', ['part' => 'identity'])
             @endif
         </div>
 
         @if ($isServer)
             @include('targets._server-overview', ['part' => 'resources'])
+        @elseif ($isContainer)
+            @include('targets._container-overview', ['part' => 'resources'])
         @endif
 
         {{-- Métriques propres au type (SCRUM-68), recopiées par la synchro : aucun appel Zabbix ici --}}

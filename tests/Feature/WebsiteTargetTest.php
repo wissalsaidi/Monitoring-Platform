@@ -80,9 +80,9 @@ class WebsiteTargetTest extends TestCase
 
         // La balise <input> du type, attributs compris (ils sont sur plusieurs lignes)
         preg_match('/<input[^>]*id="type-website"[^>]*>/s', $html, $website);
-        preg_match('/<input[^>]*id="type-container"[^>]*>/s', $html, $container);
+        preg_match('/<input[^>]*id="type-database"[^>]*>/s', $html, $database);
         $this->assertStringNotContainsString('disabled', $website[0]);
-        $this->assertStringContainsString('disabled', $container[0]);
+        $this->assertStringContainsString('disabled', $database[0]);
     }
 
     public function test_a_manager_creates_a_website(): void

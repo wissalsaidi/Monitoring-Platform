@@ -21,6 +21,14 @@
         $httpType = in_array($selectedType, ['api', 'website'], true);
         $serverType = $selectedType === 'server';
         $serverDefaults = \App\Monitoring\Provisioners\ServerProvisioner::class;
+        $containerType = $selectedType === 'container';
+        $containerDefaults = \App\Monitoring\Provisioners\ContainerProvisioner::class;
+        // Serveur et conteneur ont les mêmes champs settings[address] / settings[port] : chaque section ne reprend
+        // la saisie précédente que si c'est son type, sinon sa valeur par défaut (conteneur : l'agent de la plateforme)
+        $serverAddress = $serverType ? old('settings.address', $target?->setting('address')) : null;
+        $serverPort = $serverType ? old('settings.port', $target?->setting('port') ?? $serverDefaults::DEFAULT_PORT) : $serverDefaults::DEFAULT_PORT;
+        $agentAddress = $containerType ? old('settings.address', $target?->setting('address') ?? config('monitoring.agent.host')) : config('monitoring.agent.host');
+        $agentPort = $containerType ? old('settings.port', $target?->setting('port') ?? config('monitoring.agent.port')) : config('monitoring.agent.port');
     @endphp
 
     <div class="row g-4">
@@ -76,7 +84,7 @@
                         <div class="col-md-8">
                             <label for="settings-address" class="form-label">IP address or host name</label>
                             <input id="settings-address" name="settings[address]" type="text" maxlength="255" @disabled(! $serverType)
-                                   value="{{ old('settings.address', $target?->setting('address')) }}" placeholder="10.0.0.12"
+                                   value="{{ $serverAddress }}" placeholder="10.0.0.12"
                                    class="form-control font-monospace-sm @error('settings.address') is-invalid @enderror" required>
                             @error('settings.address')
                                 <div class="invalid-feedback">{{ $message }}</div>
@@ -87,9 +95,49 @@
                         <div class="col-md-4">
                             <label for="settings-port" class="form-label">Agent port</label>
                             <input id="settings-port" name="settings[port]" type="number" min="1" max="65535" @disabled(! $serverType)
-                                   value="{{ old('settings.port', $target?->setting('port') ?? $serverDefaults::DEFAULT_PORT) }}"
+                                   value="{{ $serverPort }}"
                                    class="form-control @error('settings.port') is-invalid @enderror" required>
                             @error('settings.port')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                        </div>
+                    </div>
+
+                    {{-- Conteneur Docker (SCRUM-70) : lu par l'agent Zabbix 2 de son hôte Docker --}}
+                    <div class="row g-3 mb-3 {{ $containerType ? '' : 'd-none' }}" data-type-fields="container">
+                        <div class="col-md-6">
+                            <label for="settings-container" class="form-label">Container name</label>
+                            <input id="settings-container" name="settings[container]" type="text" maxlength="128" @disabled(! $containerType)
+                                   value="{{ old('settings.container', $target?->setting('container')) }}" placeholder="shop-api"
+                                   class="form-control font-monospace-sm @error('settings.container') is-invalid @enderror" required>
+                            @error('settings.container')
+                                <div class="invalid-feedback">{{ $message }}</div>
+                            @else
+                                <div class="form-text">As shown by <code>docker ps</code>. Demo: <code>monitoring-platform-fake-api-1</code></div>
+                            @enderror
+                        </div>
+                        <div class="col-md-4">
+                            <label for="settings-container-address" class="form-label">Docker host (agent)</label>
+                            <input id="settings-container-address" name="settings[address]" type="text" maxlength="255" @disabled(! $containerType)
+                                   value="{{ $agentAddress }}" class="form-control font-monospace-sm @error('settings.address') is-invalid @enderror" required>
+                            @error('settings.address')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                        </div>
+                        <div class="col-md-2">
+                            <label for="settings-container-port" class="form-label">Port</label>
+                            <input id="settings-container-port" name="settings[port]" type="number" min="1" max="65535" @disabled(! $containerType)
+                                   value="{{ $agentPort }}" class="form-control @error('settings.port') is-invalid @enderror" required>
+                            @error('settings.port')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                        </div>
+                        <div class="col-md-6">
+                            <label for="settings-memory-warning" class="form-label"><i class="bi bi-circle-fill text-warning small me-1"></i>Memory warning above</label>
+                            <div class="input-group has-validation">
+                                <input id="settings-memory-warning" name="settings[memory_warning]" type="number" min="1" @disabled(! $containerType)
+                                       value="{{ old('settings.memory_warning', $target?->setting('memory_warning') ?? $containerDefaults::DEFAULT_MEMORY_WARNING_MB) }}"
+                                       class="form-control @error('settings.memory_warning') is-invalid @enderror" required>
+                                <span class="input-group-text">MB</span>
+                                @error('settings.memory_warning')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                            </div>
+                        </div>
+                        <div class="col-12 form-text mt-1">
+                            Alerts: stopped container (critical), more than {{ $containerDefaults::RESTART_LOOP_COUNT }} restarts in 10 minutes (high), memory above the threshold (warning).
                         </div>
                     </div>
 

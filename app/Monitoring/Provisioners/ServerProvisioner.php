@@ -5,8 +5,7 @@ namespace App\Monitoring\Provisioners;
 use App\Exceptions\Zabbix\ZabbixException;
 use App\Models\MonitoringTarget;
 use App\Monitoring\ZabbixProvisioner;
-use Closure;
-use Illuminate\Support\Arr;
+use App\Rules\HostOrIp;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -55,7 +54,7 @@ class ServerProvisioner extends ZabbixProvisioner
     public function rules(): array
     {
         $rules = [
-            'settings.address' => ['required', 'string', 'max:255', self::hostOrIp()],
+            'settings.address' => ['required', 'string', 'max:255', new HostOrIp],
             'settings.port' => ['required', 'integer', 'between:1,65535'],
         ];
 
@@ -121,8 +120,7 @@ class ServerProvisioner extends ZabbixProvisioner
     {
         $hostId = $target->zabbix_host_id;
 
-        $interface = $this->agentInterfaceOf($hostId);
-        $this->zabbix->updateHostInterface($interface['interfaceid'], Arr::only($this->agentInterface($target->setting('address'), (int) $target->setting('port'))['interfaces'][0], ['useip', 'ip', 'dns', 'port']));
+        $this->updateAgentInterface($hostId, $target->setting('address'), (int) $target->setting('port'));
 
         $this->zabbix->updateHost($hostId, ['macros' => $this->templateMacros($target)]);
 
@@ -220,14 +218,6 @@ class ServerProvisioner extends ZabbixProvisioner
             ?? throw new ZabbixException("Template \"{$name}\" not found in Zabbix.", 'template.get');
     }
 
-    /** @return array{interfaceid: string} interface agent du host */
-    private function agentInterfaceOf(string $hostId): array
-    {
-        return collect($this->zabbix->getHosts(['output' => ['hostid'], 'hostids' => [$hostId], 'selectInterfaces' => ['interfaceid', 'type']])[0]['interfaces'] ?? [])
-            ->firstWhere('type', (string) self::INTERFACE_AGENT)
-            ?? throw new ZabbixException('Agent interface of the host not found in Zabbix.', 'host.get');
-    }
-
     /** Facultatif : sans ça, OS et uptime peuvent attendre une heure. Un échec ne bloque pas la création. */
     private function requestFirstChecks(MonitoringTarget $target, string $hostId): void
     {
@@ -244,17 +234,5 @@ class ServerProvisioner extends ZabbixProvisioner
         } catch (ZabbixException $e) {
             Log::channel('zabbix')->warning('Unable to request the first checks of a server', ['target_id' => $target->id, 'error' => $e->getMessage()]);
         }
-    }
-
-    /** Adresse IP (v4 ou v6) ou nom d'hôte (RFC 1123) */
-    private static function hostOrIp(): Closure
-    {
-        return function (string $attribute, mixed $value, Closure $fail) {
-            $hostname = '/^(?=.{1,253}$)[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*$/i';
-
-            if (! is_string($value) || (filter_var($value, FILTER_VALIDATE_IP) === false && ! preg_match($hostname, $value))) {
-                $fail('The :attribute must be an IP address or a host name.');
-            }
-        };
     }
 }
