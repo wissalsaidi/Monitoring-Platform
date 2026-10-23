@@ -34,11 +34,7 @@ class FakeServerProvisioner extends ZabbixProvisioner
 
     public function hostSettings(MonitoringTarget $target): array
     {
-        return [
-            'interfaces' => [[
-                'type' => 1, 'main' => 1, 'useip' => 0, 'ip' => '', 'dns' => $target->setting('address'), 'port' => (string) $target->setting('port'),
-            ]],
-        ];
+        return $this->agentInterface($target->setting('address'), $target->setting('port'));
     }
 
     public function create(MonitoringTarget $target, string $hostId): void

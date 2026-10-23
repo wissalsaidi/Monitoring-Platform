@@ -112,7 +112,7 @@ class MultiTypeTargetTest extends TestCase
         $host = $this->callsTo('host.create')[0];
         $this->assertSame("target-{$target->id}", $host['host']);
         $this->assertSame([['groupid' => '42']], $host['groups']);
-        $this->assertSame('server-01.internal', $host['interfaces'][0]['dns']);
+        $this->assertSame(['type' => 1, 'main' => 1, 'useip' => 0, 'ip' => '', 'dns' => 'server-01.internal', 'port' => '10050'], $host['interfaces'][0]);
         $this->assertSame([], $this->callsTo('httptest.create'));
 
         // Partie du type : ses triggers, chaînés et tagués pour la synchro

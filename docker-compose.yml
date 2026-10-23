@@ -130,6 +130,64 @@ services:
     depends_on:
       - zabbix-server
 
+  # ─── Agent Zabbix 2 (SCRUM-67, cahier des charges §62) ─────────────
+  # Supervise serveurs, conteneurs et bases de données. Mode passif uniquement : zabbix-server l'interroge
+  # sur zabbix-agent2:10050 (interface agent du host, créée par la plateforme). Aucun port publié sur le PC.
+  # - Docker : via docker-socket-proxy (lecture seule réelle), jamais le socket Docker lui-même.
+  # - MySQL : aucun identifiant dans l'agent ; Zabbix les lui passe par les macros secrètes {$MYSQL.USER} /
+  #   {$MYSQL.PASSWORD} du host (utilisateur zbx_monitor, créé par mysql-monitor-user).
+  zabbix-agent2:
+    image: zabbix/zabbix-agent2:alpine-7.0.31
+    environment:
+      ZBX_HOSTNAME: zabbix-agent2
+      ZBX_SERVER_HOST: zabbix-server   # seul serveur autorisé à l'interroger
+      ZBX_ACTIVE_ALLOW: "false"        # pas de checks actifs : rien à déclarer côté Zabbix
+      ZBX_TIMEOUT: 10
+    volumes:
+      - ./docker/zabbix-agent2/docker.conf:/etc/zabbix/zabbix_agent2.d/plugins.d/docker.conf:ro
+      - docker-proxy-socket:/var/run/docker-proxy
+    depends_on:
+      - zabbix-server
+      - docker-socket-proxy
+
+  # Filtre devant le socket Docker : seules les lectures utilisées par le plugin Docker de l'agent passent
+  # (GET info, conteneurs, images, espace disque) ; tout le reste (POST, exec, suppression…) est refusé.
+  # Le socket Docker en ":ro" ne suffirait pas : il permet quand même de lancer ou supprimer des conteneurs.
+  # Pas de réseau ; il expose un socket filtré dans un volume partagé avec l'agent seul.
+  docker-socket-proxy:
+    image: wollomatic/socket-proxy:1.13.1
+    user: "1997:0"   # uid de l'agent (propriétaire du socket filtré, mode 0600) ; groupe root pour lire le socket Docker
+    command:
+      - -proxysocketendpoint=/var/run/docker-proxy/docker.sock
+      - -proxysocketendpointfilemode=0600
+      - -allowGET=(/v[0-9.]+)?/(_ping|version|info|system/df|images/json|containers/json|containers/[a-zA-Z0-9_.-]+/(json|stats))
+      - -allowHEAD=(/v[0-9.]+)?/_ping
+      - -loglevel=INFO
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - docker-proxy-socket:/var/run/docker-proxy
+    network_mode: none
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+
+  # Utilisateur MySQL dédié à l'agent (lecture seule : droits du template officiel « MySQL by Zabbix agent 2 »).
+  # Conteneur ponctuel et idempotent : crée l'utilisateur ou remet son mot de passe, puis s'arrête.
+  mysql-monitor-user:
+    image: mysql:8.0
+    entrypoint: ["sh", "/scripts/create-monitor-user.sh"]
+    environment:
+      MYSQL_HOST: mysql
+      MYSQL_PWD: ${DB_ROOT_PASSWORD}                  # root, lu par le client mysql sans apparaître dans la ligne de commande
+      MONITOR_USER: zbx_monitor
+      MONITOR_PASSWORD: ${ZBX_MONITOR_DB_PASSWORD}
+    volumes:
+      - ./docker/mysql/create-monitor-user.sh:/scripts/create-monitor-user.sh:ro
+    depends_on:
+      mysql:
+        condition: service_healthy
+    restart: "no"
+
   # ─── Grafana (V1, préparé dès maintenant) ──────────────────────────
   grafana:
     image: grafana/grafana:11.6.0
@@ -186,3 +244,9 @@ volumes:
   redis-data:
   zabbix-db-data:
   grafana-data:
+  # Socket Docker filtré, partagé entre docker-socket-proxy et zabbix-agent2 uniquement (tmpfs : recréé à chaque démarrage)
+  docker-proxy-socket:
+    driver_opts:
+      type: tmpfs
+      device: tmpfs
+      o: "uid=1997,gid=1995,mode=0700"

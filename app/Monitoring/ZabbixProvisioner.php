@@ -19,6 +19,9 @@ abstract class ZabbixProvisioner implements TargetProvisioner
 
     public const PRIORITY_DISASTER = 5;
 
+    /** Type d'interface Zabbix « agent » (hostinterface.type) : zabbix-server interroge l'agent en mode passif. */
+    public const INTERFACE_AGENT = 1;
+
     public function __construct(protected readonly ZabbixService $zabbix) {}
 
     public function messages(): array
@@ -42,6 +45,29 @@ abstract class ZabbixProvisioner implements TargetProvisioner
     public function hostSettings(MonitoringTarget $target): array
     {
         return [];
+    }
+
+    /**
+     * Interface agent d'un host, à renvoyer par hostSettings() (SCRUM-67).
+     * Par défaut l'agent de la plateforme (config monitoring.agent) ; une adresse IP est déclarée en IP, un nom en DNS.
+     *
+     * @return array{interfaces: list<array<string, int|string>>}
+     */
+    protected function agentInterface(?string $address = null, ?int $port = null): array
+    {
+        $address ??= config('monitoring.agent.host');
+        $isIp = filter_var($address, FILTER_VALIDATE_IP) !== false;
+
+        return [
+            'interfaces' => [[
+                'type' => self::INTERFACE_AGENT,
+                'main' => 1,
+                'useip' => $isIp ? 1 : 0,
+                'ip' => $isIp ? $address : '',
+                'dns' => $isIp ? '' : $address,
+                'port' => (string) ($port ?? config('monitoring.agent.port')),
+            ]],
+        ];
     }
 
     /**

@@ -25,8 +25,10 @@ Tous les écrans, annotés : [docs/conception/07-ecrans.md](docs/conception/07-e
 navigateur ──► nginx :8000 ──► app (Laravel, PHP-FPM) ──► mysql (base Laravel)
                                    │                  └─► redis (cache / queues) ◄── queue + scheduler
                                    └── API JSON-RPC ──► zabbix-web :8080 ──► zabbix-server ──► targets
-                                                                  │                          (ex : fake-api)
-navigateur ──► grafana :3000 ── datasource Zabbix ────────────────┘
+                                                                  │              │           (ex : fake-api)
+navigateur ──► grafana :3000 ── datasource Zabbix ────────────────┘              └──► zabbix-agent2 :10050
+                                                                                       ├─► docker-socket-proxy ──► Docker (lecture)
+                                                                                       └─► mysql (zbx_monitor, lecture)
 ```
 
 | Service | URL depuis le PC | Rôle |
@@ -37,6 +39,9 @@ navigateur ──► grafana :3000 ── datasource Zabbix ──────�
 | `queue` + `scheduler` | — | Worker de la queue et Laravel Scheduler : synchro Zabbix chaque minute |
 | `zabbix-web` | http://localhost:8080 (`Admin` / `zabbix`) | Interface et API Zabbix |
 | `zabbix-server` + `zabbix-db` | — | Moteur Zabbix et sa propre base |
+| `zabbix-agent2` | — | Agent Zabbix 2 : serveurs, conteneurs, bases de données ([détails](#agent-zabbix-2)) |
+| `docker-socket-proxy` | — | Filtre du socket Docker : l'agent ne peut que lire |
+| `mysql-monitor-user` | — | Ponctuel : crée l'utilisateur MySQL `zbx_monitor` de l'agent, puis s'arrête |
 | `grafana` | http://localhost:3000 (`admin` / `GRAFANA_ADMIN_PASSWORD`) | Dashboards |
 | `fake-api` | http://localhost:8081/health | API de démo à latence réglable |
 | `phpmyadmin` | http://localhost:8082 | phpMyAdmin : interface web des bases MySQL (dev) |
@@ -137,6 +142,26 @@ curl -s "http://localhost:8081/control?mode=ok&delay=0" # retour à la normale
 ```
 
 Vue depuis Zabbix, son adresse est `http://fake-api:8080/health` (nom du service Docker).
+
+## Agent Zabbix 2
+
+Les serveurs, conteneurs et bases de données se supervisent avec l'agent Zabbix 2 (service `zabbix-agent2`).
+Il fonctionne en **mode passif** : `zabbix-server` l'interroge sur `zabbix-agent2:10050`, seul serveur autorisé.
+Aucun port n'est publié sur le PC. La plateforme crée les hosts avec une interface agent vers cette adresse
+(`ZABBIX_AGENT_HOST` / `ZABBIX_AGENT_PORT`).
+
+| Plugin | Accès donné à l'agent |
+|---|---|
+| **Docker** | Le socket Docker passe par `docker-socket-proxy` : seules les lectures utilisées par le plugin sont permises (infos, conteneurs, images, espace disque). Créer, lancer, supprimer un conteneur ou lire ses fichiers est refusé (403 / 405). Un simple montage `docker.sock:ro` ne protège pas : il laisse tout faire. |
+| **MySQL** | Utilisateur `zbx_monitor` (mot de passe `ZBX_MONITOR_DB_PASSWORD`), droits du template officiel : `PROCESS`, `REPLICATION CLIENT`, `SHOW DATABASES`, `SHOW VIEW`. Il ne lit aucune donnée. L'agent ne stocke aucun identifiant : Zabbix les lui passe par les macros **secrètes** `{$MYSQL.USER}` / `{$MYSQL.PASSWORD}` du host. |
+
+Tester une clé directement dans l'agent :
+
+```bash
+docker compose exec zabbix-agent2 zabbix_agent2 -t docker.ping       # [s|1]
+docker compose exec zabbix-agent2 zabbix_agent2 -t docker.containers
+docker compose run --rm mysql-monitor-user                            # recrée zbx_monitor (ex. après un changement de mot de passe)
+```
 
 ## Tests et qualité
 

@@ -42,6 +42,12 @@ services:
   grafana:
     restart: unless-stopped
 
+  zabbix-agent2:
+    restart: unless-stopped
+
+  docker-socket-proxy:
+    restart: unless-stopped
+
   phpmyadmin:
     profiles: [dev]
 
