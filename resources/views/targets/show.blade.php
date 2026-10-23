@@ -117,6 +117,57 @@
             </div>
         </div>
 
+        {{-- Métriques propres au type (SCRUM-68), recopiées par la synchro : aucun appel Zabbix ici --}}
+        @php
+            $metricNames = array_keys($target->provisioner()->metricItemKeys());
+            $showCertificate = in_array('certificate_days', $metricNames, true) && \App\Monitoring\Provisioners\WebsiteProvisioner::checksCertificate($target);
+        @endphp
+        @if (in_array('http_code', $metricNames, true) || $showCertificate)
+            <div class="row g-3 mb-4">
+                @if (in_array('http_code', $metricNames, true))
+                    @php
+                        $httpCode = $target->lastMetric('http_code');
+                    @endphp
+                    <div class="col-6 col-lg-3">
+                        <div class="card kpi-card h-100"><div class="card-body">
+                            <span class="kpi-label">HTTP code</span>
+                            @if ($httpCode)
+                                <div class="kpi-value {{ $httpCode >= 200 && $httpCode < 300 ? 'text-success' : 'text-danger' }}">{{ $httpCode }}</div>
+                            @else
+                                <div class="kpi-value text-body-secondary">—</div>
+                                <span class="small text-body-secondary">No response yet</span>
+                            @endif
+                        </div></div>
+                    </div>
+                @endif
+                @if ($showCertificate)
+                    @php
+                        $days = $target->lastMetric('certificate_days');
+                        $certificateColor = match (true) {
+                            $days === null => 'text-body-secondary',
+                            $days < \App\Monitoring\Provisioners\WebsiteProvisioner::CERTIFICATE_CRITICAL_DAYS => 'text-danger',
+                            $days < \App\Monitoring\Provisioners\WebsiteProvisioner::CERTIFICATE_WARNING_DAYS => 'text-warning',
+                            default => 'text-success',
+                        };
+                    @endphp
+                    <div class="col-6 col-lg-3">
+                        <div class="card kpi-card h-100"><div class="card-body">
+                            <span class="kpi-label">SSL certificate</span>
+                            @if ($days === null)
+                                <div class="kpi-value text-body-secondary">—</div>
+                                <span class="small text-body-secondary">Not read yet</span>
+                            @elseif ($days < 0)
+                                <div class="kpi-value text-danger">Expired</div>
+                                <span class="small text-body-secondary">{{ number_format(abs($days)) }} {{ Str::plural('day', abs($days)) }} ago</span>
+                            @else
+                                <div class="kpi-value {{ $certificateColor }}">{{ number_format($days) }}<small class="fs-6 text-body-secondary ms-1">{{ Str::plural('day', $days) }} left</small></div>
+                            @endif
+                        </div></div>
+                    </div>
+                @endif
+            </div>
+        @endif
+
         {{-- Graphique du temps de réponse (SCRUM-44) : données chargées en JS depuis l'API interne --}}
         <div class="card mb-4" data-response-time-chart data-url="{{ route('targets.metrics.response-time', $target) }}" data-period="1h">
             <div class="card-header d-flex flex-wrap align-items-center gap-2 py-3">
@@ -199,8 +250,12 @@
                     <dd class="col-sm-9 font-monospace-sm">{{ $target->zabbixHostName() }} <span class="text-body-secondary">(id {{ $target->zabbix_host_id ?? '—' }})</span></dd>
                     <dt class="col-sm-3 fw-normal text-body-secondary">Host group</dt>
                     <dd class="col-sm-9 font-monospace-sm">{{ $target->team->zabbixHostGroupName() }}</dd>
-                    <dt class="col-sm-3 fw-normal text-body-secondary">Check</dt>
-                    <dd class="col-sm-9 mb-0">Web scenario <code>{{ \App\Monitoring\Provisioners\ApiProvisioner::SCENARIO }}</code>, 2xx expected</dd>
+                    <dt class="col-sm-3 fw-normal text-body-secondary">Checks</dt>
+                    <dd class="col-sm-9 mb-0">
+                        @foreach ($target->provisioner()->checkSummary($target) as $check)
+                            <div>{{ $check }}</div>
+                        @endforeach
+                    </dd>
                 </dl>
             </div>
         </div>

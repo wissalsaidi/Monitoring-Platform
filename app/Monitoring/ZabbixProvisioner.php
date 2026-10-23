@@ -47,6 +47,16 @@ abstract class ZabbixProvisioner implements TargetProvisioner
         return [];
     }
 
+    public function metricItemKeys(): array
+    {
+        return [];
+    }
+
+    public function checkSummary(MonitoringTarget $target): array
+    {
+        return [];
+    }
+
     /**
      * Interface agent d'un host, à renvoyer par hostSettings() (SCRUM-67).
      * Par défaut l'agent de la plateforme (config monitoring.agent) ; une adresse IP est déclarée en IP, un nom en DNS.
@@ -72,23 +82,29 @@ abstract class ZabbixProvisioner implements TargetProvisioner
 
     /**
      * Description, expression, priorité et tags de chaque trigger, indexés par niveau (tag "level"),
-     * du plus grave au moins grave : chacun dépend du précédent (voir createChainedTriggers).
+     * du plus grave au moins grave : chacun dépend du précédent de la même chaîne (voir createChainedTriggers).
+     * Clé facultative "chain" : triggers indépendants des autres (ex. le certificat d'un site web, SCRUM-68).
      *
-     * @return array<string, array{description: string, expression: string, priority: int, tags: array}>
+     * @return array<string, array{description: string, expression: string, priority: int, tags: array, chain?: string}>
      */
     abstract protected function triggerDefinitions(MonitoringTarget $target): array;
 
     /**
      * Crée les triggers chaînés par dépendances, pour n'avoir qu'un seul problème actif par incident :
-     * quand un trigger est en problème, Zabbix met en sourdine ceux qui en dépendent.
+     * quand un trigger est en problème, Zabbix met en sourdine ceux qui en dépendent. Une chaîne par clé "chain".
+     *
+     * @param  array<string, array>|null  $definitions  par défaut, tous les triggers de la target
      */
-    protected function createChainedTriggers(MonitoringTarget $target): void
+    protected function createChainedTriggers(MonitoringTarget $target, ?array $definitions = null): void
     {
-        $parentId = null;
+        $parents = [];
 
-        foreach ($this->triggerDefinitions($target) as $definition) {
-            [$parentId] = $this->zabbix->createTriggers([
-                ...$definition,
+        foreach ($definitions ?? $this->triggerDefinitions($target) as $definition) {
+            $chain = $definition['chain'] ?? 'main';
+            $parentId = $parents[$chain] ?? null;
+
+            [$parents[$chain]] = $this->zabbix->createTriggers([
+                ...Arr::except($definition, 'chain'),
                 ...($parentId !== null ? ['dependencies' => [['triggerid' => $parentId]]] : []),
             ]);
         }

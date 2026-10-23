@@ -251,6 +251,7 @@ class AlertService
                     'status' => $status,
                     'last_checked_at' => $lastClock > 0 ? Carbon::createFromTimestamp($lastClock) : null,
                     'last_response_ms' => ($time['lastclock'] ?? '0') !== '0' ? round((float) $time['lastvalue'] * 1000, 3) : null,
+                    'last_metrics' => $this->lastMetrics($items, $target),
                 ]);
             }
         });
@@ -267,8 +268,10 @@ class AlertService
      */
     private function checkItems(Collection $targets): array
     {
-        $keys = $targets->map(fn (MonitoringTarget $target) => array_values(array_filter($target->provisioner()->statusItemKeys())))
-            ->flatten()->unique()->values()->all();
+        $keys = $targets->map(fn (MonitoringTarget $target) => [
+            ...array_values(array_filter($target->provisioner()->statusItemKeys())),
+            ...array_values($target->provisioner()->metricItemKeys()),
+        ])->flatten()->unique()->values()->all();
 
         $items = $this->zabbix->getItems([
             'output' => ['itemid', 'hostid', 'key_', 'lastclock', 'lastvalue'],
@@ -321,6 +324,28 @@ class AlertService
         $key = $target->provisioner()->statusItemKeys()[$role] ?? null;
 
         return $key !== null ? ($items[$target->zabbix_host_id][$key] ?? null) : null;
+    }
+
+    /**
+     * Dernières valeurs des métriques propres au type (code HTTP, jours avant l'expiration du certificat…),
+     * null pour une métrique pas encore mesurée.
+     *
+     * @param  array<string, array<string, array>>  $items
+     * @return array<string, int|float|null>|null
+     */
+    private function lastMetrics(array $items, MonitoringTarget $target): ?array
+    {
+        $keys = $target->provisioner()->metricItemKeys();
+
+        if ($keys === []) {
+            return null;
+        }
+
+        return array_map(function (string $key) use ($items, $target) {
+            $item = $items[$target->zabbix_host_id][$key] ?? null;
+
+            return ($item['lastclock'] ?? '0') !== '0' && is_numeric($item['lastvalue']) ? $item['lastvalue'] + 0 : null;
+        }, $keys);
     }
 
     private static function tag(array $problem, string $name): ?string

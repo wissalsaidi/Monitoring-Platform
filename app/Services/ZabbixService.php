@@ -118,6 +118,33 @@ class ZabbixService
         return $this->call('item.get', ['output' => 'extend', ...$params]);
     }
 
+    /**
+     * @param  array  $items  un item ou une liste d'items
+     * @return string[] ids des items créés
+     */
+    public function createItems(array $items): array
+    {
+        return $this->call('item.create', $items)['itemids'];
+    }
+
+    /** @param  array  $items  liste d'items, chacun avec son itemid */
+    public function updateItems(array $items): void
+    {
+        $this->call('item.update', $items);
+    }
+
+    /** Supprime des items, avec leurs items dépendants et leurs triggers. */
+    public function deleteItems(string ...$itemIds): void
+    {
+        $this->call('item.delete', $itemIds);
+    }
+
+    /** Demande à Zabbix de relever ces items tout de suite (« Execute now »), sans attendre leur intervalle. */
+    public function checkNow(string ...$itemIds): void
+    {
+        $this->call('task.create', array_map(fn (string $id) => ['type' => 6, 'request' => ['itemid' => $id]], $itemIds));
+    }
+
     public function getTriggers(array $params = []): array
     {
         return $this->call('trigger.get', ['output' => 'extend', ...$params]);

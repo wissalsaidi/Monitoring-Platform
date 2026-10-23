@@ -95,6 +95,16 @@ Après toute modification de `composer.json` : `docker compose exec app composer
 Toutes les commandes `artisan` passent par le conteneur : `docker compose exec app php artisan …`
 (depuis Windows, les hôtes `mysql`, `redis` et `zabbix-web` n'existent pas).
 
+## Types de targets
+
+| Type | Ce que Zabbix vérifie | Alertes |
+|---|---|---|
+| **API** | Web scenario `api-check` : code 2xx attendu, temps de réponse, code HTTP | Indisponible (CRITICAL), lenteur (WARNING / HIGH selon les seuils) |
+| **Website** | Comme l'API (web scenario `website-check`) + pour une URL `https://`, date d'expiration du certificat SSL lue chaque heure par l'agent Zabbix 2 | Mêmes alertes + certificat qui expire dans moins de 14 jours (WARNING) puis 3 jours (HIGH) ; un certificat expiré déclenche HIGH |
+
+Les autres types (serveur, conteneur, base de données, réseau) apparaissent grisés dans le formulaire tant qu'ils ne
+sont pas disponibles. Même protection SSRF pour tous les types qui appellent une URL.
+
 ## Équipes, rôles et sécurité
 
 | Rôle | Peut |

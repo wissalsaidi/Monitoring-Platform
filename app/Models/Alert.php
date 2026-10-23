@@ -65,8 +65,35 @@ class Alert extends Model
         return match ($this->metric) {
             'response_time' => 'Response time',
             'availability' => 'Availability',
+            'certificate' => 'SSL certificate',
             null => 'Zabbix problem',
             default => ucfirst(str_replace('_', ' ', $this->metric)),
+        };
+    }
+
+    /** Valeur mesurée avec son unité (« 1,234 ms »), ou null s'il n'y en a pas. */
+    public function valueLabel(): ?string
+    {
+        return $this->value === null ? null : number_format($this->value).$this->unitSuffix();
+    }
+
+    /** Seuil franchi avec son sens et son unité (SCRUM-68) : « > 500 ms », « < 14 days ». */
+    public function thresholdLabel(): ?string
+    {
+        if ($this->threshold === null) {
+            return null;
+        }
+
+        // Le certificat alerte quand il reste MOINS de jours que le seuil ; les autres métriques, au-dessus
+        return ($this->metric === 'certificate' ? '< ' : '> ').number_format($this->threshold).$this->unitSuffix();
+    }
+
+    private function unitSuffix(): string
+    {
+        return match ($this->metric) {
+            'response_time' => ' ms',
+            'certificate' => ' days',
+            default => '',
         };
     }
 

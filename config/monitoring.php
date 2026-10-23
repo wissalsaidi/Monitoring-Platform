@@ -1,6 +1,7 @@
 <?php
 
 use App\Monitoring\Provisioners\ApiProvisioner;
+use App\Monitoring\Provisioners\WebsiteProvisioner;
 
 return [
 
@@ -21,6 +22,7 @@ return [
     */
     'provisioners' => [
         'api' => ApiProvisioner::class,
+        'website' => WebsiteProvisioner::class,
     ],
 
     /*
