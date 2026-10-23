@@ -1,6 +1,7 @@
 <?php
 
 use App\Monitoring\Provisioners\ApiProvisioner;
+use App\Monitoring\Provisioners\ServerProvisioner;
 use App\Monitoring\Provisioners\WebsiteProvisioner;
 
 return [
@@ -23,7 +24,14 @@ return [
     'provisioners' => [
         'api' => ApiProvisioner::class,
         'website' => WebsiteProvisioner::class,
+        'server' => ServerProvisioner::class,
     ],
+
+    /*
+    | Template Zabbix lié aux serveurs (SCRUM-69) : collecte et graphiques. Ses propres triggers ne deviennent pas
+    | des alertes de la plateforme (pas de tag "level"), les seuils viennent de la target.
+    */
+    'server_template' => env('ZABBIX_SERVER_TEMPLATE', 'Linux by Zabbix agent'),
 
     /*
     | Agent Zabbix 2 (SCRUM-67) : adresse vue depuis zabbix-server, utilisée par défaut pour l'interface agent

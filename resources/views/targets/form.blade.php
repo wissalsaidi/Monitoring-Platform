@@ -14,6 +14,13 @@
                 'icon' => $type->icon(),
                 'enabled' => in_array($type, $supportedTypes, true),
             ]);
+
+        // Champs propres au type (SCRUM-69) : seule la section du type choisi est affichée et envoyée
+        // (les autres sont masquées et désactivées ; resources/js/target-form.js les bascule au changement de type)
+        $selectedType = old('type', $target?->type->value ?? 'api');
+        $httpType = in_array($selectedType, ['api', 'website'], true);
+        $serverType = $selectedType === 'server';
+        $serverDefaults = \App\Monitoring\Provisioners\ServerProvisioner::class;
     @endphp
 
     <div class="row g-4">
@@ -50,9 +57,9 @@
                         @error('name')<div class="invalid-feedback">{{ $message }}</div>@enderror
                     </div>
 
-                    <div class="mb-3">
+                    <div class="mb-3 {{ $httpType ? '' : 'd-none' }}" data-type-fields="api website">
                         <label for="url" class="form-label">URL</label>
-                        <input id="url" name="url" type="url" value="{{ old('url', $target?->url) }}"
+                        <input id="url" name="url" type="url" value="{{ old('url', $target?->url) }}" @disabled(! $httpType)
                                class="form-control font-monospace-sm @error('url') is-invalid @enderror" placeholder="https://api.example.com/health" required>
                         @error('url')
                             <div class="invalid-feedback">{{ $message }}</div>
@@ -62,6 +69,28 @@
                                 For a website with an <code>https://</code> URL, the SSL certificate expiry is checked too.
                             </div>
                         @enderror
+                    </div>
+
+                    {{-- Serveur (SCRUM-69) : agent Zabbix installé sur le serveur --}}
+                    <div class="row g-3 mb-3 {{ $serverType ? '' : 'd-none' }}" data-type-fields="server">
+                        <div class="col-md-8">
+                            <label for="settings-address" class="form-label">IP address or host name</label>
+                            <input id="settings-address" name="settings[address]" type="text" maxlength="255" @disabled(! $serverType)
+                                   value="{{ old('settings.address', $target?->setting('address')) }}" placeholder="10.0.0.12"
+                                   class="form-control font-monospace-sm @error('settings.address') is-invalid @enderror" required>
+                            @error('settings.address')
+                                <div class="invalid-feedback">{{ $message }}</div>
+                            @else
+                                <div class="form-text">The Zabbix agent must run on the server and accept the Zabbix server. Demo: <code>zabbix-agent2</code></div>
+                            @enderror
+                        </div>
+                        <div class="col-md-4">
+                            <label for="settings-port" class="form-label">Agent port</label>
+                            <input id="settings-port" name="settings[port]" type="number" min="1" max="65535" @disabled(! $serverType)
+                                   value="{{ old('settings.port', $target?->setting('port') ?? $serverDefaults::DEFAULT_PORT) }}"
+                                   class="form-control @error('settings.port') is-invalid @enderror" required>
+                            @error('settings.port')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                        </div>
                     </div>
 
                     <div class="mb-4">
@@ -84,25 +113,54 @@
                             @error('check_interval')<div class="invalid-feedback">{{ $message }}</div>@enderror
                         </div>
 
-                        <div class="col-md-4">
+                        <div class="col-md-4 {{ $httpType ? '' : 'd-none' }}" data-type-fields="api website">
                             <label for="warning_threshold_ms" class="form-label"><i class="bi bi-circle-fill text-warning small me-1"></i>Warning threshold</label>
                             <div class="input-group has-validation">
-                                <input id="warning_threshold_ms" name="warning_threshold_ms" type="number" min="1" max="{{ \App\Models\MonitoringTarget::MAX_THRESHOLD_MS }}"
+                                <input id="warning_threshold_ms" name="warning_threshold_ms" type="number" min="1" max="{{ \App\Models\MonitoringTarget::MAX_THRESHOLD_MS }}" @disabled(! $httpType)
                                        value="{{ old('warning_threshold_ms', $target?->warning_threshold_ms ?? 500) }}" class="form-control @error('warning_threshold_ms') is-invalid @enderror" required>
                                 <span class="input-group-text">ms</span>
                                 @error('warning_threshold_ms')<div class="invalid-feedback">{{ $message }}</div>@enderror
                             </div>
                         </div>
 
-                        <div class="col-md-4">
+                        <div class="col-md-4 {{ $httpType ? '' : 'd-none' }}" data-type-fields="api website">
                             <label for="critical_threshold_ms" class="form-label"><i class="bi bi-circle-fill text-danger small me-1"></i>Critical threshold</label>
                             <div class="input-group has-validation">
-                                <input id="critical_threshold_ms" name="critical_threshold_ms" type="number" min="1" max="{{ \App\Models\MonitoringTarget::MAX_THRESHOLD_MS }}"
+                                <input id="critical_threshold_ms" name="critical_threshold_ms" type="number" min="1" max="{{ \App\Models\MonitoringTarget::MAX_THRESHOLD_MS }}" @disabled(! $httpType)
                                        value="{{ old('critical_threshold_ms', $target?->critical_threshold_ms ?? 1000) }}" class="form-control @error('critical_threshold_ms') is-invalid @enderror" required>
                                 <span class="input-group-text">ms</span>
                                 @error('critical_threshold_ms')<div class="invalid-feedback">{{ $message }}</div>@enderror
                             </div>
                         </div>
+                    </div>
+
+                    {{-- Seuils d'un serveur, en % (SCRUM-69) : moyenne sur 5 minutes --}}
+                    <div class="mt-3 {{ $serverType ? '' : 'd-none' }}" data-type-fields="server">
+                        <div class="row g-2 small text-body-secondary mb-1">
+                            <div class="col-4"></div>
+                            <div class="col-4"><i class="bi bi-circle-fill text-warning small me-1"></i>Warning above</div>
+                            <div class="col-4"><i class="bi bi-circle-fill text-danger small me-1"></i>Critical above</div>
+                        </div>
+                        @foreach ($serverDefaults::RESOURCES as $resource => ['label' => $label])
+                            <div class="row g-2 align-items-start mb-2">
+                                <div class="col-4 pt-2">{{ $label }}</div>
+                                @foreach (['warning' => $serverDefaults::DEFAULT_WARNING, 'critical' => $serverDefaults::DEFAULT_CRITICAL] as $severity => $default)
+                                    @php
+                                        $field = "{$resource}_{$severity}";
+                                    @endphp
+                                    <div class="col-4">
+                                        <div class="input-group input-group-sm has-validation">
+                                            <input id="settings-{{ $field }}" name="settings[{{ $field }}]" type="number" min="1" max="100" @disabled(! $serverType)
+                                                   value="{{ old("settings.$field", $target?->setting($field) ?? $default) }}" aria-label="{{ $label }} {{ $severity }} threshold"
+                                                   class="form-control @error("settings.$field") is-invalid @enderror" required>
+                                            <span class="input-group-text">%</span>
+                                            @error("settings.$field")<div class="invalid-feedback">{{ $message }}</div>@enderror
+                                        </div>
+                                    </div>
+                                @endforeach
+                            </div>
+                        @endforeach
+                        <div class="form-text">Compared to the 5-minute average, so that a short spike does not raise an alert.</div>
                     </div>
                 </div>
 

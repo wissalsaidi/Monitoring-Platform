@@ -80,7 +80,7 @@
                             <tr>
                                 <td class="ps-3">
                                     <a href="{{ route('targets.show', $target) }}" class="fw-semibold text-body text-decoration-none">{{ $target->name }}</a>
-                                    <div class="font-monospace-sm text-body-secondary text-truncate" style="max-width: 360px">{{ $target->url }}</div>
+                                    <div class="font-monospace-sm text-body-secondary text-truncate" style="max-width: 360px">{{ $target->displayAddress() }}</div>
                                 </td>
                                 <td class="small text-body-secondary text-nowrap"><i class="bi {{ $target->type->icon() }} me-1"></i>{{ $target->type->label() }}</td>
                                 <td><x-status-pill :status="$target->status" /></td>

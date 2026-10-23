@@ -43,6 +43,9 @@ class MultiTypeTargetTest extends TestCase
         $this->fakeZabbixApi();
         FakeServerProvisioner::$calls = [];
         FakeServerProvisioner::$failOnCreate = false;
+        // Ces tests portent sur le mécanisme commun : le type Server n'a pas de provisioner tant que enableServers()
+        // n'installe pas le faux (le vrai ServerProvisioner, SCRUM-69, est testé dans ServerTargetTest)
+        config(['monitoring.provisioners.server' => null]);
         $this->team = Team::factory()->create(['zabbix_hostgroup_id' => '42']);
     }
 

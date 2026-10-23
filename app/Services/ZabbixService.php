@@ -82,6 +82,16 @@ class ZabbixService
         $this->call('host.delete', $hostIds);
     }
 
+    public function updateHostInterface(string $interfaceId, array $params): void
+    {
+        $this->call('hostinterface.update', ['interfaceid' => $interfaceId, ...$params]);
+    }
+
+    public function getTemplates(array $params = []): array
+    {
+        return $this->call('template.get', ['output' => ['templateid', 'host'], ...$params]);
+    }
+
     /** @return string id du web scenario créé */
     public function createWebScenario(array $params): string
     {
