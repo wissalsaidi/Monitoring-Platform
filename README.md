@@ -106,7 +106,12 @@ Toutes les commandes `artisan` passent par le conteneur : `docker compose exec a
 
 | **Container** | Conteneur Docker lu par l'agent Zabbix 2 de son hôte (plugin Docker, par défaut `zabbix-agent2`) : état, CPU, mémoire, réseau, redémarrages, uptime | Conteneur arrêté ou introuvable (CRITICAL), plus de 2 redémarrages en 10 min (HIGH), mémoire au-dessus du seuil en Mo (WARNING) |
 
-Les autres types (base de données, réseau) apparaissent grisés dans le formulaire tant qu'ils ne
+| **Database** | MySQL lu par l'agent Zabbix 2 de la plateforme (plugin MySQL) avec un utilisateur en lecture seule : disponibilité, connexions, requêtes lentes, requêtes/s, version, uptime ; temps de réponse = connexion TCP mesurée par le serveur Zabbix | Base injoignable (CRITICAL), connexions au-dessus du seuil (WARNING) |
+
+Le mot de passe d'une base est **chiffré** en base (clé `APP_KEY`), jamais affiché, jamais journalisé ni renvoyé dans
+le formulaire ; Zabbix le reçoit dans une macro secrète. Laissé vide à la modification, il reste inchangé.
+
+Les autres types (réseau) apparaissent grisés dans le formulaire tant qu'ils ne
 sont pas disponibles. Même protection SSRF pour tous les types qui appellent une URL.
 Pour un serveur, seuls les triggers créés par la plateforme deviennent des alertes : ceux du template Linux restent
 visibles dans Zabbix. Serveur de démo : `zabbix-agent2`, port `10050`.

@@ -21,6 +21,10 @@
         $httpType = in_array($selectedType, ['api', 'website'], true);
         $serverType = $selectedType === 'server';
         $serverDefaults = \App\Monitoring\Provisioners\ServerProvisioner::class;
+        $databaseType = $selectedType === 'database';
+        $databaseDefaults = \App\Monitoring\Provisioners\DatabaseProvisioner::class;
+        $databaseAddress = $databaseType ? old('settings.address', $target?->setting('address')) : null;
+        $databasePort = $databaseType ? old('settings.port', $target?->setting('port') ?? $databaseDefaults::DEFAULT_PORT) : $databaseDefaults::DEFAULT_PORT;
         $containerType = $selectedType === 'container';
         $containerDefaults = \App\Monitoring\Provisioners\ContainerProvisioner::class;
         // Serveur et conteneur ont les mêmes champs settings[address] / settings[port] : chaque section ne reprend
@@ -139,6 +143,58 @@
                         <div class="col-12 form-text mt-1">
                             Alerts: stopped container (critical), more than {{ $containerDefaults::RESTART_LOOP_COUNT }} restarts in 10 minutes (high), memory above the threshold (warning).
                         </div>
+                    </div>
+
+                    {{-- Base de données MySQL (SCRUM-71) : lue par l'agent Zabbix 2 de la plateforme --}}
+                    <div class="row g-3 mb-3 {{ $databaseType ? '' : 'd-none' }}" data-type-fields="database">
+                        <div class="col-md-8">
+                            <label for="settings-database-address" class="form-label">MySQL host</label>
+                            <input id="settings-database-address" name="settings[address]" type="text" maxlength="255" @disabled(! $databaseType)
+                                   value="{{ $databaseAddress }}" placeholder="db.internal"
+                                   class="form-control font-monospace-sm @error('settings.address') is-invalid @enderror" required>
+                            @error('settings.address')
+                                <div class="invalid-feedback">{{ $message }}</div>
+                            @else
+                                <div class="form-text">Reached by the Zabbix agent of the platform. Demo: <code>mysql</code>, user <code>zbx_monitor</code></div>
+                            @enderror
+                        </div>
+                        <div class="col-md-4">
+                            <label for="settings-database-port" class="form-label">Port</label>
+                            <input id="settings-database-port" name="settings[port]" type="number" min="1" max="65535" @disabled(! $databaseType)
+                                   value="{{ $databasePort }}" class="form-control @error('settings.port') is-invalid @enderror" required>
+                            @error('settings.port')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                        </div>
+                        <div class="col-md-6">
+                            <label for="settings-database-username" class="form-label">Monitoring user</label>
+                            <input id="settings-database-username" name="settings[username]" type="text" maxlength="80" autocomplete="off" @disabled(! $databaseType)
+                                   value="{{ $databaseType ? old('settings.username', $target?->setting('username')) : '' }}" placeholder="zbx_monitor"
+                                   class="form-control font-monospace-sm @error('settings.username') is-invalid @enderror" required>
+                            @error('settings.username')
+                                <div class="invalid-feedback">{{ $message }}</div>
+                            @else
+                                <div class="form-text">Read-only: <code>PROCESS, REPLICATION CLIENT, SHOW DATABASES, SHOW VIEW</code></div>
+                            @enderror
+                        </div>
+                        <div class="col-md-6">
+                            {{-- Jamais pré-rempli ni renvoyé : vide à la modification = mot de passe inchangé --}}
+                            <label for="credentials-password" class="form-label">Password</label>
+                            <input id="credentials-password" name="credentials[password]" type="password" maxlength="255" autocomplete="new-password" @disabled(! $databaseType)
+                                   class="form-control @error('credentials.password') is-invalid @enderror" @required(! $target)
+                                   placeholder="{{ $target ? 'Leave empty to keep the current password' : '' }}">
+                            @error('credentials.password')
+                                <div class="invalid-feedback">{{ $message }}</div>
+                            @else
+                                <div class="form-text">Stored encrypted, never displayed.</div>
+                            @enderror
+                        </div>
+                        <div class="col-md-6">
+                            <label for="settings-connections-warning" class="form-label"><i class="bi bi-circle-fill text-warning small me-1"></i>Connections warning above</label>
+                            <input id="settings-connections-warning" name="settings[connections_warning]" type="number" min="1" @disabled(! $databaseType)
+                                   value="{{ old('settings.connections_warning', $target?->setting('connections_warning') ?? $databaseDefaults::DEFAULT_CONNECTIONS_WARNING) }}"
+                                   class="form-control @error('settings.connections_warning') is-invalid @enderror" required>
+                            @error('settings.connections_warning')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                        </div>
+                        <div class="col-12 form-text mt-1">Alerts: database unreachable (critical), connections above the threshold (warning, 5-minute average).</div>
                     </div>
 
                     <div class="mb-4">

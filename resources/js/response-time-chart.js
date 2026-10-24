@@ -99,8 +99,10 @@ function withGaps(points) {
 function render(canvas, data, chart) {
     const { from, to, points, thresholds, period } = data;
     const series = withGaps(points);
-    // L'axe montre toujours les seuils, même si toutes les mesures sont bien plus basses
-    const yMax = Math.max(thresholds.critical * 1.15, ...points.map(([, y]) => y * 1.1));
+    // L'axe montre toujours les seuils, même si toutes les mesures sont bien plus basses.
+    // Une base de données (SCRUM-71) n'a pas de seuils de temps de réponse : ni lignes, ni marge pour elles.
+    const hasThresholds = thresholds.critical !== null && thresholds.warning !== null;
+    const yMax = Math.max(hasThresholds ? thresholds.critical * 1.15 : 1, ...points.map(([, y]) => y * 1.1));
 
     const datasets = [
         {
@@ -118,8 +120,10 @@ function render(canvas, data, chart) {
             pointHoverBorderWidth: 2,
             pointBackgroundColor: COLORS.line,
         },
-        thresholdDataset('Critical', thresholds.critical, COLORS.critical, from, to),
-        thresholdDataset('Warning', thresholds.warning, COLORS.warning, from, to),
+        ...(hasThresholds ? [
+            thresholdDataset('Critical', thresholds.critical, COLORS.critical, from, to),
+            thresholdDataset('Warning', thresholds.warning, COLORS.warning, from, to),
+        ] : []),
     ];
 
     const options = {

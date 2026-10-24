@@ -71,6 +71,7 @@ class Alert extends Model
             'disk' => 'Disk',
             'container_memory' => 'Memory',
             'restarts' => 'Restarts',
+            'connections' => 'Connections',
             null => 'Zabbix problem',
             default => ucfirst(str_replace('_', ' ', $this->metric)),
         };
@@ -101,6 +102,7 @@ class Alert extends Model
             'cpu', 'memory', 'disk' => ' %',
             'container_memory' => ' MB',
             'restarts' => ' restarts',
+            'connections' => ' connections',
             default => '',
         };
     }

@@ -16,5 +16,6 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->web(append: [SecurityHeaders::class]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        //
+        // Jamais de secret dans la session après une erreur de validation (mot de passe d'une base, SCRUM-71)
+        $exceptions->dontFlash(['current_password', 'password', 'password_confirmation', 'credentials']);
     })->create();

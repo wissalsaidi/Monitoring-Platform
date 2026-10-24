@@ -75,6 +75,7 @@
             $hasResponseTime = ($target->provisioner()->statusItemKeys()['response_time'] ?? null) !== null;
             $isServer = $target->type === \App\Enums\TargetType::Server;
             $isContainer = $target->type === \App\Enums\TargetType::Container;
+            $isDatabase = $target->type === \App\Enums\TargetType::Database;
         @endphp
         <p class="section-label mb-2">Current state</p>
         <div class="row g-3 mb-4">
@@ -97,7 +98,9 @@
                     <span class="kpi-label">Last response time</span>
                     @if ($target->last_response_ms !== null)
                         @php
+                            // Base de données (SCRUM-71) : temps de réponse sans seuils en ms
                             $color = match (true) {
+                                $target->critical_threshold_ms === null => '',
                                 $target->last_response_ms > $target->critical_threshold_ms => 'text-danger',
                                 $target->last_response_ms > $target->warning_threshold_ms => 'text-warning',
                                 default => 'text-success',
@@ -110,6 +113,8 @@
                     @endif
                 </div></div>
             </div>
+            @endif
+            @if ($hasResponseTime && $target->warning_threshold_ms !== null)
             <div class="col-6 col-lg-3">
                 <div class="card kpi-card h-100"><div class="card-body">
                     <span class="kpi-label">Warning above</span>
@@ -126,6 +131,8 @@
                 @include('targets._server-overview', ['part' => 'identity'])
             @elseif ($isContainer)
                 @include('targets._container-overview', ['part' => 'identity'])
+            @elseif ($isDatabase)
+                @include('targets._database-overview', ['part' => 'identity'])
             @endif
         </div>
 
@@ -133,6 +140,8 @@
             @include('targets._server-overview', ['part' => 'resources'])
         @elseif ($isContainer)
             @include('targets._container-overview', ['part' => 'resources'])
+        @elseif ($isDatabase)
+            @include('targets._database-overview', ['part' => 'resources'])
         @endif
 
         {{-- Métriques propres au type (SCRUM-68), recopiées par la synchro : aucun appel Zabbix ici --}}

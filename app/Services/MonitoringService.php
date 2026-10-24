@@ -115,7 +115,10 @@ class MonitoringService
         return DB::transaction(function () use ($target, $before, $data) {
             $target->fill($data);
             $changes = collect($target->getDirty())
-                ->map(fn ($value, $field) => [$before->getAttribute($field), $target->getAttribute($field)])
+                // Secret modifié (mot de passe d'une base, SCRUM-71) : l'audit le signale sans jamais en garder la valeur
+                ->map(fn ($value, $field) => in_array($field, MonitoringTarget::SECRET_ATTRIBUTES, true)
+                    ? ['(hidden)', '(hidden)']
+                    : [$before->getAttribute($field), $target->getAttribute($field)])
                 ->all();
             $target->save();
 
