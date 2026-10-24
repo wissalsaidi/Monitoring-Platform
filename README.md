@@ -203,6 +203,25 @@ docker compose exec zabbix-agent2 zabbix_agent2 -t docker.containers
 docker compose run --rm mysql-monitor-user                            # recrée zbx_monitor (ex. après un changement de mot de passe)
 ```
 
+## Grafana
+
+Grafana lit Zabbix par le datasource du plugin Zabbix (provisionné dans `docker/grafana/provisioning/`).
+Le dashboard **Target overview** (dossier *Monitoring Platform*) sert pour toutes les targets (SCRUM-46) :
+
+- en haut : la team, puis une de ses targets ;
+- disponibilité, code HTTP, disponibilité dans le temps, problèmes Zabbix actifs ;
+- temps de réponse, avec les seuils warning et critical de la target en pointillés.
+
+Il est versionné dans `docker/grafana/provisioning/dashboards/target-overview.json`. On peut le modifier dans Grafana sans
+pouvoir l'enregistrer : on modifie le fichier.
+
+Les seuils viennent de Zabbix : chaque target a des items `platform.threshold[série,niveau]`, mis à jour quand on modifie
+ses seuils. Pour les targets créées avant cette version :
+
+```bash
+docker compose exec -u www-data app php artisan zabbix:sync-thresholds
+```
+
 ## Tests et qualité
 
 ```bash
