@@ -11,11 +11,13 @@ use App\Models\AuditLog;
 use App\Models\MonitoringTarget;
 use App\Monitoring\ProvisionerRegistry;
 use App\Services\MonitoringService;
+use App\Support\MetricRange;
 use App\Support\ZabbixSyncHealth;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class MonitoringTargetController extends Controller
@@ -23,7 +25,7 @@ class MonitoringTargetController extends Controller
     public const PER_PAGE = 15;
 
     /** Onglets de la page d'une target (§14). Metrics et History arrivent en V1. */
-    public const TABS = ['overview', 'alerts', 'configuration'];
+    public const TABS = ['overview', 'metrics', 'alerts', 'configuration'];
 
     /** Liste des targets des teams de l'utilisateur, filtrable par type et par nom (SCRUM-34). */
     public function index(Request $request): View
@@ -154,9 +156,23 @@ class MonitoringTargetController extends Controller
         $activeAlerts->each->setRelation('target', $target);
         $alerts?->getCollection()->each->setRelation('target', $target);
 
+        // Onglet Metrics (SCRUM-49) : période choisie ; dates invalides → 24 h, avec le message d'erreur
+        $range = null;
+        $rangeErrors = null;
+        if ($tab === 'metrics') {
+            try {
+                $range = MetricRange::fromRequest($request, '24h');
+            } catch (ValidationException $e) {
+                $range = MetricRange::preset('24h');
+                $rangeErrors = $e->validator->errors();
+            }
+        }
+
         return view('targets.show', [
             'target' => $target,
             'tab' => $tab,
+            'range' => $range,
+            'rangeErrors' => $rangeErrors,
             'intervals' => MonitoringTarget::CHECK_INTERVALS,
             'activeAlerts' => $activeAlerts,
             'alertCount' => $target->alerts()->count(),

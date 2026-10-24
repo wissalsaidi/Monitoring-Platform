@@ -6,6 +6,7 @@ use App\Exceptions\Zabbix\ZabbixException;
 use App\Models\MonitoringTarget;
 use App\Monitoring\ZabbixProvisioner;
 use App\Rules\PublicUrl;
+use App\Services\MetricsService;
 
 /**
  * Check HTTP commun à l'API et au site web (SCRUM-38, puis SCRUM-68) : web scenario à une étape
@@ -82,6 +83,21 @@ abstract class HttpCheckProvisioner extends ZabbixProvisioner
     public function metricItemKeys(): array
     {
         return ['http_code' => $this->responseCodeKey()];
+    }
+
+    /** Graphiques : temps de réponse, puis code HTTP (SCRUM-49) ; la disponibilité est ajoutée par la classe de base */
+    protected function metricSeries(): array
+    {
+        return [
+            ...parent::metricSeries(),
+            'http_code' => ['label' => 'HTTP code', 'key' => $this->responseCodeKey(), 'unit' => '', 'scale' => 1, 'value_type' => self::VALUE_TYPE_UNSIGNED],
+        ];
+    }
+
+    /** web.test.fail vaut 0 quand toutes les étapes ont réussi (sinon, le numéro de l'étape en échec) */
+    protected function upWhen(): string
+    {
+        return MetricsService::UP_WHEN_ZERO;
     }
 
     public function threshold(MonitoringTarget $target, string $level): int|float|null

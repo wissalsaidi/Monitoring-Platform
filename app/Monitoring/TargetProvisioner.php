@@ -87,9 +87,10 @@ interface TargetProvisioner
     /**
      * Séries affichables en graphique sur la page de la target (SCRUM-72), lues dans l'historique Zabbix :
      * nom → libellé, clé d'item, unité affichée, facteur (valeur Zabbix × scale) et type de valeur Zabbix (0 flottant, 3 entier).
-     * La première série est affichée par défaut.
+     * Clé facultative availability (SCRUM-49) : la série est une disponibilité en % (MetricsService::UP_WHEN_*).
+     * La première série est affichée par défaut ; la disponibilité est toujours la dernière.
      *
-     * @return array<string, array{label: string, key: string, unit: string, scale: float|int, value_type: int}>
+     * @return array<string, array{label: string, key: string, unit: string, scale: float|int, value_type: int, availability?: string}>
      */
     public function chartSeries(): array;
 
