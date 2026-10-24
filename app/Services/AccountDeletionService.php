@@ -6,6 +6,7 @@ use App\Enums\TeamRole;
 use App\Exceptions\GrafanaException;
 use App\Exceptions\TeamMembershipException;
 use App\Exceptions\Zabbix\ZabbixException;
+use App\Models\AlertNotification;
 use App\Models\AuditLog;
 use App\Models\Team;
 use App\Models\TeamInvitation;
@@ -81,6 +82,8 @@ class AccountDeletionService
             }
 
             $this->anonymizeAuditLog($user, $email);
+            // Historique des notifications (SCRUM-52) : gardé, sans l'adresse email
+            AlertNotification::where('user_id', $user->id)->orWhere('recipient', $email)->update(['recipient' => self::ANONYMOUS]);
 
             TeamInvitation::where('email', $email)->delete();
             DB::table('password_reset_tokens')->where('email', $email)->delete();
