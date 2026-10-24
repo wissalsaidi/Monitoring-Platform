@@ -2,18 +2,22 @@
 
 namespace App\Jobs;
 
+use App\Enums\NotificationEvent;
 use App\Enums\NotificationStatus;
 use App\Mail\AlertOpenedMail;
+use App\Mail\AlertResolvedMail;
 use App\Models\AlertNotification;
+use App\Services\IncidentHistoryService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Mail\Mailable;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Throwable;
 
 /**
- * Envoie une notification d'alerte (SCRUM-53), par la queue Redis : la synchro Zabbix n'attend jamais le serveur mail.
+ * Envoie une notification d'alerte (SCRUM-53 ouverture, SCRUM-54 résolution), par la queue Redis : la synchro Zabbix n'attend jamais le serveur mail.
  * Échec SMTP : nouvelles tentatives (après 30 s puis 2 min), puis notification en échec et journalisée. L'utilisateur
  * ne voit aucune erreur ; l'historique des notifications (SCRUM-56) montrera l'échec.
  */
@@ -40,7 +44,7 @@ class SendAlertNotification implements ShouldQueue
         $notification->increment('attempts');
 
         try {
-            Mail::to($notification->recipient)->send(new AlertOpenedMail($notification->alert));
+            Mail::to($notification->recipient)->send($this->mail($notification));
         } catch (Throwable $e) {
             $notification->update(['error' => Str::limit($e->getMessage(), 490)]);
 
@@ -48,6 +52,20 @@ class SendAlertNotification implements ShouldQueue
         }
 
         $notification->update(['status' => NotificationStatus::Sent, 'sent_at' => now(), 'error' => null]);
+    }
+
+    /** Email de l'événement : ouverture (SCRUM-53) ou résolution, avec la valeur maximale de l'incident si connue (SCRUM-54) */
+    private function mail(AlertNotification $notification): Mailable
+    {
+        $alert = $notification->alert;
+
+        return match ($notification->event) {
+            NotificationEvent::Opened => new AlertOpenedMail($alert),
+            NotificationEvent::Resolved => new AlertResolvedMail(
+                $alert,
+                app(IncidentHistoryService::class)->peaks($alert->target, collect([$alert]))[$alert->id] ?? null,
+            ),
+        };
     }
 
     /** Toutes les tentatives ont échoué */
