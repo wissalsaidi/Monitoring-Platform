@@ -108,9 +108,13 @@ class TargetDetailTest extends TestCase
             ->assertSee(['http://fake-api:8080/health', '30 seconds', 'Warning &gt; 500 ms', 'Critical &gt; 1,000 ms', 'target-'.$this->target->id, '10684', 'api-check'], false);
     }
 
-    public function test_metrics_and_history_tabs_are_announced_for_v1(): void
+    public function test_metrics_and_history_tabs_are_available(): void
     {
-        $this->page()->assertSee(['Metrics', 'History', 'Coming in V1']);
+        $this->page()
+            ->assertSee(['Metrics', 'History'])
+            ->assertDontSee('Coming in V1')
+            ->assertSee(e(route('targets.show', [$this->target, 'tab' => 'metrics'])), false)
+            ->assertSee(e(route('targets.show', [$this->target, 'tab' => 'history'])), false);
     }
 
     public function test_an_unknown_tab_falls_back_to_the_overview(): void

@@ -91,6 +91,12 @@ abstract class ZabbixProvisioner implements TargetProvisioner
         ];
     }
 
+    /** Par défaut : la série du même nom que la métrique de l'alerte (response_time, cpu, connections…). */
+    public function incidentSeries(string $metric): ?string
+    {
+        return array_key_exists($metric, $this->metricSeries()) ? $metric : null;
+    }
+
     /** Séries propres au type. Par défaut : le temps de réponse, si le type en a un (Zabbix le mesure en secondes, affiché en ms). */
     protected function metricSeries(): array
     {

@@ -213,7 +213,15 @@ Sur la page d'une target, l'onglet **Metrics** (SCRUM-49) montre chaque métriqu
 - à partir de 7 jours, les tendances horaires de Zabbix remplacent l'historique : 30 jours s'affichent en moins d'une
   seconde.
 
-## Grafana
+## Onglet History
+
+L'onglet **History** d'une target (SCRUM-50) :
+
+- disponibilité sur 24 h, 7 jours et 30 jours : part des checks réussis, « — » quand il n'y a aucune mesure ;
+- frise des incidents sur la période choisie (24 h, 7 j, 30 j ou dates), couleur de leur sévérité ;
+- liste des incidents : début, fin, durée, sévérité, **valeur maximale** atteinte pendant l'incident (lue dans Zabbix,
+  gardée une fois l'incident résolu) et seuil.
+
 
 Grafana lit Zabbix par le datasource du plugin Zabbix (provisionné dans `docker/grafana/provisioning/`).
 

@@ -245,6 +245,29 @@ $rail-width: 64px;
     }
 }
 
+// Frise des incidents de l'onglet History (SCRUM-50) : un segment par incident, couleur de sa sévérité
+.incident-timeline {
+    position: relative;
+    height: 2.25rem;
+    border-radius: .5rem;
+    background: rgba($success, .14);       // pas d'incident : la target allait bien
+    overflow: hidden;
+}
+
+.incident-segment {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    min-width: 3px;
+    opacity: .9;
+}
+
+@each $severity, $color in (info: $info, warning: $warning, high: #f2844b, critical: $danger) {
+    .incident-segment-#{$severity} {
+        background: $color;
+    }
+}
+
 @each $status, $color in (up: $success, warning: $warning, critical: $danger, unknown: $secondary) {
     .status-#{$status} {
         color: lighten($color, 6%);

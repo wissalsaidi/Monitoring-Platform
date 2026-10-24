@@ -160,6 +160,12 @@ class ContainerProvisioner extends ZabbixProvisioner
         ];
     }
 
+    /** Alerte mémoire d'un conteneur : métrique container_memory, série memory (Mo, comme la valeur de l'alerte) */
+    public function incidentSeries(string $metric): ?string
+    {
+        return $metric === 'container_memory' ? 'memory' : parent::incidentSeries($metric);
+    }
+
     public function chartThresholds(MonitoringTarget $target, string $series): array
     {
         return $series === 'memory'

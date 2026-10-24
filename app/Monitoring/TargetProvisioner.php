@@ -95,6 +95,12 @@ interface TargetProvisioner
     public function chartSeries(): array;
 
     /**
+     * Série dont on lit la valeur maximale pendant un incident (SCRUM-50), selon la métrique de l'alerte (tag "metric") ;
+     * null si elle n'en a pas (disponibilité, certificat, redémarrages). Même unité que la valeur de l'alerte.
+     */
+    public function incidentSeries(string $metric): ?string;
+
+    /**
      * Seuils tracés sur le graphique d'une série, dans son unité (null : pas de ligne).
      *
      * @return array{warning: int|float|null, critical: int|float|null}

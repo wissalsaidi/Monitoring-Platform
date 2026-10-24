@@ -38,12 +38,12 @@
                 <span><i class="bi bi-calendar3 me-1"></i>Created {{ $target->created_at->diffForHumans() }}{{ $target->creator ? ' by '.$target->creator->name : '' }}</span>
             </div>
 
-            {{-- Onglets du cahier des charges §14 : Metrics en SCRUM-49, History à venir (SCRUM-50) --}}
+            {{-- Onglets du cahier des charges §14 : Metrics (SCRUM-49), History (SCRUM-50) --}}
             @php
                 $tabs = [
                     'overview' => 'Overview',
                     'metrics' => 'Metrics',
-                    'history' => null,
+                    'history' => 'History',
                     'alerts' => 'Alerts',
                     'configuration' => 'Configuration',
                 ];
@@ -51,17 +51,13 @@
             <ul class="nav nav-underline mt-4 small">
                 @foreach ($tabs as $key => $label)
                     <li class="nav-item">
-                        @if ($label === null)
-                            <span class="nav-link disabled" title="Coming in V1">{{ ucfirst($key) }}</span>
-                        @else
-                            <a class="nav-link {{ $tab === $key ? 'active' : '' }}" @if ($tab === $key) aria-current="page" @endif
-                               href="{{ route('targets.show', $key === 'overview' ? $target : [$target, 'tab' => $key]) }}">
-                                {{ $label }}
-                                @if ($key === 'alerts' && $alertCount > 0)
-                                    <span class="badge {{ $activeAlerts->isNotEmpty() ? 'text-bg-danger' : 'text-bg-secondary' }} ms-1">{{ $alertCount }}</span>
-                                @endif
-                            </a>
-                        @endif
+                        <a class="nav-link {{ $tab === $key ? 'active' : '' }}" @if ($tab === $key) aria-current="page" @endif
+                           href="{{ route('targets.show', $key === 'overview' ? $target : [$target, 'tab' => $key]) }}">
+                            {{ $label }}
+                            @if ($key === 'alerts' && $alertCount > 0)
+                                <span class="badge {{ $activeAlerts->isNotEmpty() ? 'text-bg-danger' : 'text-bg-secondary' }} ms-1">{{ $alertCount }}</span>
+                            @endif
+                        </a>
                     </li>
                 @endforeach
             </ul>
@@ -258,40 +254,7 @@
         </div>
     @elseif ($tab === 'metrics')
         {{-- Onglet Metrics (SCRUM-49) : une carte par série (valeur actuelle, moyenne, min, max, graphique), même période pour toutes --}}
-        @php
-            $today = now()->setTimezone(config('app.display_timezone'))->toDateString();
-        @endphp
-        <div class="card mb-4">
-            <div class="card-body d-flex flex-wrap align-items-end gap-3">
-                <div>
-                    <div class="kpi-label mb-1">Period</div>
-                    <div class="btn-group btn-group-sm" role="group" aria-label="Period">
-                        @foreach (\App\Services\MetricsService::PERIODS as $period => $seconds)
-                            <a class="btn btn-outline-secondary {{ $range->period === $period ? 'active' : '' }}" @if ($range->period === $period) aria-current="true" @endif
-                               href="{{ route('targets.show', [$target, 'tab' => 'metrics', 'period' => $period]) }}">{{ $period }}</a>
-                        @endforeach
-                    </div>
-                </div>
-                <form method="GET" action="{{ route('targets.show', $target) }}" class="d-flex flex-wrap align-items-end gap-2" aria-label="Custom period">
-                    <input type="hidden" name="tab" value="metrics">
-                    <div>
-                        <label for="metrics-from" class="kpi-label d-block mb-1">From</label>
-                        <input type="date" id="metrics-from" name="from" class="form-control form-control-sm" required max="{{ $today }}" value="{{ $range->fromDate }}">
-                    </div>
-                    <div>
-                        <label for="metrics-to" class="kpi-label d-block mb-1">To</label>
-                        <input type="date" id="metrics-to" name="to" class="form-control form-control-sm" required max="{{ $today }}" value="{{ $range->toDate }}">
-                    </div>
-                    <button type="submit" class="btn btn-sm {{ $range->isCustom() ? 'btn-primary' : 'btn-outline-primary' }}">Apply</button>
-                </form>
-                <span class="ms-lg-auto small text-body-secondary"><i class="bi bi-calendar3 me-1"></i>{{ $range->label() }}</span>
-            </div>
-            @if ($rangeErrors)
-                <div class="alert alert-warning small mx-3 mb-3" role="alert">
-                    {{ implode(' ', $rangeErrors->all()) }} Showing the last 24 hours.
-                </div>
-            @endif
-        </div>
+        @include('targets._period-bar')
 
         @foreach ($target->provisioner()->chartSeries() as $metric => $series)
             <div class="card mb-4" data-metric-chart data-url="{{ route('targets.metrics', [$target, $metric]) }}" data-query="{{ json_encode($range->query()) }}">
@@ -312,6 +275,117 @@
                 </div>
             </div>
         @endforeach
+    @elseif ($tab === 'history')
+        {{-- Onglet History (SCRUM-50) : disponibilité, frise et liste des incidents ; « — » quand il n'y a pas de mesure --}}
+        <p class="section-label mb-2">Availability</p>
+        <div class="row g-3 mb-4">
+            @foreach ($history['availability'] as $period => $value)
+                @php
+                    $color = match (true) {
+                        $value === null => 'text-body-secondary',
+                        $value >= 99.9 => 'text-success',
+                        $value >= 99 => 'text-warning',
+                        default => 'text-danger',
+                    };
+                @endphp
+                <div class="col-12 col-md-4">
+                    <div class="card kpi-card h-100"><div class="card-body">
+                        <span class="kpi-label">Last {{ \App\Services\MetricsService::PERIOD_LABELS[$period] }}</span>
+                        <div class="kpi-value {{ $color }}" data-availability="{{ $period }}">
+                            @if ($value === null)
+                                —
+                            @else
+                                {{ number_format($value, $value >= 99.995 || $value == floor($value) ? 0 : 2) }}<small class="fs-6 text-body-secondary ms-1">%</small>
+                            @endif
+                        </div>
+                        <span class="small text-body-secondary">{{ $value === null ? 'No measure over this period' : 'of checks succeeded' }}</span>
+                    </div></div>
+                </div>
+            @endforeach
+        </div>
+        @if ($history['zabbixFailed'])
+            <div class="alert alert-warning d-flex align-items-center gap-2" role="status">
+                <i class="bi bi-exclamation-triangle"></i>
+                <span>Some values are temporarily unavailable from the monitoring service.</span>
+            </div>
+        @endif
+
+        @include('targets._period-bar', ['periods' => ['24h', '7d', '30d']])
+
+        <div class="card mb-4">
+            <div class="card-header d-flex align-items-center py-3">
+                <span class="fw-semibold">Incidents</span>
+                <span class="badge {{ $history['total'] > 0 ? 'text-bg-danger' : 'text-bg-secondary' }} ms-2">{{ $history['total'] }}</span>
+            </div>
+            <div class="card-body">
+                @php
+                    $span = max(1, $range->to - $range->from);
+                    $timezone = config('app.display_timezone');
+                @endphp
+                <div class="incident-timeline" role="img" aria-label="{{ $history['total'] }} {{ \Illuminate\Support\Str::plural('incident', $history['total']) }}, {{ \Illuminate\Support\Str::lower($range->label()) }}">
+                    @foreach ($history['timeline'] as $incident)
+                        @php
+                            $start = max($incident->started_at->timestamp, $range->from);
+                            $end = min(($incident->resolved_at ?? now())->timestamp, $range->to);
+                            $left = ($start - $range->from) / $span * 100;
+                            $width = max(0, $end - $start) / $span * 100;
+                        @endphp
+                        <span class="incident-segment incident-segment-{{ $incident->severity->value }}" style="left: {{ round($left, 3) }}%; width: {{ round($width, 3) }}%"
+                              title="{{ $incident->severity->label() }} · {{ $incident->message }} · {{ $incident->started_at->toDisplay()->format('d/m H:i') }} → {{ $incident->resolved_at?->toDisplay()->format('d/m H:i') ?? 'ongoing' }}"></span>
+                    @endforeach
+                </div>
+                <div class="d-flex justify-content-between small text-body-secondary mt-1">
+                    <span>{{ \Carbon\CarbonImmutable::createFromTimestamp($range->from, $timezone)->format('d/m H:i') }}</span>
+                    <span>{{ \Carbon\CarbonImmutable::createFromTimestamp($range->to, $timezone)->format('d/m H:i') }}</span>
+                </div>
+            </div>
+
+            @if ($history['incidents']->isEmpty())
+                <div class="card-body text-center pt-0 pb-4">
+                    <i class="bi bi-check-circle text-success fs-3"></i>
+                    <p class="mb-0 mt-2 small text-body-secondary">No incident over this period.</p>
+                </div>
+            @else
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th class="ps-3">Started</th>
+                                <th>Resolved</th>
+                                <th class="text-end">Duration</th>
+                                <th>Severity</th>
+                                <th class="text-end">Maximum</th>
+                                <th class="text-end pe-3">Threshold</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach ($history['incidents'] as $incident)
+                                <tr>
+                                    <td class="ps-3 small text-nowrap"><time datetime="{{ $incident->started_at->toIso8601String() }}">{{ $incident->started_at->toDisplay()->format('d/m/Y H:i') }}</time></td>
+                                    <td class="small text-nowrap">
+                                        @if ($incident->resolved_at)
+                                            <time datetime="{{ $incident->resolved_at->toIso8601String() }}">{{ $incident->resolved_at->toDisplay()->format('d/m/Y H:i') }}</time>
+                                        @else
+                                            <span class="text-danger">Ongoing</span>
+                                        @endif
+                                    </td>
+                                    <td class="text-end small text-nowrap">{{ $incident->durationForHumans() }}</td>
+                                    <td class="text-nowrap">
+                                        <x-severity-badge :severity="$incident->severity" />
+                                        <span class="small text-body-secondary ms-1">{{ $incident->metricLabel() }}</span>
+                                    </td>
+                                    <td class="text-end small text-nowrap fw-semibold">{{ $incident->peakLabel($history['peaks'][$incident->id] ?? null) ?? '—' }}</td>
+                                    <td class="text-end small text-nowrap text-body-secondary pe-3">{{ $incident->thresholdLabel() ?? '—' }}</td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+                @if ($history['incidents']->hasPages())
+                    <div class="card-footer pt-3 small">{{ $history['incidents']->onEachSide(1)->links() }}</div>
+                @endif
+            @endif
+        </div>
     @elseif ($tab === 'alerts')
         <div class="card">
             @if ($alerts->isEmpty())

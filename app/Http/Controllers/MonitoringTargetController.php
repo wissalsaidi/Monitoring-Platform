@@ -10,11 +10,13 @@ use App\Http\Requests\UpdateTargetRequest;
 use App\Models\AuditLog;
 use App\Models\MonitoringTarget;
 use App\Monitoring\ProvisionerRegistry;
+use App\Services\IncidentHistoryService;
 use App\Services\MonitoringService;
 use App\Support\MetricRange;
 use App\Support\ZabbixSyncHealth;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -25,7 +27,12 @@ class MonitoringTargetController extends Controller
     public const PER_PAGE = 15;
 
     /** Onglets de la page d'une target (§14). Metrics et History arrivent en V1. */
-    public const TABS = ['overview', 'metrics', 'alerts', 'configuration'];
+    public const TABS = ['overview', 'metrics', 'history', 'alerts', 'configuration'];
+
+    /** Onglet History (SCRUM-50) : incidents par page, et au plus sur la frise */
+    public const INCIDENTS_PER_PAGE = 20;
+
+    public const TIMELINE_MAX = 300;
 
     /** Liste des targets des teams de l'utilisateur, filtrable par type et par nom (SCRUM-34). */
     public function index(Request $request): View
@@ -156,17 +163,21 @@ class MonitoringTargetController extends Controller
         $activeAlerts->each->setRelation('target', $target);
         $alerts?->getCollection()->each->setRelation('target', $target);
 
-        // Onglet Metrics (SCRUM-49) : période choisie ; dates invalides → 24 h, avec le message d'erreur
+        // Onglets Metrics (SCRUM-49, 24 h par défaut) et History (SCRUM-50, 7 j) : période choisie ;
+        // dates invalides → période par défaut, avec le message d'erreur
         $range = null;
         $rangeErrors = null;
-        if ($tab === 'metrics') {
+        if (in_array($tab, ['metrics', 'history'], true)) {
+            $default = $tab === 'metrics' ? '24h' : '7d';
             try {
-                $range = MetricRange::fromRequest($request, '24h');
+                $range = MetricRange::fromRequest($request, $default);
             } catch (ValidationException $e) {
-                $range = MetricRange::preset('24h');
+                $range = MetricRange::preset($default);
                 $rangeErrors = $e->validator->errors();
             }
         }
+
+        $history = $tab === 'history' ? $this->history($target, $range) : null;
 
         return view('targets.show', [
             'target' => $target,
@@ -178,6 +189,36 @@ class MonitoringTargetController extends Controller
             'alertCount' => $target->alerts()->count(),
             'alerts' => $alerts,
             'zabbixFailing' => ZabbixSyncHealth::isFailing(),
+            'history' => $history,
         ]);
+    }
+
+    /**
+     * Onglet History (SCRUM-50) : incidents (alertes) qui touchent la période, frise et tableau paginé,
+     * valeur maximale de chaque incident du tableau, disponibilité sur 24 h, 7 j et 30 j.
+     */
+    private function history(MonitoringTarget $target, MetricRange $range): array
+    {
+        $from = Carbon::createFromTimestamp($range->from);
+        $to = Carbon::createFromTimestamp($range->to);
+        // Incident commencé avant la fin de la période et pas terminé avant son début
+        $inRange = fn () => $target->alerts()
+            ->where('started_at', '<=', $to)
+            ->where(fn ($query) => $query->whereNull('resolved_at')->orWhere('resolved_at', '>=', $from));
+
+        $incidents = $inRange()->orderByDesc('started_at')->orderByDesc('id')
+            ->paginate(self::INCIDENTS_PER_PAGE)->withQueryString();
+        $service = app(IncidentHistoryService::class);
+        $availability = $service->availability($target);
+        $peaks = $service->peaks($target, $incidents->getCollection());
+
+        return [
+            'incidents' => $incidents,
+            'timeline' => $inRange()->orderBy('started_at')->limit(self::TIMELINE_MAX)->get(['id', 'severity', 'metric', 'message', 'started_at', 'resolved_at']),
+            'total' => $incidents->total(),
+            'peaks' => $peaks,
+            'availability' => $availability,
+            'zabbixFailed' => $service->zabbixFailed,
+        ];
     }
 }
