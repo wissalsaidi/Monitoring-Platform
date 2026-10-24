@@ -23,6 +23,18 @@ class Team extends Model
         return ['grafana_org_id' => 'integer'];
     }
 
+    /** Toute nouvelle team reçoit les règles de notification par défaut (SCRUM-52) */
+    protected static function booted(): void
+    {
+        static::created(fn (Team $team) => $team->alertRules()->createMany(AlertRule::defaults()));
+    }
+
+    /** Règles de notification (SCRUM-52) */
+    public function alertRules(): HasMany
+    {
+        return $this->hasMany(AlertRule::class);
+    }
+
     public function members(): BelongsToMany
     {
         return $this->belongsToMany(User::class, 'team_members')
