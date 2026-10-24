@@ -10,40 +10,16 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 
 /**
- * Onglet History d'une target (SCRUM-50) : disponibilité sur 24 h, 7 j et 30 j, et valeur maximale atteinte pendant
- * chaque incident. Rien d'inventé : null (affiché « — ») quand Zabbix n'a aucune mesure, ou ne répond pas.
+ * Onglet History d'une target (SCRUM-50) : valeur maximale atteinte pendant chaque incident. Rien d'inventé : null
+ * (affiché « — ») quand Zabbix n'a aucune mesure, ou ne répond pas. La disponibilité, le temps de réponse moyen,
+ * les incidents et le MTTR viennent des statistiques journalières (StatisticsService, SCRUM-51).
  */
 class IncidentHistoryService
 {
-    /** Périodes de la disponibilité affichée en haut de l'onglet */
-    public const AVAILABILITY_PERIODS = ['24h', '7d', '30d'];
-
     /** true si Zabbix n'a pas répondu pendant le dernier calcul : la page le signale */
     public bool $zabbixFailed = false;
 
     public function __construct(private readonly MetricsService $metrics) {}
-
-    /**
-     * Disponibilité en % sur chaque période (moyenne de la série « availability », SCRUM-49) ; null sans mesure.
-     *
-     * @return array<string, ?float> ['24h' => 99.8, '7d' => 100.0, '30d' => null]
-     */
-    public function availability(MonitoringTarget $target): array
-    {
-        $availability = [];
-
-        foreach (self::AVAILABILITY_PERIODS as $period) {
-            try {
-                $stats = $this->metrics->series($target, 'availability', $period)['stats'];
-                $availability[$period] = $stats['count'] > 0 ? $stats['avg'] : null;
-            } catch (ZabbixException $e) {
-                $this->zabbixFailed = true;
-                $availability[$period] = null;
-            }
-        }
-
-        return $availability;
-    }
 
     /**
      * Valeur maximale de chaque incident, dans l'unité de la valeur de l'alerte : le max des mesures de Zabbix entre

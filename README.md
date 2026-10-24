@@ -217,7 +217,10 @@ Sur la page d'une target, l'onglet **Metrics** (SCRUM-49) montre chaque métriqu
 
 L'onglet **History** d'une target (SCRUM-50) :
 
-- disponibilité sur 24 h, 7 jours et 30 jours : part des checks réussis, « — » quand il n'y a aucune mesure ;
+- disponibilité aujourd'hui, sur 7 et sur 30 jours, nombre d'incidents, durée moyenne de résolution (MTTR) et temps
+  de réponse moyen : **statistiques journalières** calculées chaque heure (`php artisan stats:compute`, SCRUM-51), sans
+  appel à Zabbix à l'affichage. Disponibilité = la plus basse de la part des checks réussis et de la part du temps hors
+  incident « indisponible » ; « — » quand il n'y a aucune mesure. Le dashboard en montre le résumé sur 7 jours ;
 - frise des incidents sur la période choisie (24 h, 7 j, 30 j ou dates), couleur de leur sévérité ;
 - liste des incidents : début, fin, durée, sévérité, **valeur maximale** atteinte pendant l'incident (lue dans Zabbix,
   gardée une fois l'incident résolu) et seuil.

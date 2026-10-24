@@ -8,6 +8,7 @@ use App\Enums\TargetType;
 use App\Enums\TeamRole;
 use App\Models\Alert;
 use App\Models\MonitoringTarget;
+use App\Models\TargetDailyStat;
 use App\Models\Team;
 use App\Models\User;
 use Carbon\CarbonImmutable;
@@ -56,42 +57,44 @@ class HistoryTabTest extends TestCase
         ]);
     }
 
-    public function test_the_history_tab_shows_the_availability_over_24_hours_7_days_and_30_days(): void
+    public function test_the_history_tab_reads_the_precomputed_statistics_without_calling_zabbix(): void
     {
-        // web.test.fail : 1 échec sur 4 → 75 %
-        $this->zabbixHistory = [
-            ['clock' => '1792850000', 'value' => '0'], ['clock' => '1792850060', 'value' => '1'],
-            ['clock' => '1792850120', 'value' => '0'], ['clock' => '1792850180', 'value' => '0'],
-        ];
+        // Aujourd'hui 75 %, il y a 3 jours 100 % (journée entière), il y a 20 jours 50 %
+        TargetDailyStat::create(['monitoring_target_id' => $this->api->id, 'date' => '2026-10-24', 'covered_seconds' => 61200, 'checks' => 100,
+            'availability' => 75, 'avg_response_ms' => 200, 'response_samples' => 100, 'incidents' => 2, 'resolved_incidents' => 2, 'mttr_seconds' => 600, 'computed_at' => now()]);
+        TargetDailyStat::create(['monitoring_target_id' => $this->api->id, 'date' => '2026-10-21', 'covered_seconds' => 86400, 'checks' => 1440,
+            'availability' => 100, 'avg_response_ms' => 100, 'response_samples' => 300, 'incidents' => 0, 'resolved_incidents' => 0, 'computed_at' => now()]);
+        TargetDailyStat::create(['monitoring_target_id' => $this->api->id, 'date' => '2026-10-04', 'covered_seconds' => 86400, 'checks' => 1440,
+            'availability' => 50, 'incidents' => 1, 'resolved_incidents' => 1, 'mttr_seconds' => 3000, 'computed_at' => now()]);
 
         $this->history()
             ->assertOk()
             ->assertSeeInOrder(['Overview', 'Metrics', 'History', 'Alerts'])
-            ->assertSeeInOrder(['Last 24 hours', '75', 'Last 7 days', '75', 'Last 30 days', '75'])
-            ->assertSee('of checks succeeded');
+            ->assertSeeInOrder(['Today', '75', 'Last 7 days', '89.63', 'Last 30 days', '75'], false)
+            ->assertSeeInOrder(['Incidents · 30 days', '3', 'Mean time to resolve · 30 days', '23m 20s', 'Average response · 7 days', '125'])
+            ->assertSee('Updated 24/10 17:00');
 
-        // Une série de disponibilité par période, 7 et 30 jours sur les tendances
-        $this->assertSame(['web.test.fail[api-check]'], $this->callsTo('item.get')[0]['filter']['key_']);
-        $this->assertCount(2, $this->callsTo('trend.get'));
+        $this->assertSame([], $this->callsTo('history.get'));
+        $this->assertSame([], $this->callsTo('trend.get'));
     }
 
-    public function test_no_measure_shows_a_dash_not_a_number(): void
+    public function test_without_statistics_yet_every_figure_is_a_dash(): void
     {
         $this->history()
             ->assertOk()
+            ->assertSee('Statistics are computed every hour.')
             ->assertSee('No measure over this period')
-            ->assertDontSee('of checks succeeded');
+            ->assertSeeInOrder(['Incidents · 30 days', '—', 'Mean time to resolve · 30 days', '—', 'Average response · 7 days', '—']);
     }
 
-    public function test_zabbix_down_shows_dashes_and_a_generic_message(): void
+    public function test_zabbix_down_while_reading_a_peak_shows_a_dash_and_a_generic_message(): void
     {
+        $this->incident(['value' => null]);
         $this->failOn('history.get');
-        $this->failOn('trend.get');
 
         $this->history()
             ->assertOk()
             ->assertSee('Some values are temporarily unavailable from the monitoring service.')
-            ->assertSee('No measure over this period')
             ->assertDontSee('Invalid params');
     }
 
@@ -200,7 +203,7 @@ class HistoryTabTest extends TestCase
 
     public function test_custom_dates_and_invalid_dates(): void
     {
-        $this->incident(['started_at' => CarbonImmutable::parse('2026-10-05 10:00', 'Europe/Paris'), 'resolved_at' => CarbonImmutable::parse('2026-10-05 11:00', 'Europe/Paris'), 'peak_value' => 777]);
+        $this->incident(['started_at' => CarbonImmutable::parse('2026-10-05 10:00', 'Europe/Paris')->utc(), 'resolved_at' => CarbonImmutable::parse('2026-10-05 11:00', 'Europe/Paris')->utc(), 'peak_value' => 777]);
 
         $this->history(['from' => '2026-10-05', 'to' => '2026-10-05'])->assertSee('05/10/2026')->assertSee('777 ms');
         $this->history(['from' => '2026-10-05', 'to' => '2026-11-05'])

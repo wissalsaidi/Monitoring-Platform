@@ -70,6 +70,32 @@
         @endforeach
     </div>
 
+    {{-- 7 derniers jours, précalculés chaque heure (SCRUM-51) --}}
+    <div class="card mb-4">
+        <div class="card-body d-flex flex-wrap align-items-center gap-4 py-3">
+            <span class="section-label mb-0">Last 7 days</span>
+            <div>
+                <span class="kpi-label d-block">Availability</span>
+                <span class="fs-5 fw-semibold {{ \App\Support\StatFormat::availabilityColor($summary['availability']) }}" data-summary="availability">{{ $summary['availability'] === null ? '—' : \App\Support\StatFormat::percent($summary['availability']).' %' }}</span>
+            </div>
+            <div>
+                <span class="kpi-label d-block">Incidents</span>
+                <span class="fs-5 fw-semibold" data-summary="incidents">{{ $summary['computed_at'] ? number_format($summary['incidents']) : '—' }}</span>
+            </div>
+            <div>
+                <span class="kpi-label d-block">Mean time to resolve</span>
+                <span class="fs-5 fw-semibold" data-summary="mttr">{{ \App\Support\StatFormat::duration($summary['mttr_seconds']) ?? '—' }}</span>
+            </div>
+            <div>
+                <span class="kpi-label d-block">Average response</span>
+                <span class="fs-5 fw-semibold" data-summary="response">{{ $summary['avg_response_ms'] === null ? '—' : number_format($summary['avg_response_ms']).' ms' }}</span>
+            </div>
+            <span class="small text-body-secondary ms-lg-auto">
+                {{ $summary['computed_at'] ? 'Updated '.$summary['computed_at']->toDisplay()->format('d/m H:i') : 'Statistics are computed every hour.' }}
+            </span>
+        </div>
+    </div>
+
     <div class="card mb-4">
         <div class="card-header d-flex align-items-center py-3">
             <span class="fw-semibold">Monitoring targets</span>
