@@ -191,6 +191,46 @@ class ZabbixService
         return $this->call('history.get', ['output' => 'extend', ...$params]);
     }
 
+    // ─── Utilisateurs Zabbix en lecture seule des teams, pour Grafana (SCRUM-48) ───
+    // Les paramètres des appels ne sont jamais journalisés : un mot de passe passé ici ne finit pas dans les logs.
+
+    public function getUserGroups(array $params = []): array
+    {
+        return $this->call('usergroup.get', $params);
+    }
+
+    /** @return string id du groupe créé */
+    public function createUserGroup(array $params): string
+    {
+        return $this->call('usergroup.create', $params)['usrgrpids'][0];
+    }
+
+    public function deleteUserGroups(string ...$groupIds): void
+    {
+        $this->call('usergroup.delete', $groupIds);
+    }
+
+    public function getUsers(array $params = []): array
+    {
+        return $this->call('user.get', $params);
+    }
+
+    /** @return string id de l'utilisateur créé */
+    public function createUser(array $params): string
+    {
+        return $this->call('user.create', $params)['userids'][0];
+    }
+
+    public function updateUser(string $userId, array $params): void
+    {
+        $this->call('user.update', ['userid' => $userId, ...$params]);
+    }
+
+    public function deleteUsers(string ...$userIds): void
+    {
+        $this->call('user.delete', $userIds);
+    }
+
     /**
      * Appel JSON-RPC brut. Renvoie le champ "result" de la réponse.
      *

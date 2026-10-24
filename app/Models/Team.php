@@ -15,7 +15,13 @@ class Team extends Model
 
     public const DEFAULT_NAME = 'Default';
 
-    protected $fillable = ['name', 'zabbix_hostgroup_id'];
+    /** grafana_org_id, zabbix_usrgrp_id, zabbix_user_id : accès à Grafana de la team (SCRUM-48, GrafanaAccessService) */
+    protected $fillable = ['name', 'zabbix_hostgroup_id', 'grafana_org_id', 'zabbix_usrgrp_id', 'zabbix_user_id'];
+
+    protected function casts(): array
+    {
+        return ['grafana_org_id' => 'integer'];
+    }
 
     public function members(): BelongsToMany
     {

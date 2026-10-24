@@ -59,6 +59,12 @@ trait FakesZabbix
     /** @var array<int, array> réponse de host.get */
     protected array $zabbixHosts = [];
 
+    /** @var array<string, array> groupes d'utilisateurs Zabbix existants (usrgrpid → groupe), SCRUM-48 */
+    protected array $zabbixUserGroups = [];
+
+    /** @var array<string, array> utilisateurs Zabbix existants (userid → utilisateur), SCRUM-48 */
+    protected array $zabbixUsers = [];
+
     protected function fakeZabbixApi(): void
     {
         config(['services.zabbix.url' => $this->zabbixUrl, 'services.zabbix.token' => 'token', 'services.zabbix.retry_delay' => 0]);
@@ -109,9 +115,34 @@ trait FakesZabbix
             'httptest.update' => ['httptestids' => [$request['params']['httptestid']]],
             'trigger.get' => $this->zabbixTriggers,
             'trigger.update' => ['triggerids' => array_column($request['params'], 'triggerid')],
+            'usergroup.get' => array_values(array_intersect_key($this->zabbixUserGroups, array_flip($request['params']['usrgrpids'] ?? array_keys($this->zabbixUserGroups)))),
+            'usergroup.create' => ['usrgrpids' => [$this->store($this->zabbixUserGroups, 'usrgrpid', $request['params'])]],
+            'usergroup.delete' => ['usrgrpids' => $this->forget($this->zabbixUserGroups, $request['params'])],
+            'user.get' => array_values(array_intersect_key($this->zabbixUsers, array_flip($request['params']['userids'] ?? array_keys($this->zabbixUsers)))),
+            'user.create' => ['userids' => [$this->store($this->zabbixUsers, 'userid', $request['params'])]],
+            'user.update' => ['userids' => [$request['params']['userid']]],
+            'user.delete' => ['userids' => $this->forget($this->zabbixUsers, $request['params'])],
         };
 
         return Http::response(['jsonrpc' => '2.0', 'result' => $result, 'id' => 1]);
+    }
+
+    /** Enregistre un objet créé (groupe, utilisateur) et renvoie son id */
+    private function store(array &$objects, string $idField, array $params): string
+    {
+        $id = (string) (90 + count($this->calls));
+        $objects[$id] = [$idField => $id, ...$params];
+
+        return $id;
+    }
+
+    private function forget(array &$objects, array $ids): array
+    {
+        foreach ($ids as $id) {
+            unset($objects[$id]);
+        }
+
+        return $ids;
     }
 
     protected function failOn(string $method, string $data = 'Something went wrong.'): void

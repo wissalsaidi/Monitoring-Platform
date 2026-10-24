@@ -50,6 +50,7 @@ class User extends Authenticatable implements MustVerifyEmail
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'grafana_user_id' => 'integer',     // compte Grafana (SCRUM-48), créé par GrafanaAccessService
         ];
     }
 
