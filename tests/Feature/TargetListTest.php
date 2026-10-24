@@ -55,7 +55,8 @@ class TargetListTest extends TestCase
         $this->actingAs($this->user)
             ->get('/targets')
             ->assertOk()
-            ->assertSeeInOrder(['Name', 'Type', 'Status', 'Response time', 'Last check'])
+            // Sans filtre de type : la métrique principale de chaque target (SCRUM-72), le temps de réponse pour une API
+            ->assertSeeInOrder(['Name', 'Type', 'Status', 'Key metric', 'Last check'])
             ->assertSeeInOrder(['Payment API', 'API', 'bi-x-octagon-fill', 'CRITICAL', '1,241 ms', '30 seconds ago'])
             ->assertSeeInOrder(['Search API', 'UNKNOWN', 'Never']);
     }

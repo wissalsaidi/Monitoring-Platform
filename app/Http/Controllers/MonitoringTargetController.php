@@ -5,10 +5,11 @@ namespace App\Http\Controllers;
 use App\Enums\TargetStatus;
 use App\Enums\TargetType;
 use App\Exceptions\Zabbix\ZabbixException;
-use App\Http\Requests\StoreApiTargetRequest;
-use App\Http\Requests\UpdateApiTargetRequest;
+use App\Http\Requests\StoreTargetRequest;
+use App\Http\Requests\UpdateTargetRequest;
 use App\Models\AuditLog;
 use App\Models\MonitoringTarget;
+use App\Monitoring\ProvisionerRegistry;
 use App\Services\MonitoringService;
 use App\Support\ZabbixSyncHealth;
 use Illuminate\Http\RedirectResponse;
@@ -50,7 +51,7 @@ class MonitoringTargetController extends Controller
         ]);
     }
 
-    public function create(Request $request): View
+    public function create(Request $request, ProvisionerRegistry $provisioners): View
     {
         $team = $request->user()->defaultTeam();
         abort_if($team === null, 403);
@@ -60,20 +61,23 @@ class MonitoringTargetController extends Controller
             'team' => $team,
             'target' => null,
             'intervals' => MonitoringTarget::CHECK_INTERVALS,
+            'supportedTypes' => $provisioners->supportedTypes(),
         ]);
     }
 
-    public function store(StoreApiTargetRequest $request, MonitoringService $monitoring): RedirectResponse
+    public function store(StoreTargetRequest $request, MonitoringService $monitoring): RedirectResponse
     {
         try {
-            $target = $monitoring->createApiTarget(
+            $target = $monitoring->createTarget(
                 $request->team(),
                 $request->user(),
-                $request->safe()->except('type'),
+                $request->targetType(),
+                $request->targetData(),
             );
         } catch (ZabbixException $e) {
             // Le détail technique est dans storage/logs/zabbix-*.log ; l'utilisateur voit un message propre (§47).
-            return back()->withInput()->with('error', $e->userMessage().' The target was not created, please try again.');
+            // Jamais de secret dans la session (mot de passe d'une base, SCRUM-71)
+            return back()->withInput($request->except(MonitoringTarget::SECRET_ATTRIBUTES))->with('error', $e->userMessage().' The target was not created, please try again.');
         }
 
         AuditLog::record('target.create', $request->user(), $target, ['name' => $target->name, 'url' => $target->url]);
@@ -83,7 +87,7 @@ class MonitoringTargetController extends Controller
     }
 
     /** Formulaire de modification (SCRUM-35) : Admin / Manager de la team */
-    public function edit(MonitoringTarget $target): View
+    public function edit(MonitoringTarget $target, ProvisionerRegistry $provisioners): View
     {
         Gate::authorize('update', $target);
 
@@ -91,15 +95,16 @@ class MonitoringTargetController extends Controller
             'team' => $target->team,
             'target' => $target,
             'intervals' => MonitoringTarget::CHECK_INTERVALS,
+            'supportedTypes' => $provisioners->supportedTypes(),
         ]);
     }
 
-    public function update(UpdateApiTargetRequest $request, MonitoringTarget $target, MonitoringService $monitoring): RedirectResponse
+    public function update(UpdateTargetRequest $request, MonitoringTarget $target, MonitoringService $monitoring): RedirectResponse
     {
         try {
-            $changes = $monitoring->updateApiTarget($target, $request->validated());
+            $changes = $monitoring->updateTarget($target, $request->targetData());
         } catch (ZabbixException $e) {
-            return back()->withInput()->with('error', $e->userMessage().' The target was not modified, please try again.');
+            return back()->withInput($request->except(MonitoringTarget::SECRET_ATTRIBUTES))->with('error', $e->userMessage().' The target was not modified, please try again.');
         }
 
         if ($changes === []) {

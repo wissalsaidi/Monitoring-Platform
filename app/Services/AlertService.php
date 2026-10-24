@@ -110,7 +110,7 @@ class AlertService
             'selectTags' => ['tag', 'value'],
             'sortfield' => ['eventid'],
         ]);
-        $items = $this->checkItems($hostIds);
+        $items = $this->checkItems($targets);
         $stats['problems'] = count($problems);
 
         $seen = [];
@@ -121,6 +121,12 @@ class AlertService
             if ($target === null) {
                 Log::channel('zabbix')->warning('Zabbix problem without a known target', ['eventid' => $problem['eventid']]);
 
+                continue;
+            }
+
+            // Seuls nos triggers (tag "level") deviennent des alertes. Ceux d'un template lié (Linux pour les serveurs,
+            // SCRUM-69) restent visibles dans Zabbix : seuils fixes, doublons de nos alertes CPU / mémoire / disque.
+            if (self::tag($problem, 'level') === null) {
                 continue;
             }
 
@@ -153,9 +159,9 @@ class AlertService
                 'monitoring_target_id' => $target->id,
                 'zabbix_trigger_id' => $problem['objectid'],
                 'metric' => $metric,
-                'threshold' => $this->threshold($target, self::tag($problem, 'level')),
+                'threshold' => $target->provisioner()->threshold($target, (string) self::tag($problem, 'level')),
                 'value' => $metric === 'response_time'
-                    ? $this->responseTimeAt($items[$target->zabbix_host_id][self::timeKey()]['itemid'] ?? null, (int) $problem['clock'])
+                    ? $this->responseTimeAt($this->statusItem($items, $target, 'response_time')['itemid'] ?? null, (int) $problem['clock'])
                     : null,
                 'started_at' => Carbon::createFromTimestamp((int) $problem['clock']),
             ]);
@@ -242,8 +248,8 @@ class AlertService
 
         DB::transaction(function () use ($targets, $items, $worst, &$changed) {
             foreach ($targets as $target) {
-                $lastClock = (int) ($items[$target->zabbix_host_id][self::failKey()]['lastclock'] ?? 0);
-                $time = $items[$target->zabbix_host_id][self::timeKey()] ?? null;
+                $lastClock = (int) ($this->statusItem($items, $target, 'availability')['lastclock'] ?? 0);
+                $time = $this->statusItem($items, $target, 'response_time');
                 $status = $worst->get($target->id)?->targetStatus() ?? ($lastClock > 0 ? TargetStatus::Up : TargetStatus::Unknown);
 
                 $changed += $target->status !== $status ? 1 : 0;
@@ -251,6 +257,7 @@ class AlertService
                     'status' => $status,
                     'last_checked_at' => $lastClock > 0 ? Carbon::createFromTimestamp($lastClock) : null,
                     'last_response_ms' => ($time['lastclock'] ?? '0') !== '0' ? round((float) $time['lastvalue'] * 1000, 3) : null,
+                    'last_metrics' => $this->lastMetrics($items, $target),
                 ]);
             }
         });
@@ -259,17 +266,24 @@ class AlertService
     }
 
     /**
-     * Items du web scenario (échec et temps de réponse) des hosts, indexés par host puis par clé.
+     * Items de statut des targets (disponibilité et temps de réponse, déclarés par le provisioner de chaque type),
+     * en une seule requête, indexés par host puis par clé.
      *
+     * @param  Collection<int, MonitoringTarget>  $targets
      * @return array<string, array<string, array>>
      */
-    private function checkItems(array $hostIds): array
+    private function checkItems(Collection $targets): array
     {
+        $keys = $targets->map(fn (MonitoringTarget $target) => [
+            ...array_values(array_filter($target->provisioner()->statusItemKeys())),
+            ...array_values($target->provisioner()->metricItemKeys()),
+        ])->flatten()->unique()->values()->all();
+
         $items = $this->zabbix->getItems([
             'output' => ['itemid', 'hostid', 'key_', 'lastclock', 'lastvalue'],
-            'hostids' => $hostIds,
-            'webitems' => true,
-            'filter' => ['key_' => [self::failKey(), self::timeKey()]],
+            'hostids' => $targets->pluck('zabbix_host_id')->values()->all(),
+            'webitems' => true,            // items des web scenarios (API, site web) en plus des items classiques
+            'filter' => ['key_' => $keys],
         ]);
 
         $byHost = [];
@@ -306,13 +320,42 @@ class AlertService
         return isset($history[0]['value']) ? round((float) $history[0]['value'] * 1000, 3) : null;
     }
 
-    private function threshold(MonitoringTarget $target, ?string $level): ?int
+    /**
+     * Item de statut d'une target (availability ou response_time), ou null si le type n'en a pas.
+     *
+     * @param  array<string, array<string, array>>  $items
+     */
+    private function statusItem(array $items, MonitoringTarget $target, string $role): ?array
     {
-        return match ($level) {
-            'warning' => $target->warning_threshold_ms,
-            'critical' => $target->critical_threshold_ms,
-            default => null,
-        };
+        $key = $target->provisioner()->statusItemKeys()[$role] ?? null;
+
+        return $key !== null ? ($items[$target->zabbix_host_id][$key] ?? null) : null;
+    }
+
+    /**
+     * Dernières valeurs des métriques propres au type (code HTTP, jours avant l'expiration du certificat, OS…),
+     * null pour une métrique pas encore mesurée. Les textes (OS) sont gardés tels quels, coupés à 255 caractères.
+     *
+     * @param  array<string, array<string, array>>  $items
+     * @return array<string, int|float|string|null>|null
+     */
+    private function lastMetrics(array $items, MonitoringTarget $target): ?array
+    {
+        $keys = $target->provisioner()->metricItemKeys();
+
+        if ($keys === []) {
+            return null;
+        }
+
+        return array_map(function (string $key) use ($items, $target) {
+            $item = $items[$target->zabbix_host_id][$key] ?? null;
+
+            if (($item['lastclock'] ?? '0') === '0') {
+                return null;
+            }
+
+            return is_numeric($item['lastvalue']) ? $item['lastvalue'] + 0 : mb_substr((string) $item['lastvalue'], 0, 255);
+        }, $keys);
     }
 
     private static function tag(array $problem, string $name): ?string
@@ -324,15 +367,5 @@ class AlertService
         }
 
         return null;
-    }
-
-    private static function failKey(): string
-    {
-        return sprintf('web.test.fail[%s]', MonitoringService::SCENARIO);
-    }
-
-    private static function timeKey(): string
-    {
-        return sprintf('web.test.time[%s,%s,resp]', MonitoringService::SCENARIO, MonitoringService::STEP);
     }
 }

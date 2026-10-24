@@ -6,6 +6,8 @@ use App\Enums\Permission;
 use App\Enums\TargetStatus;
 use App\Enums\TargetType;
 use App\Enums\TeamRole;
+use App\Monitoring\ProvisionerRegistry;
+use App\Monitoring\TargetProvisioner;
 use Database\Factories\MonitoringTargetFactory;
 use Illuminate\Database\Eloquent\Attributes\Scope;
 use Illuminate\Database\Eloquent\Builder;
@@ -36,9 +38,15 @@ class MonitoringTarget extends Model
 
     protected $fillable = [
         'team_id', 'created_by', 'name', 'type', 'description', 'status', 'enabled',
-        'url', 'check_interval', 'warning_threshold_ms', 'critical_threshold_ms', 'zabbix_host_id',
-        'last_checked_at', 'last_response_ms',
+        'url', 'check_interval', 'warning_threshold_ms', 'critical_threshold_ms', 'settings', 'credentials', 'zabbix_host_id',
+        'last_checked_at', 'last_response_ms', 'last_metrics',
     ];
+
+    /** Secrets (SCRUM-71) : jamais sérialisés (JSON, toArray) */
+    protected $hidden = ['credentials'];
+
+    /** Attributs secrets : jamais affichés ni journalisés en clair (audit, logs) */
+    public const SECRET_ATTRIBUTES = ['credentials'];
 
     protected $attributes = [
         'status' => 'unknown',
@@ -54,9 +62,59 @@ class MonitoringTarget extends Model
             'check_interval' => 'integer',
             'warning_threshold_ms' => 'integer',
             'critical_threshold_ms' => 'integer',
+            'settings' => 'array',
+            'credentials' => 'encrypted:array',     // chiffré avec APP_KEY (SCRUM-71)
             'last_checked_at' => 'datetime',
             'last_response_ms' => 'float',
+            'last_metrics' => 'array',
         ];
+    }
+
+    /**
+     * Valeur de la configuration propre au type (colonne JSON settings, SCRUM-66).
+     * Ex. : $target->setting('port', 10050)
+     */
+    public function setting(string $key, mixed $default = null): mixed
+    {
+        return data_get($this->settings, $key, $default);
+    }
+
+    /** Secret de la target (SCRUM-71), ex. $target->credential('password') ; ne jamais l'afficher. */
+    public function credential(string $key): ?string
+    {
+        return $this->credentials[$key] ?? null;
+    }
+
+    /**
+     * Dernière valeur d'une métrique propre au type, recopiée par la synchro (SCRUM-68) ; null si pas encore mesurée.
+     * Ex. : $target->lastMetric('certificate_days'), $target->lastMetric('os') (texte)
+     */
+    public function lastMetric(string $name): int|float|string|null
+    {
+        return $this->last_metrics[$name] ?? null;
+    }
+
+    /**
+     * Ce que surveille la target, pour les listes : l'URL, adresse:port de l'agent d'un serveur (SCRUM-69),
+     * ou « conteneur @ hôte:port » (SCRUM-70).
+     */
+    public function displayAddress(): ?string
+    {
+        if ($this->url !== null) {
+            return $this->url;
+        }
+
+        $address = $this->setting('address');
+        $agent = $address !== null ? $address.($this->setting('port') ? ':'.$this->setting('port') : '') : null;
+        $container = $this->setting('container');
+
+        return $container !== null ? $container.($agent !== null ? ' @ '.$agent : '') : $agent;
+    }
+
+    /** Provisioner Zabbix du type de la target. */
+    public function provisioner(): TargetProvisioner
+    {
+        return app(ProvisionerRegistry::class)->for($this->type);
     }
 
     public function team(): BelongsTo

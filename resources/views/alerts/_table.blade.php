@@ -33,8 +33,8 @@
                             <span class="small text-body-secondary ms-1">{{ $alert->metricLabel() }}</span>
                         @endunless
                     </td>
-                    <td class="text-end small text-nowrap">{{ $alert->value !== null ? number_format($alert->value).' ms' : '—' }}</td>
-                    <td class="text-end small text-nowrap text-body-secondary">{{ $alert->threshold !== null ? '> '.number_format($alert->threshold).' ms' : '—' }}</td>
+                    <td class="text-end small text-nowrap">{{ $alert->valueLabel() ?? '—' }}</td>
+                    <td class="text-end small text-nowrap text-body-secondary">{{ $alert->thresholdLabel() ?? '—' }}</td>
                     <td class="small text-nowrap">
                         @switch($alert->status)
                             @case(\App\Enums\AlertStatus::Open)

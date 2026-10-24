@@ -3,7 +3,8 @@
 namespace App\Enums;
 
 /**
- * Types de ressources monitorables (cahier des charges §5). Le MVP ne gère que API.
+ * Types de ressources monitorables (cahier des charges §5). Seuls les types qui ont un provisioner
+ * (config monitoring.provisioners, SCRUM-66) peuvent être créés.
  */
 enum TargetType: string
 {
@@ -22,6 +23,16 @@ enum TargetType: string
             self::Api => 'API',
             self::Custom => 'Custom metric',
             default => ucfirst($this->value),
+        };
+    }
+
+    /** Libellé au pluriel, pour les catégories du dashboard et du menu (SCRUM-72) : « APIs », « Websites »… */
+    public function pluralLabel(): string
+    {
+        return match ($this) {
+            self::Api => 'APIs',
+            self::Custom => 'Custom metrics',
+            default => $this->label().'s',
         };
     }
 

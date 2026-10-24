@@ -30,6 +30,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // API interne des graphiques (JSON)
     Route::get('/targets/{target}/metrics/response-time', [TargetMetricsController::class, 'responseTime'])
         ->name('targets.metrics.response-time');
+    // Toutes les séries d'un type (SCRUM-72) : cpu, memory, disk, connections…
+    Route::get('/targets/{target}/metrics/{metric}', [TargetMetricsController::class, 'show'])
+        ->where('metric', '[a-z_]+')
+        ->name('targets.metrics');
 
     // Membres d'une team (SCRUM-59) : réservé aux Admin de la team (permissions user.*)
     Route::get('/team', [TeamMemberController::class, 'current'])->name('teams.current');

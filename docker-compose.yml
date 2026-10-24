@@ -11,6 +11,9 @@
 #   Fake API     http://localhost:8081/health   et   /control?delay=1200
 #   phpMyAdmin   http://localhost:8082   (serveur Laravel ou Zabbix, identifiants du .env)
 #   Mailpit      http://localhost:8025   (emails envoyés par l'app)
+#
+#   Démo (SCRUM-73) : docker compose --profile demo up -d   puis   docker compose exec -u www-data app php artisan db:seed --class=DemoSeeder
+#   Website-01   http://localhost:8083   et   /control?delay=2500      (voir docs/demo/README.md)
 
 services:
   # ─── Application Laravel ───────────────────────────────────────────
@@ -130,6 +133,64 @@ services:
     depends_on:
       - zabbix-server
 
+  # ─── Agent Zabbix 2 (SCRUM-67, cahier des charges §62) ─────────────
+  # Supervise serveurs, conteneurs et bases de données. Mode passif uniquement : zabbix-server l'interroge
+  # sur zabbix-agent2:10050 (interface agent du host, créée par la plateforme). Aucun port publié sur le PC.
+  # - Docker : via docker-socket-proxy (lecture seule réelle), jamais le socket Docker lui-même.
+  # - MySQL : aucun identifiant dans l'agent ; Zabbix les lui passe par les macros secrètes {$MYSQL.USER} /
+  #   {$MYSQL.PASSWORD} du host (utilisateur zbx_monitor, créé par mysql-monitor-user).
+  zabbix-agent2:
+    image: zabbix/zabbix-agent2:alpine-7.0.31
+    environment:
+      ZBX_HOSTNAME: zabbix-agent2
+      ZBX_SERVER_HOST: zabbix-server   # seul serveur autorisé à l'interroger
+      ZBX_ACTIVE_ALLOW: "false"        # pas de checks actifs : rien à déclarer côté Zabbix
+      ZBX_TIMEOUT: 10
+    volumes:
+      - ./docker/zabbix-agent2/docker.conf:/etc/zabbix/zabbix_agent2.d/plugins.d/docker.conf:ro
+      - docker-proxy-socket:/var/run/docker-proxy
+    depends_on:
+      - zabbix-server
+      - docker-socket-proxy
+
+  # Filtre devant le socket Docker : seules les lectures utilisées par le plugin Docker de l'agent passent
+  # (GET info, conteneurs, images, espace disque) ; tout le reste (POST, exec, suppression…) est refusé.
+  # Le socket Docker en ":ro" ne suffirait pas : il permet quand même de lancer ou supprimer des conteneurs.
+  # Pas de réseau ; il expose un socket filtré dans un volume partagé avec l'agent seul.
+  docker-socket-proxy:
+    image: wollomatic/socket-proxy:1.13.1
+    user: "1997:0"   # uid de l'agent (propriétaire du socket filtré, mode 0600) ; groupe root pour lire le socket Docker
+    command:
+      - -proxysocketendpoint=/var/run/docker-proxy/docker.sock
+      - -proxysocketendpointfilemode=0600
+      - -allowGET=(/v[0-9.]+)?/(_ping|version|info|system/df|images/json|containers/json|containers/[a-zA-Z0-9_.-]+/(json|stats))
+      - -allowHEAD=(/v[0-9.]+)?/_ping
+      - -loglevel=INFO
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - docker-proxy-socket:/var/run/docker-proxy
+    network_mode: none
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+
+  # Utilisateur MySQL dédié à l'agent (lecture seule : droits du template officiel « MySQL by Zabbix agent 2 »).
+  # Conteneur ponctuel et idempotent : crée l'utilisateur ou remet son mot de passe, puis s'arrête.
+  mysql-monitor-user:
+    image: mysql:8.0
+    entrypoint: ["sh", "/scripts/create-monitor-user.sh"]
+    environment:
+      MYSQL_HOST: mysql
+      MYSQL_PWD: ${DB_ROOT_PASSWORD}                  # root, lu par le client mysql sans apparaître dans la ligne de commande
+      MONITOR_USER: zbx_monitor
+      MONITOR_PASSWORD: ${ZBX_MONITOR_DB_PASSWORD}
+    volumes:
+      - ./docker/mysql/create-monitor-user.sh:/scripts/create-monitor-user.sh:ro
+    depends_on:
+      mysql:
+        condition: service_healthy
+    restart: "no"
+
   # ─── Grafana (V1, préparé dès maintenant) ──────────────────────────
   grafana:
     image: grafana/grafana:11.6.0
@@ -180,9 +241,83 @@ services:
     ports:
       - "127.0.0.1:8081:8080"
 
+  # ─── Démo multi-types (SCRUM-73, cahier des charges §42) ───────────
+  # Profil "demo" : rien ne démarre avec un simple "docker compose up -d" (mémoire du PC).
+  #   docker compose --profile demo up -d
+  # Targets créées par DemoSeeder dans la team « Demo » ; pannes à provoquer : docs/demo/README.md.
+
+  # Server-01 : un « serveur » Linux = un agent Zabbix 2 de plus (CPU et mémoire : ceux de la machine Docker).
+  # Son disque / est simulé par un tmpfs de 64 Mo (alias dans demo-server.conf) : on peut le remplir sans risque.
+  demo-server-01:
+    image: zabbix/zabbix-agent2:alpine-7.0.31
+    container_name: demo-server-01
+    hostname: server-01
+    profiles: [demo]
+    environment:
+      ZBX_HOSTNAME: Server-01
+      ZBX_SERVER_HOST: zabbix-server
+      ZBX_ACTIVE_ALLOW: "false"
+    volumes:
+      - ./docker/demo/server/demo-server.conf:/etc/zabbix/zabbix_agentd.d/demo-server.conf:ro
+    tmpfs:
+      - /demo-disk:size=64m,mode=1777
+    depends_on:
+      - zabbix-server
+
+  # Website-01 : petit site dont la lenteur se règle (/control?delay=…), comme la fake API.
+  demo-website-01:
+    image: php:8.3-cli-alpine
+    container_name: demo-website-01
+    profiles: [demo]
+    command: php -S 0.0.0.0:8080 /app/index.php
+    environment:
+      PHP_CLI_SERVER_WORKERS: 4
+    volumes:
+      - ./docker/demo/website:/app:ro
+    ports:
+      - "127.0.0.1:8083:8080"
+
+  # MySQL-01 : base supervisée par l'agent (utilisateur zbx_monitor créé au premier démarrage).
+  # Réglée pour peu de mémoire. Après un changement de DEMO_MYSQL_MONITOR_PASSWORD : docker compose rm -sfv demo-mysql-01
+  demo-mysql-01:
+    image: mysql:8.0
+    container_name: demo-mysql-01
+    profiles: [demo]
+    command:
+      - --performance-schema=OFF
+      - --innodb-buffer-pool-size=16M
+      - --skip-log-bin
+      - --max-connections=50
+    environment:
+      MYSQL_RANDOM_ROOT_PASSWORD: "yes"
+      MYSQL_DATABASE: shop
+      MONITOR_PASSWORD: ${DEMO_MYSQL_MONITOR_PASSWORD}
+    volumes:
+      - ./docker/demo/mysql/create-monitor-user.sh:/docker-entrypoint-initdb.d/create-monitor-user.sh:ro
+
+  # Redis-01 et Nginx-01 : conteneurs supervisés par le plugin Docker de l'agent (arrêt, redémarrages, mémoire).
+  # Redis-01 redémarre seul s'il s'arrête (restart policy) : c'est ce que compte Docker, pas "docker compose restart".
+  demo-redis-01:
+    image: redis:7-alpine
+    container_name: demo-redis-01
+    profiles: [demo]
+    command: redis-server --save "" --maxmemory 32mb
+    restart: unless-stopped
+
+  demo-nginx-01:
+    image: nginx:1.27-alpine
+    container_name: demo-nginx-01
+    profiles: [demo]
+
 volumes:
   vendor:
   mysql-data:
   redis-data:
   zabbix-db-data:
   grafana-data:
+  # Socket Docker filtré, partagé entre docker-socket-proxy et zabbix-agent2 uniquement (tmpfs : recréé à chaque démarrage)
+  docker-proxy-socket:
+    driver_opts:
+      type: tmpfs
+      device: tmpfs
+      o: "uid=1997,gid=1995,mode=0700"

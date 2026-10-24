@@ -25,8 +25,10 @@ Tous les écrans, annotés : [docs/conception/07-ecrans.md](docs/conception/07-e
 navigateur ──► nginx :8000 ──► app (Laravel, PHP-FPM) ──► mysql (base Laravel)
                                    │                  └─► redis (cache / queues) ◄── queue + scheduler
                                    └── API JSON-RPC ──► zabbix-web :8080 ──► zabbix-server ──► targets
-                                                                  │                          (ex : fake-api)
-navigateur ──► grafana :3000 ── datasource Zabbix ────────────────┘
+                                                                  │              │           (ex : fake-api)
+navigateur ──► grafana :3000 ── datasource Zabbix ────────────────┘              └──► zabbix-agent2 :10050
+                                                                                       ├─► docker-socket-proxy ──► Docker (lecture)
+                                                                                       └─► mysql (zbx_monitor, lecture)
 ```
 
 | Service | URL depuis le PC | Rôle |
@@ -37,6 +39,9 @@ navigateur ──► grafana :3000 ── datasource Zabbix ──────�
 | `queue` + `scheduler` | — | Worker de la queue et Laravel Scheduler : synchro Zabbix chaque minute |
 | `zabbix-web` | http://localhost:8080 (`Admin` / `zabbix`) | Interface et API Zabbix |
 | `zabbix-server` + `zabbix-db` | — | Moteur Zabbix et sa propre base |
+| `zabbix-agent2` | — | Agent Zabbix 2 : serveurs, conteneurs, bases de données ([détails](#agent-zabbix-2)) |
+| `docker-socket-proxy` | — | Filtre du socket Docker : l'agent ne peut que lire |
+| `mysql-monitor-user` | — | Ponctuel : crée l'utilisateur MySQL `zbx_monitor` de l'agent, puis s'arrête |
 | `grafana` | http://localhost:3000 (`admin` / `GRAFANA_ADMIN_PASSWORD`) | Dashboards |
 | `fake-api` | http://localhost:8081/health | API de démo à latence réglable |
 | `phpmyadmin` | http://localhost:8082 | phpMyAdmin : interface web des bases MySQL (dev) |
@@ -90,6 +95,32 @@ Après toute modification de `composer.json` : `docker compose exec app composer
 Toutes les commandes `artisan` passent par le conteneur : `docker compose exec app php artisan …`
 (depuis Windows, les hôtes `mysql`, `redis` et `zabbix-web` n'existent pas).
 
+## Types de targets
+
+| Type | Ce que Zabbix vérifie | Alertes |
+|---|---|---|
+| **API** | Web scenario `api-check` : code 2xx attendu, temps de réponse, code HTTP | Indisponible (CRITICAL), lenteur (WARNING / HIGH selon les seuils) |
+| **Website** | Comme l'API (web scenario `website-check`) + pour une URL `https://`, date d'expiration du certificat SSL lue chaque heure par l'agent Zabbix 2 | Mêmes alertes + certificat qui expire dans moins de 14 jours (WARNING) puis 3 jours (HIGH) ; un certificat expiré déclenche HIGH |
+
+| **Server** | Agent Zabbix installé sur le serveur (adresse + port), template `Linux by Zabbix agent` : CPU, mémoire, disque /, charge, uptime, OS | Indisponible (pas de réponse depuis 3 min, CRITICAL), CPU / mémoire / disque au-dessus des seuils en % (WARNING puis HIGH, moyenne sur 5 min) |
+
+| **Container** | Conteneur Docker lu par l'agent Zabbix 2 de son hôte (plugin Docker, par défaut `zabbix-agent2`) : état, CPU, mémoire, réseau, redémarrages, uptime | Conteneur arrêté ou introuvable (CRITICAL), plus de 2 redémarrages en 10 min (HIGH), mémoire au-dessus du seuil en Mo (WARNING) |
+
+| **Database** | MySQL lu par l'agent Zabbix 2 de la plateforme (plugin MySQL) avec un utilisateur en lecture seule : disponibilité, connexions, requêtes lentes, requêtes/s, version, uptime ; temps de réponse = connexion TCP mesurée par le serveur Zabbix | Base injoignable (CRITICAL), connexions au-dessus du seuil (WARNING) |
+
+Le mot de passe d'une base est **chiffré** en base (clé `APP_KEY`), jamais affiché, jamais journalisé ni renvoyé dans
+le formulaire ; Zabbix le reçoit dans une macro secrète. Laissé vide à la modification, il reste inchangé.
+
+Chaque type a ses écrans (SCRUM-72) : le **dashboard** se filtre par catégorie (All, APIs, Websites, Servers,
+Containers, Databases), la **liste des targets** affiche les colonnes du type filtré (temps de réponse, CPU, état du
+conteneur…), la **page d'une target** ses cartes et ses graphiques (temps de réponse, CPU / mémoire / disque,
+connexions…), et le menu **Monitoring** donne accès à chaque type.
+
+Les autres types (réseau) apparaissent grisés dans le formulaire tant qu'ils ne
+sont pas disponibles. Même protection SSRF pour tous les types qui appellent une URL.
+Pour un serveur, seuls les triggers créés par la plateforme deviennent des alertes : ceux du template Linux restent
+visibles dans Zabbix. Serveur de démo : `zabbix-agent2`, port `10050`.
+
 ## Équipes, rôles et sécurité
 
 | Rôle | Peut |
@@ -138,6 +169,40 @@ curl -s "http://localhost:8081/control?mode=ok&delay=0" # retour à la normale
 
 Vue depuis Zabbix, son adresse est `http://fake-api:8080/health` (nom du service Docker).
 
+## Environnement de démonstration
+
+Une ressource de chaque type, et des pannes à provoquer (SCRUM-73) :
+
+- Server-01, Website-01, MySQL-01, Redis-01 et Nginx-01, en plus de la fausse API ;
+- pannes : CPU élevé, disque qui se remplit, site lent, conteneur arrêté, base injoignable.
+
+```bash
+docker compose --profile demo up -d                                          # profil "demo" : non lancé par défaut
+docker compose exec -u www-data app php artisan db:seed --class=DemoSeeder   # compte demo@example.com, team Demo, 6 targets
+```
+
+Commandes des pannes et scénario de démonstration : [`docs/demo/README.md`](docs/demo/README.md).
+
+## Agent Zabbix 2
+
+Les serveurs, conteneurs et bases de données se supervisent avec l'agent Zabbix 2 (service `zabbix-agent2`).
+Il fonctionne en **mode passif** : `zabbix-server` l'interroge sur `zabbix-agent2:10050`, seul serveur autorisé.
+Aucun port n'est publié sur le PC. La plateforme crée les hosts avec une interface agent vers cette adresse
+(`ZABBIX_AGENT_HOST` / `ZABBIX_AGENT_PORT`).
+
+| Plugin | Accès donné à l'agent |
+|---|---|
+| **Docker** | Le socket Docker passe par `docker-socket-proxy` : seules les lectures utilisées par le plugin sont permises (infos, conteneurs, images, espace disque). Créer, lancer, supprimer un conteneur ou lire ses fichiers est refusé (403 / 405). Un simple montage `docker.sock:ro` ne protège pas : il laisse tout faire. |
+| **MySQL** | Utilisateur `zbx_monitor` (mot de passe `ZBX_MONITOR_DB_PASSWORD`), droits du template officiel : `PROCESS`, `REPLICATION CLIENT`, `SHOW DATABASES`, `SHOW VIEW`. Il ne lit aucune donnée. L'agent ne stocke aucun identifiant : Zabbix les lui passe par les macros **secrètes** `{$MYSQL.USER}` / `{$MYSQL.PASSWORD}` du host. |
+
+Tester une clé directement dans l'agent :
+
+```bash
+docker compose exec zabbix-agent2 zabbix_agent2 -t docker.ping       # [s|1]
+docker compose exec zabbix-agent2 zabbix_agent2 -t docker.containers
+docker compose run --rm mysql-monitor-user                            # recrée zbx_monitor (ex. après un changement de mot de passe)
+```
+
 ## Tests et qualité
 
 ```bash
@@ -152,5 +217,6 @@ tests, build Vite et build de l'image Docker.
 
 - [`docs/conception/`](docs/conception/README.md) : cas d'utilisation, exigences, risques, modèle de données, séquences, STRIDE, écrans
 - [`docs/exploitation/`](docs/exploitation/) : sauvegardes, mise en production, mises à jour
+- [`docs/demo/`](docs/demo/README.md) : environnement de démonstration, pannes provoquées, scénario
 - [`docs/poc-zabbix/`](docs/poc-zabbix/README.md) : POC SCRUM-18, pilotage de Zabbix par l'API (validé)
 - [`CONTRIBUTING.md`](CONTRIBUTING.md) : branches, commits, pull requests

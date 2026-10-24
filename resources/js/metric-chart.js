@@ -1,5 +1,5 @@
-// Graphique du temps de réponse d'une target (SCRUM-44), alimenté par l'API interne
-// GET /targets/{id}/metrics/response-time?period=1h|24h|7d
+// Graphique d'une métrique d'une target (SCRUM-44 : temps de réponse ; SCRUM-72 : toutes les séries du type,
+// CPU, mémoire, disque, connexions…), alimenté par l'API interne GET /targets/{id}/metrics/{metric}?period=1h|24h|7d
 import {
     Chart,
     Filler,
@@ -28,7 +28,18 @@ const timeFormats = {
     '7d': { weekday: 'short', day: '2-digit', hour: '2-digit' },
 };
 
-const formatMs = (ms) => `${Math.round(ms).toLocaleString('en-US')} ms`;
+// Valeur dans l'unité de la série : « 512 ms », « 42.5 % », « 300.0 MB », « 12 »
+function format(value, unit) {
+    switch (unit) {
+        case 'ms':
+            return `${Math.round(value).toLocaleString('en-US')} ms`;
+        case '%':
+        case 'MB':
+            return `${value.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} ${unit}`;
+        default:
+            return `${Math.round(value).toLocaleString('en-US')}${unit ? ` ${unit}` : ''}`;
+    }
+}
 
 // Ligne verticale qui suit le pointeur (crosshair)
 const crosshair = {
@@ -63,16 +74,16 @@ const thresholdLabels = {
             const y = scales.y.getPixelForValue(dataset.threshold.value);
             if (y < chartArea.top || y > chartArea.bottom) return;
             ctx.fillStyle = COLORS.text;
-            ctx.fillText(`${dataset.threshold.label} ${formatMs(dataset.threshold.value)}`, chartArea.right - 4, y - 3);
+            ctx.fillText(`${dataset.threshold.label} ${format(dataset.threshold.value, dataset.threshold.unit)}`, chartArea.right - 4, y - 3);
         });
         ctx.restore();
     },
 };
 
-function thresholdDataset(label, value, color, from, to) {
+function thresholdDataset(label, value, unit, color, from, to) {
     return {
         label,
-        threshold: { label, value },
+        threshold: { label, value, unit },
         data: [{ x: from, y: value }, { x: to, y: value }],
         borderColor: color,
         borderWidth: 1.5,
@@ -97,14 +108,19 @@ function withGaps(points) {
 }
 
 function render(canvas, data, chart) {
-    const { from, to, points, thresholds, period } = data;
+    const { from, to, points, thresholds, period, unit, label } = data;
     const series = withGaps(points);
+    // Seuils de la série, chacun facultatif (base de données : aucun en ms ; conteneur : warning seulement)
+    const lines = [
+        ['Critical', thresholds.critical, COLORS.critical],
+        ['Warning', thresholds.warning, COLORS.warning],
+    ].filter(([, value]) => value !== null && value !== undefined);
     // L'axe montre toujours les seuils, même si toutes les mesures sont bien plus basses
-    const yMax = Math.max(thresholds.critical * 1.15, ...points.map(([, y]) => y * 1.1));
+    const yMax = Math.max(1, ...lines.map(([, value]) => value * 1.15), ...points.map(([, y]) => y * 1.1));
 
     const datasets = [
         {
-            label: 'Response time',
+            label,
             data: series,
             borderColor: COLORS.line,
             backgroundColor: 'rgba(91, 141, 239, 0.12)',
@@ -118,8 +134,7 @@ function render(canvas, data, chart) {
             pointHoverBorderWidth: 2,
             pointBackgroundColor: COLORS.line,
         },
-        thresholdDataset('Critical', thresholds.critical, COLORS.critical, from, to),
-        thresholdDataset('Warning', thresholds.warning, COLORS.warning, from, to),
+        ...lines.map(([name, value, color]) => thresholdDataset(name, value, unit, color, from, to)),
     ];
 
     const options = {
@@ -144,10 +159,10 @@ function render(canvas, data, chart) {
             },
             y: {
                 min: 0,
-                suggestedMax: yMax,
+                suggestedMax: unit === '%' ? Math.min(100, yMax) : yMax,
                 grid: { color: COLORS.grid, drawTicks: false },
                 border: { display: false },
-                ticks: { color: COLORS.text, padding: 8, maxTicksLimit: 6, callback: (value) => `${value} ms` },
+                ticks: { color: COLORS.text, padding: 8, maxTicksLimit: 6, callback: (value) => `${value}${unit ? ` ${unit}` : ''}` },
             },
         },
         plugins: {
@@ -166,7 +181,7 @@ function render(canvas, data, chart) {
                     title: (items) => new Date(items[0].parsed.x).toLocaleString(undefined, {
                         day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit',
                     }),
-                    label: (item) => formatMs(item.parsed.y),
+                    label: (item) => format(item.parsed.y, unit),
                 },
             },
         },
@@ -182,11 +197,13 @@ function render(canvas, data, chart) {
     return new Chart(canvas, { type: 'line', data: { datasets }, options, plugins: [crosshair, thresholdLabels] });
 }
 
-function initResponseTimeChart(root) {
+function initMetricChart(root) {
     const canvas = root.querySelector('canvas');
     const frame = root.querySelector('[data-chart-frame]');
     const message = root.querySelector('[data-chart-message]');
-    const buttons = root.querySelectorAll('[data-period]');
+    const title = root.querySelector('[data-chart-title]');
+    const periodButtons = root.querySelectorAll('[data-period]');
+    const metricButtons = root.querySelectorAll('[data-metric-url]');
     const stats = {
         avg: root.querySelector('[data-stat="avg"]'),
         min: root.querySelector('[data-stat="min"]'),
@@ -194,33 +211,41 @@ function initResponseTimeChart(root) {
         count: root.querySelector('[data-stat="count"]'),
     };
     let chart = null;
+    let url = root.dataset.url;
+    let period = root.dataset.period || '1h';
 
     function showMessage(text) {
         message.textContent = text;
         message.classList.toggle('d-none', !text);
     }
 
-    async function load(period) {
+    function select(buttons, isSelected) {
         buttons.forEach((b) => {
-            const selected = b.dataset.period === period;
-            b.classList.toggle('active', selected);
-            b.setAttribute('aria-pressed', selected);
+            b.classList.toggle('active', isSelected(b));
+            b.setAttribute('aria-pressed', isSelected(b));
         });
+    }
+
+    async function load() {
+        select(periodButtons, (b) => b.dataset.period === period);
+        select(metricButtons, (b) => b.dataset.metricUrl === url);
         // Rechargement : l'ancien graphique reste affiché, atténué (pas de saut de mise en page)
         frame.style.opacity = '0.45';
 
         try {
-            const response = await window.axios.get(root.dataset.url, { params: { period } });
+            const response = await window.axios.get(url, { params: { period } });
             const data = response.data;
+            const show = (value) => (value !== null ? format(value, data.unit) : '—');
             chart = render(canvas, data, chart);
 
-            stats.avg.textContent = data.stats.avg !== null ? formatMs(data.stats.avg) : '—';
-            stats.min.textContent = data.stats.min !== null ? formatMs(data.stats.min) : '—';
-            stats.max.textContent = data.stats.max !== null ? formatMs(data.stats.max) : '—';
+            if (title) title.textContent = data.label;
+            stats.avg.textContent = show(data.stats.avg);
+            stats.min.textContent = show(data.stats.min);
+            stats.max.textContent = show(data.stats.max);
             stats.count.textContent = data.stats.count.toLocaleString('en-US');
             canvas.setAttribute('aria-label', data.stats.count
-                ? `Response time over the last ${period}: average ${formatMs(data.stats.avg)}, minimum ${formatMs(data.stats.min)}, maximum ${formatMs(data.stats.max)}.`
-                : `No response time measured over the last ${period}.`);
+                ? `${data.label} over the last ${period}: average ${show(data.stats.avg)}, minimum ${show(data.stats.min)}, maximum ${show(data.stats.max)}.`
+                : `No ${data.label.toLowerCase()} measured over the last ${period}.`);
 
             showMessage(data.points.length ? '' : 'No measure over this period yet.');
         } catch (error) {
@@ -231,8 +256,15 @@ function initResponseTimeChart(root) {
         }
     }
 
-    buttons.forEach((button) => button.addEventListener('click', () => load(button.dataset.period)));
-    load(root.dataset.period || '1h');
+    periodButtons.forEach((button) => button.addEventListener('click', () => {
+        period = button.dataset.period;
+        load();
+    }));
+    metricButtons.forEach((button) => button.addEventListener('click', () => {
+        url = button.dataset.metricUrl;
+        load();
+    }));
+    load();
 }
 
-document.querySelectorAll('[data-response-time-chart]').forEach(initResponseTimeChart);
+document.querySelectorAll('[data-metric-chart]').forEach(initMetricChart);

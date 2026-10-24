@@ -19,8 +19,8 @@ sequenceDiagram
     participant API as API Zabbix
 
     M->>C: POST /targets (nom, URL, intervalle, seuils)
-    C->>C: StoreApiTargetRequest : droits (Admin/Manager) + validation
-    C->>S: createApiTarget(team, auteur, données)
+    C->>C: StoreTargetRequest : droits (Admin/Manager) + validation (champs communs + règles du type)
+    C->>S: createTarget(team, auteur, type, données)
     S->>DB: BEGIN TRANSACTION
     S->>DB: INSERT monitoring_targets
     opt la team n'a pas encore de host group
@@ -31,6 +31,7 @@ sequenceDiagram
     S->>Z: host.create (target-id, host group)
     Z->>API: JSON-RPC
     API-->>Z: hostid
+    Note over S,Z: provisioner du type (SCRUM-66), ici ApiProvisioner
     S->>Z: httptest.create (web scenario « api-check » : URL, intervalle)
     S->>Z: trigger.create × 3 (indisponible ← critical ← warning)
     alt Zabbix répond OK

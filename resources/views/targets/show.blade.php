@@ -70,6 +70,13 @@
             </div>
         @endif
 
+        @php
+            // Types avec un temps de réponse (API, site web) : cartes en ms et graphique ; serveur : ressources (SCRUM-69)
+            $hasResponseTime = ($target->provisioner()->statusItemKeys()['response_time'] ?? null) !== null;
+            $isServer = $target->type === \App\Enums\TargetType::Server;
+            $isContainer = $target->type === \App\Enums\TargetType::Container;
+            $isDatabase = $target->type === \App\Enums\TargetType::Database;
+        @endphp
         <p class="section-label mb-2">Current state</p>
         <div class="row g-3 mb-4">
             <div class="col-6 col-lg-3">
@@ -85,12 +92,15 @@
                     </span>
                 </div></div>
             </div>
+            @if ($hasResponseTime)
             <div class="col-6 col-lg-3">
                 <div class="card kpi-card h-100"><div class="card-body">
                     <span class="kpi-label">Last response time</span>
                     @if ($target->last_response_ms !== null)
                         @php
+                            // Base de données (SCRUM-71) : temps de réponse sans seuils en ms
                             $color = match (true) {
+                                $target->critical_threshold_ms === null => '',
                                 $target->last_response_ms > $target->critical_threshold_ms => 'text-danger',
                                 $target->last_response_ms > $target->warning_threshold_ms => 'text-warning',
                                 default => 'text-success',
@@ -103,6 +113,8 @@
                     @endif
                 </div></div>
             </div>
+            @endif
+            @if ($hasResponseTime && $target->warning_threshold_ms !== null)
             <div class="col-6 col-lg-3">
                 <div class="card kpi-card h-100"><div class="card-body">
                     <span class="kpi-label">Warning above</span>
@@ -115,12 +127,89 @@
                     <div class="kpi-value text-danger">{{ number_format($target->critical_threshold_ms) }}<small class="fs-6 text-body-secondary ms-1">ms</small></div>
                 </div></div>
             </div>
+            @elseif ($isServer)
+                @include('targets._server-overview', ['part' => 'identity'])
+            @elseif ($isContainer)
+                @include('targets._container-overview', ['part' => 'identity'])
+            @elseif ($isDatabase)
+                @include('targets._database-overview', ['part' => 'identity'])
+            @endif
         </div>
 
-        {{-- Graphique du temps de réponse (SCRUM-44) : données chargées en JS depuis l'API interne --}}
-        <div class="card mb-4" data-response-time-chart data-url="{{ route('targets.metrics.response-time', $target) }}" data-period="1h">
+        @if ($isServer)
+            @include('targets._server-overview', ['part' => 'resources'])
+        @elseif ($isContainer)
+            @include('targets._container-overview', ['part' => 'resources'])
+        @elseif ($isDatabase)
+            @include('targets._database-overview', ['part' => 'resources'])
+        @endif
+
+        {{-- Métriques propres au type (SCRUM-68), recopiées par la synchro : aucun appel Zabbix ici --}}
+        @php
+            $metricNames = array_keys($target->provisioner()->metricItemKeys());
+            $showCertificate = in_array('certificate_days', $metricNames, true) && \App\Monitoring\Provisioners\WebsiteProvisioner::checksCertificate($target);
+        @endphp
+        @if (in_array('http_code', $metricNames, true) || $showCertificate)
+            <div class="row g-3 mb-4">
+                @if (in_array('http_code', $metricNames, true))
+                    @php
+                        $httpCode = $target->lastMetric('http_code');
+                    @endphp
+                    <div class="col-6 col-lg-3">
+                        <div class="card kpi-card h-100"><div class="card-body">
+                            <span class="kpi-label">HTTP code</span>
+                            @if ($httpCode)
+                                <div class="kpi-value {{ $httpCode >= 200 && $httpCode < 300 ? 'text-success' : 'text-danger' }}">{{ $httpCode }}</div>
+                            @else
+                                <div class="kpi-value text-body-secondary">—</div>
+                                <span class="small text-body-secondary">No response yet</span>
+                            @endif
+                        </div></div>
+                    </div>
+                @endif
+                @if ($showCertificate)
+                    @php
+                        $days = $target->lastMetric('certificate_days');
+                        $certificateColor = match (true) {
+                            $days === null => 'text-body-secondary',
+                            $days < \App\Monitoring\Provisioners\WebsiteProvisioner::CERTIFICATE_CRITICAL_DAYS => 'text-danger',
+                            $days < \App\Monitoring\Provisioners\WebsiteProvisioner::CERTIFICATE_WARNING_DAYS => 'text-warning',
+                            default => 'text-success',
+                        };
+                    @endphp
+                    <div class="col-6 col-lg-3">
+                        <div class="card kpi-card h-100"><div class="card-body">
+                            <span class="kpi-label">SSL certificate</span>
+                            @if ($days === null)
+                                <div class="kpi-value text-body-secondary">—</div>
+                                <span class="small text-body-secondary">Not read yet</span>
+                            @elseif ($days < 0)
+                                <div class="kpi-value text-danger">Expired</div>
+                                <span class="small text-body-secondary">{{ number_format(abs($days)) }} {{ Str::plural('day', abs($days)) }} ago</span>
+                            @else
+                                <div class="kpi-value {{ $certificateColor }}">{{ number_format($days) }}<small class="fs-6 text-body-secondary ms-1">{{ Str::plural('day', $days) }} left</small></div>
+                            @endif
+                        </div></div>
+                    </div>
+                @endif
+            </div>
+        @endif
+
+        {{-- Graphique (SCRUM-44, séries du type en SCRUM-72) : données chargées en JS depuis l'API interne --}}
+        @php
+            $chartSeries = $target->provisioner()->chartSeries();
+        @endphp
+        @if ($chartSeries !== [])
+        <div class="card mb-4" data-metric-chart data-url="{{ route('targets.metrics', [$target, array_key_first($chartSeries)]) }}" data-period="1h">
             <div class="card-header d-flex flex-wrap align-items-center gap-2 py-3">
-                <span class="fw-semibold">Response time</span>
+                <span class="fw-semibold" data-chart-title>{{ reset($chartSeries)['label'] }}</span>
+                @if (count($chartSeries) > 1)
+                    <div class="btn-group btn-group-sm" role="group" aria-label="Metric">
+                        @foreach ($chartSeries as $metric => $series)
+                            <button type="button" class="btn btn-outline-primary" data-metric-url="{{ route('targets.metrics', [$target, $metric]) }}" aria-pressed="false">{{ $series['label'] }}</button>
+                        @endforeach
+                    </div>
+                @endif
                 <div class="btn-group btn-group-sm ms-auto" role="group" aria-label="Period">
                     @foreach (\App\Services\MetricsService::PERIODS as $period => $seconds)
                         <button type="button" class="btn btn-outline-secondary" data-period="{{ $period }}" aria-pressed="false">{{ $period }}</button>
@@ -137,11 +226,13 @@
                     @endforeach
                 </div>
                 <div class="position-relative" data-chart-frame style="height: 280px; transition: opacity .15s ease">
-                    <canvas role="img" aria-label="Response time chart"></canvas>
+                    <canvas role="img" aria-label="{{ reset($chartSeries)['label'] }} chart"></canvas>
                     <div class="position-absolute top-50 start-50 translate-middle small text-body-secondary text-center d-none" data-chart-message role="status"></div>
                 </div>
             </div>
         </div>
+
+        @endif
 
         <div class="card">
             <div class="card-header d-flex align-items-center py-3">
@@ -177,16 +268,18 @@
                 <dl class="row small">
                     <dt class="col-sm-3 fw-normal text-body-secondary">Type</dt>
                     <dd class="col-sm-9"><i class="bi {{ $target->type->icon() }} me-1"></i>{{ $target->type->label() }}</dd>
-                    <dt class="col-sm-3 fw-normal text-body-secondary">URL</dt>
-                    <dd class="col-sm-9 font-monospace-sm text-break">{{ $target->url }}</dd>
+                    <dt class="col-sm-3 fw-normal text-body-secondary">{{ $target->url !== null ? 'URL' : 'Address' }}</dt>
+                    <dd class="col-sm-9 font-monospace-sm text-break">{{ $target->displayAddress() }}</dd>
                     <dt class="col-sm-3 fw-normal text-body-secondary">Check interval</dt>
                     <dd class="col-sm-9">{{ $intervals[$target->check_interval] ?? $target->check_interval.' s' }}</dd>
-                    <dt class="col-sm-3 fw-normal text-body-secondary">Thresholds</dt>
-                    <dd class="col-sm-9">
-                        <span class="text-warning">Warning &gt; {{ number_format($target->warning_threshold_ms) }} ms</span> ·
-                        <span class="text-danger">Critical &gt; {{ number_format($target->critical_threshold_ms) }} ms</span> ·
-                        Unavailable if the response is not 2xx
-                    </dd>
+                    @if ($target->warning_threshold_ms !== null)
+                        <dt class="col-sm-3 fw-normal text-body-secondary">Thresholds</dt>
+                        <dd class="col-sm-9">
+                            <span class="text-warning">Warning &gt; {{ number_format($target->warning_threshold_ms) }} ms</span> ·
+                            <span class="text-danger">Critical &gt; {{ number_format($target->critical_threshold_ms) }} ms</span> ·
+                            Unavailable if the response is not 2xx
+                        </dd>
+                    @endif
                     @if ($target->description)
                         <dt class="col-sm-3 fw-normal text-body-secondary">Description</dt>
                         <dd class="col-sm-9">{{ $target->description }}</dd>
@@ -199,8 +292,12 @@
                     <dd class="col-sm-9 font-monospace-sm">{{ $target->zabbixHostName() }} <span class="text-body-secondary">(id {{ $target->zabbix_host_id ?? '—' }})</span></dd>
                     <dt class="col-sm-3 fw-normal text-body-secondary">Host group</dt>
                     <dd class="col-sm-9 font-monospace-sm">{{ $target->team->zabbixHostGroupName() }}</dd>
-                    <dt class="col-sm-3 fw-normal text-body-secondary">Check</dt>
-                    <dd class="col-sm-9 mb-0">Web scenario <code>{{ \App\Services\MonitoringService::SCENARIO }}</code>, 2xx expected</dd>
+                    <dt class="col-sm-3 fw-normal text-body-secondary">Checks</dt>
+                    <dd class="col-sm-9 mb-0">
+                        @foreach ($target->provisioner()->checkSummary($target) as $check)
+                            <div>{{ $check }}</div>
+                        @endforeach
+                    </dd>
                 </dl>
             </div>
         </div>

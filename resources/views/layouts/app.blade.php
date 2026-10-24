@@ -11,7 +11,9 @@
 @php
     $nav = [
         ['route' => 'dashboard', 'match' => 'dashboard', 'icon' => 'bi-grid-1x2', 'label' => 'Dashboard'],
-        ['route' => 'targets.index', 'match' => 'targets.*', 'icon' => 'bi-hdd-network', 'label' => 'Monitoring'],
+        // Menu Monitoring par type (cahier des charges §44, SCRUM-72)
+        ['route' => 'targets.index', 'match' => 'targets.*', 'icon' => 'bi-hdd-network', 'label' => 'Monitoring',
+            'menu' => app(\App\Monitoring\ProvisionerRegistry::class)->supportedTypes()],
         ['route' => 'alerts.index', 'match' => 'alerts.*', 'icon' => 'bi-bell', 'label' => 'Alerts'],
         // Membres de la team (SCRUM-59) : seulement pour qui a user.view dans au moins une team
         ...(auth()->user()->teams->contains(fn ($team) => auth()->user()->hasPermission(\App\Enums\Permission::UserView, $team))
@@ -29,6 +31,28 @@
     </a>
 
     @foreach ($nav as $item)
+        @if (isset($item['menu']))
+            <div class="dropend">
+                <button type="button" class="app-rail-link border-0 bg-transparent {{ request()->routeIs($item['match']) ? 'active' : '' }}"
+                        data-bs-toggle="dropdown" aria-expanded="false" aria-label="{{ $item['label'] }}" title="{{ $item['label'] }}">
+                    <i class="bi {{ $item['icon'] }}"></i>
+                </button>
+                <ul class="dropdown-menu shadow">
+                    <li><h6 class="dropdown-header">{{ $item['label'] }}</h6></li>
+                    <li><a class="dropdown-item" href="{{ route($item['route']) }}"><i class="bi bi-list-ul me-2"></i>All targets</a></li>
+                    <li><hr class="dropdown-divider"></li>
+                    @foreach ($item['menu'] as $type)
+                        <li>
+                            <a class="dropdown-item {{ request()->routeIs('targets.index') && request('type') === $type->value ? 'active' : '' }}"
+                               href="{{ route($item['route'], ['type' => $type->value]) }}">
+                                <i class="bi {{ $type->icon() }} me-2"></i>{{ $type->pluralLabel() }}
+                            </a>
+                        </li>
+                    @endforeach
+                </ul>
+            </div>
+            @continue
+        @endif
         <a href="{{ $item['route'] ? route($item['route']) : '#' }}"
            class="app-rail-link {{ $item['match'] && request()->routeIs($item['match']) ? 'active' : '' }} {{ $item['route'] ? '' : 'disabled' }}"
            data-bs-toggle="tooltip" data-bs-placement="right" title="{{ $item['label'] }}" aria-label="{{ $item['label'] }}">

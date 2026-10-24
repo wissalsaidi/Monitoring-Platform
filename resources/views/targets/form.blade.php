@@ -1,18 +1,38 @@
 @extends('layouts.app')
 
+@use('App\Enums\TargetType')
+
 @section('title', $target ? 'Edit '.$target->name : 'Add Monitoring Target')
 
 @section('content')
     @php
-        // Types du cahier des charges §5 : seul API est disponible dans le MVP
-        $types = [
-            ['value' => 'api', 'label' => 'API', 'icon' => 'bi-braces', 'enabled' => true],
-            ['value' => 'website', 'label' => 'Website', 'icon' => 'bi-globe2', 'enabled' => false],
-            ['value' => 'server', 'label' => 'Server', 'icon' => 'bi-hdd-rack', 'enabled' => false],
-            ['value' => 'container', 'label' => 'Container', 'icon' => 'bi-box-seam', 'enabled' => false],
-            ['value' => 'database', 'label' => 'Database', 'icon' => 'bi-database', 'enabled' => false],
-            ['value' => 'network', 'label' => 'Network', 'icon' => 'bi-diagram-3', 'enabled' => false],
-        ];
+        // Types du cahier des charges §5 : disponibles s'ils ont un provisioner (config monitoring.provisioners, SCRUM-66)
+        $types = collect([TargetType::Api, TargetType::Website, TargetType::Server, TargetType::Container, TargetType::Database, TargetType::Network])
+            ->map(fn (TargetType $type) => [
+                'value' => $type->value,
+                'label' => $type->label(),
+                'icon' => $type->icon(),
+                'enabled' => in_array($type, $supportedTypes, true),
+            ]);
+
+        // Champs propres au type (SCRUM-69) : seule la section du type choisi est affichée et envoyée
+        // (les autres sont masquées et désactivées ; resources/js/target-form.js les bascule au changement de type)
+        $selectedType = old('type', $target?->type->value ?? 'api');
+        $httpType = in_array($selectedType, ['api', 'website'], true);
+        $serverType = $selectedType === 'server';
+        $serverDefaults = \App\Monitoring\Provisioners\ServerProvisioner::class;
+        $databaseType = $selectedType === 'database';
+        $databaseDefaults = \App\Monitoring\Provisioners\DatabaseProvisioner::class;
+        $databaseAddress = $databaseType ? old('settings.address', $target?->setting('address')) : null;
+        $databasePort = $databaseType ? old('settings.port', $target?->setting('port') ?? $databaseDefaults::DEFAULT_PORT) : $databaseDefaults::DEFAULT_PORT;
+        $containerType = $selectedType === 'container';
+        $containerDefaults = \App\Monitoring\Provisioners\ContainerProvisioner::class;
+        // Serveur et conteneur ont les mêmes champs settings[address] / settings[port] : chaque section ne reprend
+        // la saisie précédente que si c'est son type, sinon sa valeur par défaut (conteneur : l'agent de la plateforme)
+        $serverAddress = $serverType ? old('settings.address', $target?->setting('address')) : null;
+        $serverPort = $serverType ? old('settings.port', $target?->setting('port') ?? $serverDefaults::DEFAULT_PORT) : $serverDefaults::DEFAULT_PORT;
+        $agentAddress = $containerType ? old('settings.address', $target?->setting('address') ?? config('monitoring.agent.host')) : config('monitoring.agent.host');
+        $agentPort = $containerType ? old('settings.port', $target?->setting('port') ?? config('monitoring.agent.port')) : config('monitoring.agent.port');
     @endphp
 
     <div class="row g-4">
@@ -49,15 +69,132 @@
                         @error('name')<div class="invalid-feedback">{{ $message }}</div>@enderror
                     </div>
 
-                    <div class="mb-3">
+                    <div class="mb-3 {{ $httpType ? '' : 'd-none' }}" data-type-fields="api website">
                         <label for="url" class="form-label">URL</label>
-                        <input id="url" name="url" type="url" value="{{ old('url', $target?->url) }}"
+                        <input id="url" name="url" type="url" value="{{ old('url', $target?->url) }}" @disabled(! $httpType)
                                class="form-control font-monospace-sm @error('url') is-invalid @enderror" placeholder="https://api.example.com/health" required>
                         @error('url')
                             <div class="invalid-feedback">{{ $message }}</div>
                         @else
-                            <div class="form-text">Zabbix calls this URL and expects a 2xx response. Demo API: <code>http://fake-api:8080/health</code></div>
+                            <div class="form-text">
+                                Zabbix calls this URL and expects a 2xx response. Demo API: <code>http://fake-api:8080/health</code>.
+                                For a website with an <code>https://</code> URL, the SSL certificate expiry is checked too.
+                            </div>
                         @enderror
+                    </div>
+
+                    {{-- Serveur (SCRUM-69) : agent Zabbix installé sur le serveur --}}
+                    <div class="row g-3 mb-3 {{ $serverType ? '' : 'd-none' }}" data-type-fields="server">
+                        <div class="col-md-8">
+                            <label for="settings-address" class="form-label">IP address or host name</label>
+                            <input id="settings-address" name="settings[address]" type="text" maxlength="255" @disabled(! $serverType)
+                                   value="{{ $serverAddress }}" placeholder="10.0.0.12"
+                                   class="form-control font-monospace-sm @error('settings.address') is-invalid @enderror" required>
+                            @error('settings.address')
+                                <div class="invalid-feedback">{{ $message }}</div>
+                            @else
+                                <div class="form-text">The Zabbix agent must run on the server and accept the Zabbix server. Demo: <code>zabbix-agent2</code></div>
+                            @enderror
+                        </div>
+                        <div class="col-md-4">
+                            <label for="settings-port" class="form-label">Agent port</label>
+                            <input id="settings-port" name="settings[port]" type="number" min="1" max="65535" @disabled(! $serverType)
+                                   value="{{ $serverPort }}"
+                                   class="form-control @error('settings.port') is-invalid @enderror" required>
+                            @error('settings.port')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                        </div>
+                    </div>
+
+                    {{-- Conteneur Docker (SCRUM-70) : lu par l'agent Zabbix 2 de son hôte Docker --}}
+                    <div class="row g-3 mb-3 {{ $containerType ? '' : 'd-none' }}" data-type-fields="container">
+                        <div class="col-md-6">
+                            <label for="settings-container" class="form-label">Container name</label>
+                            <input id="settings-container" name="settings[container]" type="text" maxlength="128" @disabled(! $containerType)
+                                   value="{{ old('settings.container', $target?->setting('container')) }}" placeholder="shop-api"
+                                   class="form-control font-monospace-sm @error('settings.container') is-invalid @enderror" required>
+                            @error('settings.container')
+                                <div class="invalid-feedback">{{ $message }}</div>
+                            @else
+                                <div class="form-text">As shown by <code>docker ps</code>. Demo: <code>monitoring-platform-fake-api-1</code></div>
+                            @enderror
+                        </div>
+                        <div class="col-md-4">
+                            <label for="settings-container-address" class="form-label">Docker host (agent)</label>
+                            <input id="settings-container-address" name="settings[address]" type="text" maxlength="255" @disabled(! $containerType)
+                                   value="{{ $agentAddress }}" class="form-control font-monospace-sm @error('settings.address') is-invalid @enderror" required>
+                            @error('settings.address')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                        </div>
+                        <div class="col-md-2">
+                            <label for="settings-container-port" class="form-label">Port</label>
+                            <input id="settings-container-port" name="settings[port]" type="number" min="1" max="65535" @disabled(! $containerType)
+                                   value="{{ $agentPort }}" class="form-control @error('settings.port') is-invalid @enderror" required>
+                            @error('settings.port')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                        </div>
+                        <div class="col-md-6">
+                            <label for="settings-memory-warning" class="form-label"><i class="bi bi-circle-fill text-warning small me-1"></i>Memory warning above</label>
+                            <div class="input-group has-validation">
+                                <input id="settings-memory-warning" name="settings[memory_warning]" type="number" min="1" @disabled(! $containerType)
+                                       value="{{ old('settings.memory_warning', $target?->setting('memory_warning') ?? $containerDefaults::DEFAULT_MEMORY_WARNING_MB) }}"
+                                       class="form-control @error('settings.memory_warning') is-invalid @enderror" required>
+                                <span class="input-group-text">MB</span>
+                                @error('settings.memory_warning')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                            </div>
+                        </div>
+                        <div class="col-12 form-text mt-1">
+                            Alerts: stopped container (critical), more than {{ $containerDefaults::RESTART_LOOP_COUNT }} restarts in 10 minutes (high), memory above the threshold (warning).
+                        </div>
+                    </div>
+
+                    {{-- Base de données MySQL (SCRUM-71) : lue par l'agent Zabbix 2 de la plateforme --}}
+                    <div class="row g-3 mb-3 {{ $databaseType ? '' : 'd-none' }}" data-type-fields="database">
+                        <div class="col-md-8">
+                            <label for="settings-database-address" class="form-label">MySQL host</label>
+                            <input id="settings-database-address" name="settings[address]" type="text" maxlength="255" @disabled(! $databaseType)
+                                   value="{{ $databaseAddress }}" placeholder="db.internal"
+                                   class="form-control font-monospace-sm @error('settings.address') is-invalid @enderror" required>
+                            @error('settings.address')
+                                <div class="invalid-feedback">{{ $message }}</div>
+                            @else
+                                <div class="form-text">Reached by the Zabbix agent of the platform. Demo: <code>mysql</code>, user <code>zbx_monitor</code></div>
+                            @enderror
+                        </div>
+                        <div class="col-md-4">
+                            <label for="settings-database-port" class="form-label">Port</label>
+                            <input id="settings-database-port" name="settings[port]" type="number" min="1" max="65535" @disabled(! $databaseType)
+                                   value="{{ $databasePort }}" class="form-control @error('settings.port') is-invalid @enderror" required>
+                            @error('settings.port')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                        </div>
+                        <div class="col-md-6">
+                            <label for="settings-database-username" class="form-label">Monitoring user</label>
+                            <input id="settings-database-username" name="settings[username]" type="text" maxlength="80" autocomplete="off" @disabled(! $databaseType)
+                                   value="{{ $databaseType ? old('settings.username', $target?->setting('username')) : '' }}" placeholder="zbx_monitor"
+                                   class="form-control font-monospace-sm @error('settings.username') is-invalid @enderror" required>
+                            @error('settings.username')
+                                <div class="invalid-feedback">{{ $message }}</div>
+                            @else
+                                <div class="form-text">Read-only: <code>PROCESS, REPLICATION CLIENT, SHOW DATABASES, SHOW VIEW</code></div>
+                            @enderror
+                        </div>
+                        <div class="col-md-6">
+                            {{-- Jamais pré-rempli ni renvoyé : vide à la modification = mot de passe inchangé --}}
+                            <label for="credentials-password" class="form-label">Password</label>
+                            <input id="credentials-password" name="credentials[password]" type="password" maxlength="255" autocomplete="new-password" @disabled(! $databaseType)
+                                   class="form-control @error('credentials.password') is-invalid @enderror" @required(! $target)
+                                   placeholder="{{ $target ? 'Leave empty to keep the current password' : '' }}">
+                            @error('credentials.password')
+                                <div class="invalid-feedback">{{ $message }}</div>
+                            @else
+                                <div class="form-text">Stored encrypted, never displayed.</div>
+                            @enderror
+                        </div>
+                        <div class="col-md-6">
+                            <label for="settings-connections-warning" class="form-label"><i class="bi bi-circle-fill text-warning small me-1"></i>Connections warning above</label>
+                            <input id="settings-connections-warning" name="settings[connections_warning]" type="number" min="1" @disabled(! $databaseType)
+                                   value="{{ old('settings.connections_warning', $target?->setting('connections_warning') ?? $databaseDefaults::DEFAULT_CONNECTIONS_WARNING) }}"
+                                   class="form-control @error('settings.connections_warning') is-invalid @enderror" required>
+                            @error('settings.connections_warning')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                        </div>
+                        <div class="col-12 form-text mt-1">Alerts: database unreachable (critical), connections above the threshold (warning, 5-minute average).</div>
                     </div>
 
                     <div class="mb-4">
@@ -80,25 +217,54 @@
                             @error('check_interval')<div class="invalid-feedback">{{ $message }}</div>@enderror
                         </div>
 
-                        <div class="col-md-4">
+                        <div class="col-md-4 {{ $httpType ? '' : 'd-none' }}" data-type-fields="api website">
                             <label for="warning_threshold_ms" class="form-label"><i class="bi bi-circle-fill text-warning small me-1"></i>Warning threshold</label>
                             <div class="input-group has-validation">
-                                <input id="warning_threshold_ms" name="warning_threshold_ms" type="number" min="1" max="{{ \App\Models\MonitoringTarget::MAX_THRESHOLD_MS }}"
+                                <input id="warning_threshold_ms" name="warning_threshold_ms" type="number" min="1" max="{{ \App\Models\MonitoringTarget::MAX_THRESHOLD_MS }}" @disabled(! $httpType)
                                        value="{{ old('warning_threshold_ms', $target?->warning_threshold_ms ?? 500) }}" class="form-control @error('warning_threshold_ms') is-invalid @enderror" required>
                                 <span class="input-group-text">ms</span>
                                 @error('warning_threshold_ms')<div class="invalid-feedback">{{ $message }}</div>@enderror
                             </div>
                         </div>
 
-                        <div class="col-md-4">
+                        <div class="col-md-4 {{ $httpType ? '' : 'd-none' }}" data-type-fields="api website">
                             <label for="critical_threshold_ms" class="form-label"><i class="bi bi-circle-fill text-danger small me-1"></i>Critical threshold</label>
                             <div class="input-group has-validation">
-                                <input id="critical_threshold_ms" name="critical_threshold_ms" type="number" min="1" max="{{ \App\Models\MonitoringTarget::MAX_THRESHOLD_MS }}"
+                                <input id="critical_threshold_ms" name="critical_threshold_ms" type="number" min="1" max="{{ \App\Models\MonitoringTarget::MAX_THRESHOLD_MS }}" @disabled(! $httpType)
                                        value="{{ old('critical_threshold_ms', $target?->critical_threshold_ms ?? 1000) }}" class="form-control @error('critical_threshold_ms') is-invalid @enderror" required>
                                 <span class="input-group-text">ms</span>
                                 @error('critical_threshold_ms')<div class="invalid-feedback">{{ $message }}</div>@enderror
                             </div>
                         </div>
+                    </div>
+
+                    {{-- Seuils d'un serveur, en % (SCRUM-69) : moyenne sur 5 minutes --}}
+                    <div class="mt-3 {{ $serverType ? '' : 'd-none' }}" data-type-fields="server">
+                        <div class="row g-2 small text-body-secondary mb-1">
+                            <div class="col-4"></div>
+                            <div class="col-4"><i class="bi bi-circle-fill text-warning small me-1"></i>Warning above</div>
+                            <div class="col-4"><i class="bi bi-circle-fill text-danger small me-1"></i>Critical above</div>
+                        </div>
+                        @foreach ($serverDefaults::RESOURCES as $resource => ['label' => $label])
+                            <div class="row g-2 align-items-start mb-2">
+                                <div class="col-4 pt-2">{{ $label }}</div>
+                                @foreach (['warning' => $serverDefaults::DEFAULT_WARNING, 'critical' => $serverDefaults::DEFAULT_CRITICAL] as $severity => $default)
+                                    @php
+                                        $field = "{$resource}_{$severity}";
+                                    @endphp
+                                    <div class="col-4">
+                                        <div class="input-group input-group-sm has-validation">
+                                            <input id="settings-{{ $field }}" name="settings[{{ $field }}]" type="number" min="1" max="100" @disabled(! $serverType)
+                                                   value="{{ old("settings.$field", $target?->setting($field) ?? $default) }}" aria-label="{{ $label }} {{ $severity }} threshold"
+                                                   class="form-control @error("settings.$field") is-invalid @enderror" required>
+                                            <span class="input-group-text">%</span>
+                                            @error("settings.$field")<div class="invalid-feedback">{{ $message }}</div>@enderror
+                                        </div>
+                                    </div>
+                                @endforeach
+                            </div>
+                        @endforeach
+                        <div class="form-text">Compared to the 5-minute average, so that a short spike does not raise an alert.</div>
                     </div>
                 </div>
 

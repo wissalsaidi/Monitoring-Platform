@@ -13,17 +13,41 @@
 @section('content')
     {{-- KPIs (cahier des charges §20, SCRUM-43) : chaque carte ouvre la liste correspondante --}}
     @php
+        // Catégorie choisie (SCRUM-72) : gardée dans les liens vers la liste des targets
+        $filter = $type ? ['type' => $type->value] : [];
         $kpis = [
-            ['label' => 'Targets', 'value' => $total, 'icon' => 'bi-hdd-stack', 'color' => 'primary', 'url' => route('targets.index')],
-            ['label' => 'UP', 'value' => $counts['up'], 'icon' => 'bi-check-circle', 'color' => 'success', 'url' => route('targets.index', ['status' => 'up'])],
-            ['label' => 'Warning', 'value' => $counts['warning'], 'icon' => 'bi-exclamation-triangle', 'color' => 'warning', 'url' => route('targets.index', ['status' => 'warning'])],
-            ['label' => 'Critical', 'value' => $counts['critical'], 'icon' => 'bi-x-octagon', 'color' => 'danger', 'url' => route('targets.index', ['status' => 'critical'])],
-            ['label' => 'Unknown', 'value' => $counts['unknown'], 'icon' => 'bi-question-circle', 'color' => 'secondary', 'url' => route('targets.index', ['status' => 'unknown'])],
+            ['label' => 'Targets', 'value' => $total, 'icon' => 'bi-hdd-stack', 'color' => 'primary', 'url' => route('targets.index', $filter)],
+            ['label' => 'UP', 'value' => $counts['up'], 'icon' => 'bi-check-circle', 'color' => 'success', 'url' => route('targets.index', ['status' => 'up', ...$filter])],
+            ['label' => 'Warning', 'value' => $counts['warning'], 'icon' => 'bi-exclamation-triangle', 'color' => 'warning', 'url' => route('targets.index', ['status' => 'warning', ...$filter])],
+            ['label' => 'Critical', 'value' => $counts['critical'], 'icon' => 'bi-x-octagon', 'color' => 'danger', 'url' => route('targets.index', ['status' => 'critical', ...$filter])],
+            ['label' => 'Unknown', 'value' => $counts['unknown'], 'icon' => 'bi-question-circle', 'color' => 'secondary', 'url' => route('targets.index', ['status' => 'unknown', ...$filter])],
             ['label' => 'Active alerts', 'value' => $activeAlerts, 'icon' => 'bi-bell', 'color' => 'danger', 'url' => route('alerts.index')],
         ];
+        $columns = \App\Support\TargetColumns::for($type);
     @endphp
 
-    <p class="section-label mb-2">Infrastructure overview</p>
+    {{-- Catégories (cahier des charges §21, SCRUM-72) : All, Websites, APIs, Servers, Containers, Databases --}}
+    <nav class="mb-3" aria-label="Category">
+        <ul class="nav nav-pills gap-1 flex-wrap small">
+            <li class="nav-item">
+                <a href="{{ route('dashboard') }}" class="nav-link py-1 px-3 {{ $type ? '' : 'active' }}" @unless ($type) aria-current="page" @endunless>
+                    All <span class="badge text-bg-secondary ms-1">{{ $allTargets }}</span>
+                </a>
+            </li>
+            @foreach ($categories as $value => $count)
+                @php
+                    $category = \App\Enums\TargetType::from($value);
+                @endphp
+                <li class="nav-item">
+                    <a href="{{ route('dashboard', ['type' => $value]) }}" class="nav-link py-1 px-3 {{ $type === $category ? 'active' : '' }}" @if ($type === $category) aria-current="page" @endif>
+                        <i class="bi {{ $category->icon() }} me-1"></i>{{ $category->pluralLabel() }} <span class="badge text-bg-secondary ms-1">{{ $count }}</span>
+                    </a>
+                </li>
+            @endforeach
+        </ul>
+    </nav>
+
+    <p class="section-label mb-2">{{ $type ? $type->pluralLabel() : 'Infrastructure' }} overview</p>
     <div class="row g-3 mb-4">
         @foreach ($kpis as $kpi)
             <div class="col-6 col-md-4 col-xl-2">
@@ -51,15 +75,20 @@
             <span class="fw-semibold">Monitoring targets</span>
             <span class="badge text-bg-secondary ms-2">{{ $total }}</span>
             @if ($total > 0)
-                <a href="{{ route('targets.index') }}" class="ms-auto small">View all<i class="bi bi-arrow-right ms-1"></i></a>
+                <a href="{{ route('targets.index', $filter) }}" class="ms-auto small">View all<i class="bi bi-arrow-right ms-1"></i></a>
             @endif
         </div>
 
         @if ($targets->isEmpty())
             <div class="card-body text-center py-5">
                 <i class="bi bi-hdd-network text-body-secondary" style="font-size: 2.5rem"></i>
-                <p class="mt-3 mb-1 fw-semibold">No target monitored yet</p>
-                <p class="text-body-secondary small mb-3">Add your first API and Zabbix will start checking it automatically.</p>
+                @if ($type)
+                    <p class="mt-3 mb-1 fw-semibold">No {{ strtolower($type->label()) }} monitored yet</p>
+                    <a href="{{ route('dashboard') }}" class="small d-inline-block mb-3">Show all categories</a>
+                @else
+                    <p class="mt-3 mb-1 fw-semibold">No target monitored yet</p>
+                    <p class="text-body-secondary small mb-3">Add your first target and Zabbix will start checking it automatically.</p>
+                @endif
                 @if ($canCreate)
                     <a href="{{ route('targets.create') }}" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg me-1"></i>Add Monitoring Target</a>
                 @endif
@@ -72,8 +101,9 @@
                             <th class="ps-3">Name</th>
                             <th>Status</th>
                             <th>Type</th>
-                            <th class="text-end">Response time</th>
-                            <th class="text-end pe-3">Thresholds</th>
+                            @foreach ($columns as $label)
+                                <th class="text-end {{ $loop->last ? 'pe-3' : '' }}">{{ $label }}</th>
+                            @endforeach
                         </tr>
                     </thead>
                     <tbody>
@@ -81,15 +111,16 @@
                             <tr>
                                 <td class="ps-3">
                                     <a href="{{ route('targets.show', $target) }}" class="fw-semibold text-body text-decoration-none">{{ $target->name }}</a>
-                                    <div class="font-monospace-sm text-body-secondary text-truncate" style="max-width: 320px">{{ $target->url }}</div>
+                                    <div class="font-monospace-sm text-body-secondary text-truncate" style="max-width: 320px">{{ $target->displayAddress() }}</div>
                                 </td>
                                 <td><x-status-pill :status="$target->status" /></td>
                                 <td class="small text-body-secondary text-nowrap"><i class="bi {{ $target->type->icon() }} me-1"></i>{{ $target->type->label() }}</td>
-                                <td class="text-end small text-nowrap">{{ $target->last_response_ms !== null ? number_format($target->last_response_ms).' ms' : '—' }}</td>
-                                <td class="text-end pe-3 small text-nowrap">
-                                    <span class="text-warning">{{ number_format($target->warning_threshold_ms) }}</span> /
-                                    <span class="text-danger">{{ number_format($target->critical_threshold_ms) }}</span> ms
-                                </td>
+                                @foreach ($columns as $column => $label)
+                                    @php
+                                        $cell = \App\Support\TargetColumns::cell($target, $column);
+                                    @endphp
+                                    <td class="text-end small text-nowrap {{ $loop->last ? 'pe-3' : '' }}"><span class="{{ $cell['class'] }}">{{ $cell['text'] }}</span></td>
+                                @endforeach
                             </tr>
                         @endforeach
                     </tbody>

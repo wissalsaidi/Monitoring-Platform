@@ -11,8 +11,12 @@ use App\Models\Team;
 use App\Models\User;
 use App\Services\MonitoringService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Log\Events\MessageLogged;
+use Illuminate\Support\Facades\Log;
+use RuntimeException;
 use Tests\Concerns\FakesZabbix;
 use Tests\TestCase;
+use UnexpectedValueException;
 
 class MonitoringServiceTest extends TestCase
 {
@@ -27,7 +31,7 @@ class MonitoringServiceTest extends TestCase
 
     private function createPaymentApi(?Team $team = null, ?User $creator = null): MonitoringTarget
     {
-        return app(MonitoringService::class)->createApiTarget($team ?? Team::factory()->create(), $creator, [
+        return app(MonitoringService::class)->createTarget($team ?? Team::factory()->create(), $creator, TargetType::Api, [
             'name' => 'Payment API',
             'url' => 'http://fake-api:8080/health',
             'check_interval' => 30,
@@ -133,7 +137,7 @@ class MonitoringServiceTest extends TestCase
 
     public function test_thresholds_are_converted_to_seconds_without_rounding_errors(): void
     {
-        app(MonitoringService::class)->createApiTarget(Team::factory()->create(), null, [
+        app(MonitoringService::class)->createTarget(Team::factory()->create(), null, TargetType::Api, [
             'name' => 'Slow API', 'url' => 'https://api.example.com', 'check_interval' => 60,
             'warning_threshold_ms' => 1250, 'critical_threshold_ms' => 3000,
         ]);
@@ -182,6 +186,39 @@ class MonitoringServiceTest extends TestCase
             $this->createPaymentApi();
         } finally {
             $this->assertSame([], $this->callsTo('host.delete'));
+            $this->assertDatabaseCount('monitoring_targets', 0);
+        }
+    }
+
+    public function test_when_saving_the_host_id_fails_the_zabbix_host_is_deleted(): void
+    {
+        MonitoringTarget::updating(fn () => throw new RuntimeException('Database is gone.'));
+
+        $this->expectException(RuntimeException::class);
+
+        try {
+            $this->createPaymentApi();
+        } finally {
+            $this->assertSame([['10700']], $this->callsTo('host.delete'));
+            $this->assertDatabaseCount('monitoring_targets', 0);
+        }
+    }
+
+    public function test_when_the_log_cannot_be_written_the_zabbix_host_is_deleted(): void
+    {
+        // Vu en vrai (SCRUM-67) : log du jour créé par root, « Permission denied » après la création du host
+        Log::listen(function (MessageLogged $log) {
+            if ($log->message === 'Monitoring target provisioned in Zabbix') {
+                throw new UnexpectedValueException('Permission denied');
+            }
+        });
+
+        $this->expectException(UnexpectedValueException::class);
+
+        try {
+            $this->createPaymentApi();
+        } finally {
+            $this->assertSame([['10700']], $this->callsTo('host.delete'));
             $this->assertDatabaseCount('monitoring_targets', 0);
         }
     }
