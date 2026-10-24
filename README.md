@@ -203,6 +203,16 @@ docker compose exec zabbix-agent2 zabbix_agent2 -t docker.containers
 docker compose run --rm mysql-monitor-user                            # recrée zbx_monitor (ex. après un changement de mot de passe)
 ```
 
+## Onglet Metrics
+
+Sur la page d'une target, l'onglet **Metrics** (SCRUM-49) montre chaque métrique du type sur la période choisie :
+
+- périodes : 15 min, 1 h, 6 h, 24 h, 7 j, 30 j, ou des dates de début et de fin (jusqu'à un an) ;
+- pour chaque métrique (temps de réponse, code HTTP, CPU, mémoire, disque, connexions…, et la **disponibilité** pour tous
+  les types) : valeur actuelle, moyenne, minimum, maximum, nombre de mesures et graphique avec ses seuils ;
+- à partir de 7 jours, les tendances horaires de Zabbix remplacent l'historique : 30 jours s'affichent en moins d'une
+  seconde.
+
 ## Grafana
 
 Grafana lit Zabbix par le datasource du plugin Zabbix (provisionné dans `docker/grafana/provisioning/`).

@@ -152,7 +152,7 @@ class ContainerProvisioner extends ZabbixProvisioner
     }
 
     /** Graphiques (SCRUM-72) : CPU en %, mémoire en Mo avec son seuil */
-    public function chartSeries(): array
+    protected function metricSeries(): array
     {
         return [
             'cpu' => ['label' => 'CPU', 'key' => self::KEYS['cpu'], 'unit' => '%', 'scale' => 1, 'value_type' => self::VALUE_TYPE_FLOAT],

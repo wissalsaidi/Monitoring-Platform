@@ -5,7 +5,7 @@
 @section('actions')
     @if (app(\App\Services\GrafanaService::class)->supports($target))
         {{-- Dashboard Grafana de la target (SCRUM-47) ; la période suit celle du graphique (metric-chart.js) --}}
-        <a href="{{ route('targets.grafana', [$target, 'period' => '1h']) }}" class="btn btn-outline-secondary btn-sm"
+        <a href="{{ route('targets.grafana', [$target, ...($range?->query() ?? ['period' => '1h'])]) }}" class="btn btn-outline-secondary btn-sm"
            target="_blank" rel="noopener" data-grafana-link>
             <i class="bi bi-box-arrow-up-right me-1"></i>Open Grafana dashboard
         </a>
@@ -38,11 +38,11 @@
                 <span><i class="bi bi-calendar3 me-1"></i>Created {{ $target->created_at->diffForHumans() }}{{ $target->creator ? ' by '.$target->creator->name : '' }}</span>
             </div>
 
-            {{-- Onglets du cahier des charges §14 : Metrics et History arrivent en V1 --}}
+            {{-- Onglets du cahier des charges §14 : Metrics en SCRUM-49, History à venir (SCRUM-50) --}}
             @php
                 $tabs = [
                     'overview' => 'Overview',
-                    'metrics' => null,
+                    'metrics' => 'Metrics',
                     'history' => null,
                     'alerts' => 'Alerts',
                     'configuration' => 'Configuration',
@@ -218,7 +218,7 @@
                     </div>
                 @endif
                 <div class="btn-group btn-group-sm ms-auto" role="group" aria-label="Period">
-                    @foreach (\App\Services\MetricsService::PERIODS as $period => $seconds)
+                    @foreach (\App\Services\MetricsService::OVERVIEW_PERIODS as $period)
                         <button type="button" class="btn btn-outline-secondary" data-period="{{ $period }}" aria-pressed="false">{{ $period }}</button>
                     @endforeach
                 </div>
@@ -256,6 +256,62 @@
                 @include('alerts._table', ['alerts' => $activeAlerts, 'showTarget' => false])
             @endif
         </div>
+    @elseif ($tab === 'metrics')
+        {{-- Onglet Metrics (SCRUM-49) : une carte par série (valeur actuelle, moyenne, min, max, graphique), même période pour toutes --}}
+        @php
+            $today = now()->setTimezone(config('app.display_timezone'))->toDateString();
+        @endphp
+        <div class="card mb-4">
+            <div class="card-body d-flex flex-wrap align-items-end gap-3">
+                <div>
+                    <div class="kpi-label mb-1">Period</div>
+                    <div class="btn-group btn-group-sm" role="group" aria-label="Period">
+                        @foreach (\App\Services\MetricsService::PERIODS as $period => $seconds)
+                            <a class="btn btn-outline-secondary {{ $range->period === $period ? 'active' : '' }}" @if ($range->period === $period) aria-current="true" @endif
+                               href="{{ route('targets.show', [$target, 'tab' => 'metrics', 'period' => $period]) }}">{{ $period }}</a>
+                        @endforeach
+                    </div>
+                </div>
+                <form method="GET" action="{{ route('targets.show', $target) }}" class="d-flex flex-wrap align-items-end gap-2" aria-label="Custom period">
+                    <input type="hidden" name="tab" value="metrics">
+                    <div>
+                        <label for="metrics-from" class="kpi-label d-block mb-1">From</label>
+                        <input type="date" id="metrics-from" name="from" class="form-control form-control-sm" required max="{{ $today }}" value="{{ $range->fromDate }}">
+                    </div>
+                    <div>
+                        <label for="metrics-to" class="kpi-label d-block mb-1">To</label>
+                        <input type="date" id="metrics-to" name="to" class="form-control form-control-sm" required max="{{ $today }}" value="{{ $range->toDate }}">
+                    </div>
+                    <button type="submit" class="btn btn-sm {{ $range->isCustom() ? 'btn-primary' : 'btn-outline-primary' }}">Apply</button>
+                </form>
+                <span class="ms-lg-auto small text-body-secondary"><i class="bi bi-calendar3 me-1"></i>{{ $range->label() }}</span>
+            </div>
+            @if ($rangeErrors)
+                <div class="alert alert-warning small mx-3 mb-3" role="alert">
+                    {{ implode(' ', $rangeErrors->all()) }} Showing the last 24 hours.
+                </div>
+            @endif
+        </div>
+
+        @foreach ($target->provisioner()->chartSeries() as $metric => $series)
+            <div class="card mb-4" data-metric-chart data-url="{{ route('targets.metrics', [$target, $metric]) }}" data-query="{{ json_encode($range->query()) }}">
+                <div class="card-header py-3"><span class="fw-semibold" data-chart-title>{{ $series['label'] }}</span></div>
+                <div class="card-body">
+                    <div class="row g-3 mb-3 small">
+                        @foreach (['last' => 'Current', 'avg' => 'Average', 'min' => 'Minimum', 'max' => 'Maximum', 'count' => 'Samples'] as $key => $label)
+                            <div class="col-6 col-md">
+                                <div class="kpi-label">{{ $label }}</div>
+                                <div class="fs-5 fw-semibold" data-stat="{{ $key }}">—</div>
+                            </div>
+                        @endforeach
+                    </div>
+                    <div class="position-relative" data-chart-frame style="height: 240px; transition: opacity .15s ease">
+                        <canvas role="img" aria-label="{{ $series['label'] }} chart"></canvas>
+                        <div class="position-absolute top-50 start-50 translate-middle small text-body-secondary text-center d-none" data-chart-message role="status"></div>
+                    </div>
+                </div>
+            </div>
+        @endforeach
     @elseif ($tab === 'alerts')
         <div class="card">
             @if ($alerts->isEmpty())

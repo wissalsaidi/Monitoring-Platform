@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\MonitoringTarget;
+use App\Support\MetricRange;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
@@ -26,17 +27,17 @@ class GrafanaService
     /**
      * URL du dashboard, déjà filtré sur la team et la target (variables du dashboard = noms Zabbix), et sur la période.
      *
-     * @param  string  $period  période des graphiques de la page (MetricsService::PERIODS) : 1h, 24h, 7d
+     * @param  MetricRange  $range  période du graphique de la page : prédéfinie (now-24h) ou dates choisies (en ms)
      * @param  int  $orgId  organisation Grafana de la team (SCRUM-48)
      */
-    public function dashboardUrl(MonitoringTarget $target, string $period, int $orgId): string
+    public function dashboardUrl(MonitoringTarget $target, MetricRange $range, int $orgId): string
     {
         $query = http_build_query([
             'orgId' => $orgId,
             'var-team' => $target->team->zabbixHostGroupName(),
             'var-target' => $target->zabbixVisibleName(),
-            'from' => "now-{$period}",
-            'to' => 'now',
+            'from' => $range->isCustom() ? $range->from * 1000 : "now-{$range->period}",
+            'to' => $range->isCustom() ? $range->to * 1000 : 'now',
         ], '', '&', PHP_QUERY_RFC3986);
 
         return sprintf('%s/d/%s?%s', rtrim(config('services.grafana.url'), '/'), config('services.grafana.dashboard_uid'), $query);

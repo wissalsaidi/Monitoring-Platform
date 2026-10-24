@@ -175,10 +175,10 @@ class DatabaseProvisioner extends ZabbixProvisioner
     }
 
     /** Graphiques (SCRUM-72) : temps de réponse (par défaut), puis connexions avec leur seuil */
-    public function chartSeries(): array
+    protected function metricSeries(): array
     {
         return [
-            ...parent::chartSeries(),
+            ...parent::metricSeries(),
             'connections' => ['label' => 'Connections', 'key' => self::KEYS['connections'], 'unit' => '', 'scale' => 1, 'value_type' => self::VALUE_TYPE_UNSIGNED],
         ];
     }

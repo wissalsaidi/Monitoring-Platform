@@ -156,7 +156,7 @@ class ServerProvisioner extends ZabbixProvisioner
     }
 
     /** Graphiques (SCRUM-72) : CPU, mémoire, disque /, en %, avec leurs seuils */
-    public function chartSeries(): array
+    protected function metricSeries(): array
     {
         return array_map(fn (array $resource) => [
             'label' => $resource['label'], 'key' => $resource['key'], 'unit' => '%', 'scale' => 1, 'value_type' => self::VALUE_TYPE_FLOAT,

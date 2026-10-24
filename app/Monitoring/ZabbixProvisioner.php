@@ -4,6 +4,7 @@ namespace App\Monitoring;
 
 use App\Exceptions\Zabbix\ZabbixException;
 use App\Models\MonitoringTarget;
+use App\Services\MetricsService;
 use App\Services\ZabbixService;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Log;
@@ -75,14 +76,35 @@ abstract class ZabbixProvisioner implements TargetProvisioner
         return [];
     }
 
-    /** Par défaut : le temps de réponse, si le type en a un (Zabbix le mesure en secondes, affiché en ms). */
+    /**
+     * Séries du type (metricSeries), puis la disponibilité, commune à tous les types (SCRUM-49) : 100 % quand l'item
+     * de disponibilité (statusItemKeys) dit que la target répond, 0 % sinon ; moyenne = disponibilité sur la période.
+     */
     public function chartSeries(): array
+    {
+        return [
+            ...$this->metricSeries(),
+            'availability' => [
+                'label' => 'Availability', 'key' => $this->statusItemKeys()['availability'], 'unit' => '%', 'scale' => 1,
+                'value_type' => self::VALUE_TYPE_UNSIGNED, 'availability' => $this->upWhen(),
+            ],
+        ];
+    }
+
+    /** Séries propres au type. Par défaut : le temps de réponse, si le type en a un (Zabbix le mesure en secondes, affiché en ms). */
+    protected function metricSeries(): array
     {
         $key = $this->statusItemKeys()['response_time'] ?? null;
 
         return $key === null ? [] : [
             'response_time' => ['label' => 'Response time', 'key' => $key, 'unit' => 'ms', 'scale' => 1000, 'value_type' => self::VALUE_TYPE_FLOAT],
         ];
+    }
+
+    /** Valeur de l'item de disponibilité quand la target répond : 1 (ping de l'agent, de MySQL, conteneur en marche) */
+    protected function upWhen(): string
+    {
+        return MetricsService::UP_WHEN_ONE;
     }
 
     public function chartThresholds(MonitoringTarget $target, string $series): array
