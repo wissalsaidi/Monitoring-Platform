@@ -11,3 +11,6 @@ Schedule::command('backup:run')->dailyAt(config('backup.time'))->withoutOverlapp
 
 // Journal d'audit conservé un an (RGPD-3, SCRUM-60)
 Schedule::command('audit:purge')->dailyAt('03:30');
+
+// Accès à Grafana par team (SCRUM-48) : rattrape les retraits non répercutés, met à jour les dashboards
+Schedule::command('grafana:sync')->hourly()->withoutOverlapping();

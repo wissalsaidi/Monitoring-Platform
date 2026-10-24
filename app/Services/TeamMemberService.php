@@ -101,6 +101,9 @@ class TeamMemberService
                 'role' => $role->value,
             ]);
         });
+
+        // Il ne voit plus les dashboards Grafana de la team (SCRUM-48)
+        app(GrafanaAccessService::class)->revoke($member, $team);
     }
 
     /**

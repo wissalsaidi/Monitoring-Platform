@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Enums\TeamRole;
+use App\Exceptions\GrafanaException;
 use App\Exceptions\TeamMembershipException;
 use App\Exceptions\Zabbix\ZabbixException;
 use App\Models\AuditLog;
@@ -56,6 +57,13 @@ class AccountDeletionService
         $soloTeams = $user->teams()->get()->filter(fn (Team $team) => $team->members()->count() === 1);
         foreach ($soloTeams as $team) {
             $this->monitoring->deleteTeam($team);
+        }
+
+        // Compte Grafana (SCRUM-48) : facultatif, la synchro horaire ne le recrée pas (plus de teams)
+        try {
+            app(GrafanaAccessService::class)->deleteUser($user);
+        } catch (GrafanaException $e) {
+            Log::warning('Grafana account of a deleted user not removed', ['user_id' => $user->id, 'error' => $e->getMessage()]);
         }
 
         DB::transaction(function () use ($user) {

@@ -27,11 +27,12 @@ class GrafanaService
      * URL du dashboard, déjà filtré sur la team et la target (variables du dashboard = noms Zabbix), et sur la période.
      *
      * @param  string  $period  période des graphiques de la page (MetricsService::PERIODS) : 1h, 24h, 7d
+     * @param  int  $orgId  organisation Grafana de la team (SCRUM-48)
      */
-    public function dashboardUrl(MonitoringTarget $target, string $period): string
+    public function dashboardUrl(MonitoringTarget $target, string $period, int $orgId): string
     {
         $query = http_build_query([
-            'orgId' => 1,
+            'orgId' => $orgId,
             'var-team' => $target->team->zabbixHostGroupName(),
             'var-target' => $target->zabbixVisibleName(),
             'from' => "now-{$period}",

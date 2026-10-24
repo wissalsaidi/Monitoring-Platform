@@ -45,10 +45,17 @@ return [
 
     // Grafana (SCRUM-47) : url = adresse vue par le navigateur (liens) ; internal_url = vue par l'application (état)
     'grafana' => [
-        'url' => env('GRAFANA_URL', 'http://localhost:3000'),
-        'internal_url' => env('GRAFANA_INTERNAL_URL', 'http://grafana:3000'),
+        'url' => env('GRAFANA_URL', 'http://localhost:8000/grafana'),
+        'internal_url' => env('GRAFANA_INTERNAL_URL', 'http://grafana:3000/grafana'),
         'dashboard_uid' => env('GRAFANA_DASHBOARD_UID', 'monitoring-platform-target'),
         'timeout' => (int) env('GRAFANA_TIMEOUT', 2),
+        // Accès par team (SCRUM-48) : API d'administration, côté serveur uniquement
+        'admin_user' => env('GRAFANA_ADMIN_USER', 'admin'),
+        'admin_password' => env('GRAFANA_ADMIN_PASSWORD'),
+        // Datasource Zabbix des organisations des teams : API Zabbix vue depuis Grafana, rôle de l'utilisateur Zabbix
+        'zabbix_api_url' => env('GRAFANA_ZABBIX_API_URL', 'http://zabbix-web:8080/api_jsonrpc.php'),
+        'zabbix_role_id' => env('GRAFANA_ZABBIX_ROLE_ID', '1'),
+        'dashboard_file' => base_path('docker/grafana/provisioning/dashboards/target-overview.json'),
     ],
 
 ];

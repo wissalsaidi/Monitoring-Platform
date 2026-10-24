@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Enums\TargetType;
+use App\Exceptions\GrafanaException;
 use App\Exceptions\UnsupportedTargetTypeException;
 use App\Exceptions\Zabbix\ZabbixApiException;
 use App\Exceptions\Zabbix\ZabbixException;
@@ -175,6 +176,13 @@ class MonitoringService
             $this->deleteTarget($target);
         }
 
+        // Accès Grafana de la team (SCRUM-48) : facultatif, un échec ne bloque pas la suppression
+        try {
+            app(GrafanaAccessService::class)->deleteTeam($team);
+        } catch (GrafanaException|ZabbixException $e) {
+            Log::warning('Grafana access of a deleted team not cleaned up', ['team_id' => $team->id, 'error' => $e->getMessage()]);
+        }
+
         if ($team->zabbix_hostgroup_id !== null) {
             try {
                 $this->zabbix->deleteHostGroup($team->zabbix_hostgroup_id);
@@ -225,8 +233,9 @@ class MonitoringService
 
     /**
      * Host group de la team : réutilisé s'il existe déjà dans Zabbix (même nom), créé sinon.
+     * Aussi utilisé pour les droits de l'utilisateur Zabbix de la team dans Grafana (SCRUM-48).
      */
-    private function hostGroupFor(Team $team): string
+    public function hostGroupFor(Team $team): string
     {
         if ($team->zabbix_hostgroup_id !== null) {
             return $team->zabbix_hostgroup_id;
