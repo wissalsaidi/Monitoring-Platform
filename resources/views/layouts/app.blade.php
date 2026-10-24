@@ -99,9 +99,9 @@
             </div>
         @endif
 
-        @foreach (['success' => 'check-circle', 'error' => 'exclamation-octagon'] as $type => $icon)
+        @foreach (['success' => 'check-circle', 'warning' => 'exclamation-triangle', 'error' => 'exclamation-octagon'] as $type => $icon)
             @if (session($type))
-                <div class="alert alert-{{ $type === 'error' ? 'danger' : 'success' }} d-flex align-items-center gap-2" role="alert">
+                <div class="alert alert-{{ $type === 'error' ? 'danger' : $type }} d-flex align-items-center gap-2" role="alert">
                     <i class="bi bi-{{ $icon }}"></i> {{ session($type) }}
                 </div>
             @endif

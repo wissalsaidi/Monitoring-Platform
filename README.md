@@ -212,6 +212,11 @@ Le dashboard **Target overview** (dossier *Monitoring Platform*) sert pour toute
 - disponibilité, code HTTP, disponibilité dans le temps, problèmes Zabbix actifs ;
 - temps de réponse, avec les seuils warning et critical de la target en pointillés.
 
+Sur la page d'une API, d'un site web ou d'une base de données, le bouton **Open Grafana dashboard** ouvre ce dashboard
+déjà réglé sur la target et sur la période du graphique (SCRUM-47). Avant d'y aller, l'application vérifie que Grafana
+répond (`GRAFANA_INTERNAL_URL`, état gardé 30 s). Sinon, la page affiche « Advanced metrics are temporarily
+unavailable. ». Le lien utilise `GRAFANA_URL`, l'adresse vue par le navigateur.
+
 Il est versionné dans `docker/grafana/provisioning/dashboards/target-overview.json`. On peut le modifier dans Grafana sans
 pouvoir l'enregistrer : on modifie le fichier.
 
