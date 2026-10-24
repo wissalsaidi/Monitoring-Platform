@@ -100,6 +100,14 @@ interface TargetProvisioner
      */
     public function chartThresholds(MonitoringTarget $target, string $series): array;
 
+    /**
+     * Crée ou met à jour les items Zabbix qui portent les seuils des graphiques (SCRUM-46, lus par Grafana).
+     * Ne lève pas d'exception : un échec est journalisé.
+     *
+     * @return bool false si Zabbix a refusé
+     */
+    public function syncThresholdItems(MonitoringTarget $target, string $hostId): bool;
+
     /** Seuil d'un niveau d'alerte (tag "level"), enregistré avec l'alerte. */
     public function threshold(MonitoringTarget $target, string $level): int|float|null;
 

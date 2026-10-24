@@ -1,0 +1,17 @@
+# Dashboards versionnés (SCRUM-46) : chargés au démarrage de Grafana depuis ce dossier.
+# Modifiables dans Grafana, mais non enregistrables : le fichier JSON reste la référence (le modifier, puis redémarrer
+# Grafana ou attendre updateIntervalSeconds).
+apiVersion: 1
+
+providers:
+  - name: monitoring-platform
+    orgId: 1
+    folder: Monitoring Platform
+    folderUid: monitoring-platform
+    type: file
+    disableDeletion: true
+    allowUiUpdates: false
+    updateIntervalSeconds: 60
+    options:
+      path: /etc/grafana/provisioning/dashboards
+      foldersFromFilesStructure: false

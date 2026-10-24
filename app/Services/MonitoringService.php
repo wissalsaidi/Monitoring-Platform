@@ -86,6 +86,7 @@ class MonitoringService
             ]);
 
             $provisioner->create($target, $hostId);
+            $provisioner->syncThresholdItems($target, $hostId);
 
             // Dans le try : un log impossible à écrire ne doit pas laisser un host orphelin dans Zabbix
             Log::info('Monitoring target provisioned in Zabbix', ['target_id' => $target->id, 'type' => $target->type->value, 'zabbix_host_id' => $hostId]);
@@ -206,6 +207,7 @@ class MonitoringService
         $this->zabbix->updateHost($target->zabbix_host_id, ['name' => $target->zabbixVisibleName()]);
 
         $target->provisioner()->update($target);
+        $target->provisioner()->syncThresholdItems($target, $target->zabbix_host_id);
     }
 
     /** Après un échec de modification : remet Zabbix dans l'état d'avant (au mieux, sans masquer l'erreur d'origine). */

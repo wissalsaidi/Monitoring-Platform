@@ -74,3 +74,8 @@ Nettoyer : `php poc.php cleanup` puis `docker compose down -v`.
 - `Zabbix injoignable` → attendre la fin de l'init : `docker compose logs -f zabbix-server`.
 - `Login name or password is incorrect` → identifiants par défaut `Admin` / `zabbix`.
 - Pas de mesure après 2 min → dans l'interface : *Monitoring › Hosts › Payment API › Web*.
+
+## Dashboard Grafana du POC
+
+Le dashboard « Payment API » du POC, figé sur ce host, est archivé dans [`grafana-payment-api.json`](grafana-payment-api.json).
+Il est remplacé par le dashboard générique **Target overview** (SCRUM-46).
