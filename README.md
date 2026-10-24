@@ -205,10 +205,12 @@ docker compose run --rm mysql-monitor-user                            # recrée 
 
 ## Notifications
 
-Quand la synchro crée une alerte, les membres de la team reçoivent un email selon les règles de la team (SCRUM-52, 53).
-Par défaut : CRITICAL et HIGH par email, WARNING et INFO au dashboard seulement.
+Quand la synchro crée une alerte, les membres de la team reçoivent un email selon les règles de la team (SCRUM-52, 53),
+puis un second quand elle est résolue (SCRUM-54). Par défaut : CRITICAL et HIGH par email, WARNING et INFO au dashboard
+seulement. Seuls ceux qui ont été prévenus de l'ouverture d'une alerte sont prévenus de sa résolution.
 
-- L'email donne la sévérité, la target, la métrique, la valeur mesurée, le seuil, l'heure de début et un lien vers l'alerte.
+- Ouverture : sévérité, target, métrique, valeur mesurée, seuil, heure de début et lien vers l'alerte.
+- Résolution : début, fin, durée de l'incident, valeur maximale atteinte (« — » si inconnue) et lien vers l'historique.
 - Envoi par la queue Redis (service `queue`) : la synchro n'attend pas le serveur mail. En cas d'échec SMTP : 3 essais,
   puis la notification passe en échec (table `notifications`) et l'erreur est journalisée.
 - En local, les emails arrivent dans Mailpit : http://localhost:8025.

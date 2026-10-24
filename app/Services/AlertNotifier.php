@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\Log;
 use Throwable;
 
 /**
- * Notifications des alertes (SCRUM-53) : appelé par la synchro quand elle crée une alerte. Enregistre les
+ * Notifications des alertes (SCRUM-53, résolution en SCRUM-54) : appelé par la synchro quand elle crée ou résout une alerte. Enregistre les
  * notifications à envoyer selon les règles de la team (NotificationRouter), puis met un job d'envoi par notification
  * dans la queue. Une erreur ici ne bloque jamais la synchro.
  */
@@ -26,10 +26,26 @@ class AlertNotifier
             return 0;
         }
 
+        return $this->queue($alert, NotificationEvent::Opened);
+    }
+
+    /**
+     * Alerte passée en RESOLVED (SCRUM-54) : seuls ceux qui ont été prévenus de son ouverture sont prévenus de sa
+     * résolution (NotificationRouter).
+     *
+     * @return int nombre de notifications mises en queue
+     */
+    public function alertResolved(Alert $alert): int
+    {
+        return $alert->status === AlertStatus::Resolved ? $this->queue($alert, NotificationEvent::Resolved) : 0;
+    }
+
+    private function queue(Alert $alert, NotificationEvent $event): int
+    {
         try {
-            $planned = $this->router->plan($alert, NotificationEvent::Opened);
+            $planned = $this->router->plan($alert, $event);
         } catch (Throwable $e) {
-            Log::error('Alert notifications not planned', ['alert_id' => $alert->id, 'error' => $e->getMessage()]);
+            Log::error('Alert notifications not planned', ['alert_id' => $alert->id, 'event' => $event->value, 'error' => $e->getMessage()]);
 
             return 0;
         }
@@ -39,7 +55,7 @@ class AlertNotifier
         }
 
         if ($planned->isNotEmpty()) {
-            Log::info('Alert notifications queued', ['alert_id' => $alert->id, 'event' => 'opened', 'count' => $planned->count()]);
+            Log::info('Alert notifications queued', ['alert_id' => $alert->id, 'event' => $event->value, 'count' => $planned->count()]);
         }
 
         return $planned->count();

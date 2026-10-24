@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Enums\AlertSeverity;
 use App\Enums\NotificationChannel;
 use App\Enums\NotificationEvent;
+use App\Enums\NotificationStatus;
 use App\Models\Alert;
 use App\Models\AlertNotification;
 use App\Models\AlertRule;
@@ -30,6 +31,8 @@ class NotificationRouter
 
     /**
      * Destinataires d'un email pour cet événement : aucun si la règle dit « dashboard seulement ».
+     * Résolution (SCRUM-54) : seulement les membres prévenus de l'ouverture de cette alerte (notification envoyée ou
+     * en cours d'envoi) : jamais de « résolu » pour une alerte dont on n'a pas annoncé l'ouverture.
      *
      * @return Collection<int, User>
      */
@@ -41,7 +44,16 @@ class NotificationRouter
             return collect();
         }
 
-        return $team->members()->whereNotNull('email_verified_at')->orderBy('users.id')->get();
+        return $team->members()
+            ->whereNotNull('email_verified_at')
+            ->when($event === NotificationEvent::Resolved, fn ($query) => $query->whereIn('users.id', AlertNotification::query()
+                ->select('user_id')
+                ->where('alert_id', $alert->id)
+                ->where('event', NotificationEvent::Opened->value)
+                ->where('status', '!=', NotificationStatus::Failed->value)
+                ->whereNotNull('user_id')))
+            ->orderBy('users.id')
+            ->get();
     }
 
     /**

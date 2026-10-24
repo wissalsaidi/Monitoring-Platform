@@ -142,7 +142,11 @@ class AlertService
             if ($alert->wasRecentlyCreated) {
                 $this->notifier->alertOpened($alert);
             }
-            $stats['resolved'] += $alert->wasChanged('status') && $alert->status === AlertStatus::Resolved ? 1 : 0;
+            // Alerte qui passe en RESOLVED (pas une alerte découverte déjà résolue) : email de résolution (SCRUM-54)
+            if (! $alert->wasRecentlyCreated && $alert->wasChanged('status') && $alert->status === AlertStatus::Resolved) {
+                $stats['resolved']++;
+                $this->notifier->alertResolved($alert);
+            }
         }
 
         $stats['resolved'] += $this->resolveVanishedAlerts($seen);
@@ -233,6 +237,7 @@ class AlertService
                 'resolved_at' => $clock ? Carbon::createFromTimestamp((int) $clock) : now(),
             ]);
             $resolved++;
+            $this->notifier->alertResolved($alert);
         }
 
         return $resolved;
