@@ -14,3 +14,6 @@ Schedule::command('audit:purge')->dailyAt('03:30');
 
 // Accès à Grafana par team (SCRUM-48) : rattrape les retraits non répercutés, met à jour les dashboards
 Schedule::command('grafana:sync')->hourly()->withoutOverlapping();
+
+// Statistiques journalières des targets (cahier des charges §37, SCRUM-51) : lues par l'onglet History et le dashboard
+Schedule::command('stats:compute')->hourly()->withoutOverlapping();

@@ -7,6 +7,7 @@ use App\Enums\TargetType;
 use App\Models\Alert;
 use App\Models\MonitoringTarget;
 use App\Monitoring\ProvisionerRegistry;
+use App\Services\StatisticsService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -21,6 +22,9 @@ class DashboardController extends Controller
     public const RECENT_ALERTS = 8;
 
     public const TARGETS_SHOWN = 8;
+
+    /** Statistiques du dashboard : 7 derniers jours (SCRUM-51) */
+    public const SUMMARY_DAYS = 7;
 
     public function __invoke(Request $request, ProvisionerRegistry $provisioners): View
     {
@@ -52,6 +56,8 @@ class DashboardController extends Controller
                 ->orderByRaw("case status when 'critical' then 0 when 'warning' then 1 when 'unknown' then 2 else 3 end")
                 ->orderBy('name')
                 ->limit(self::TARGETS_SHOWN)->get(),
+            // 7 derniers jours, précalculés chaque heure (SCRUM-51)
+            'summary' => app(StatisticsService::class)->summary($targetIds, self::SUMMARY_DAYS),
             'canCreate' => ($team = $user->defaultTeam()) && $user->can('create', [MonitoringTarget::class, $team]),
         ]);
     }

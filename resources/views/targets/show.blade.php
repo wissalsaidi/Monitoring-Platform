@@ -277,31 +277,62 @@
         @endforeach
     @elseif ($tab === 'history')
         {{-- Onglet History (SCRUM-50) : disponibilité, frise et liste des incidents ; « — » quand il n'y a pas de mesure --}}
-        <p class="section-label mb-2">Availability</p>
-        <div class="row g-3 mb-4">
-            @foreach ($history['availability'] as $period => $value)
-                @php
-                    $color = match (true) {
-                        $value === null => 'text-body-secondary',
-                        $value >= 99.9 => 'text-success',
-                        $value >= 99 => 'text-warning',
-                        default => 'text-danger',
-                    };
-                @endphp
+        {{-- Statistiques précalculées chaque heure (SCRUM-51) : aucune lecture de Zabbix ici --}}
+        @php
+            $latest = $history['summaries']->pluck('computed_at')->filter()->max();
+        @endphp
+        <div class="d-flex align-items-baseline gap-2 mb-2">
+            <p class="section-label mb-0">Availability</p>
+            <span class="small text-body-secondary ms-auto">
+                {{ $latest ? 'Updated '.$latest->toDisplay()->format('d/m H:i').' · computed every hour' : 'Statistics are computed every hour.' }}
+            </span>
+        </div>
+        <div class="row g-3 mb-3">
+            @foreach ($history['summaries'] as $days => $summary)
                 <div class="col-12 col-md-4">
                     <div class="card kpi-card h-100"><div class="card-body">
-                        <span class="kpi-label">Last {{ \App\Services\MetricsService::PERIOD_LABELS[$period] }}</span>
-                        <div class="kpi-value {{ $color }}" data-availability="{{ $period }}">
-                            @if ($value === null)
+                        <span class="kpi-label">{{ $days === 1 ? 'Today' : "Last {$days} days" }}</span>
+                        <div class="kpi-value {{ \App\Support\StatFormat::availabilityColor($summary['availability']) }}" data-availability="{{ $days }}">
+                            @if ($summary['availability'] === null)
                                 —
                             @else
-                                {{ number_format($value, $value >= 99.995 || $value == floor($value) ? 0 : 2) }}<small class="fs-6 text-body-secondary ms-1">%</small>
+                                {{ \App\Support\StatFormat::percent($summary['availability']) }}<small class="fs-6 text-body-secondary ms-1">%</small>
                             @endif
                         </div>
-                        <span class="small text-body-secondary">{{ $value === null ? 'No measure over this period' : 'of checks succeeded' }}</span>
+                        <span class="small text-body-secondary">{{ $summary['availability'] === null ? 'No measure over this period' : 'available (checks and downtime)' }}</span>
                     </div></div>
                 </div>
             @endforeach
+        </div>
+        @php
+            $month = $history['summaries'][30];
+            $week = $history['summaries'][7];
+        @endphp
+        <div class="row g-3 mb-4">
+            <div class="col-12 col-md-4">
+                <div class="card kpi-card h-100"><div class="card-body">
+                    <span class="kpi-label">Incidents · 30 days</span>
+                    <div class="kpi-value" data-stat="incidents">{{ $month['computed_at'] ? number_format($month['incidents']) : '—' }}</div>
+                </div></div>
+            </div>
+            <div class="col-12 col-md-4">
+                <div class="card kpi-card h-100"><div class="card-body">
+                    <span class="kpi-label">Mean time to resolve · 30 days</span>
+                    <div class="kpi-value" data-stat="mttr">{{ \App\Support\StatFormat::duration($month['mttr_seconds']) ?? '—' }}</div>
+                </div></div>
+            </div>
+            <div class="col-12 col-md-4">
+                <div class="card kpi-card h-100"><div class="card-body">
+                    <span class="kpi-label">Average response · 7 days</span>
+                    <div class="kpi-value" data-stat="response">
+                        @if ($week['avg_response_ms'] === null)
+                            —
+                        @else
+                            {{ number_format($week['avg_response_ms']) }}<small class="fs-6 text-body-secondary ms-1">ms</small>
+                        @endif
+                    </div>
+                </div></div>
+            </div>
         </div>
         @if ($history['zabbixFailed'])
             <div class="alert alert-warning d-flex align-items-center gap-2" role="status">
