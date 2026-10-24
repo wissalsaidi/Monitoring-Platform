@@ -166,7 +166,7 @@ class ResponseTimeMetricsTest extends TestCase
 
         $this->actingAs($this->user)
             ->get(route('targets.show', $this->target))
-            ->assertSee(['data-response-time-chart', route('targets.metrics.response-time', $this->target)], false)
+            ->assertSee(['data-metric-chart', route('targets.metrics', [$this->target, 'response_time'])], false)
             ->assertSeeInOrder(['Response time', '1h', '24h', '7d', 'Average', 'Minimum', 'Maximum']);
         $this->assertSame([], $this->calls); // la page elle-même n'appelle pas Zabbix
     }

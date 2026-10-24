@@ -111,6 +111,11 @@ Toutes les commandes `artisan` passent par le conteneur : `docker compose exec a
 Le mot de passe d'une base est **chiffré** en base (clé `APP_KEY`), jamais affiché, jamais journalisé ni renvoyé dans
 le formulaire ; Zabbix le reçoit dans une macro secrète. Laissé vide à la modification, il reste inchangé.
 
+Chaque type a ses écrans (SCRUM-72) : le **dashboard** se filtre par catégorie (All, APIs, Websites, Servers,
+Containers, Databases), la **liste des targets** affiche les colonnes du type filtré (temps de réponse, CPU, état du
+conteneur…), la **page d'une target** ses cartes et ses graphiques (temps de réponse, CPU / mémoire / disque,
+connexions…), et le menu **Monitoring** donne accès à chaque type.
+
 Les autres types (réseau) apparaissent grisés dans le formulaire tant qu'ils ne
 sont pas disponibles. Même protection SSRF pour tous les types qui appellent une URL.
 Pour un serveur, seuls les triggers créés par la plateforme deviennent des alertes : ceux du template Linux restent

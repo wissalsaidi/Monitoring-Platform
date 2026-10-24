@@ -195,11 +195,21 @@
             </div>
         @endif
 
-        {{-- Graphique du temps de réponse (SCRUM-44) : données chargées en JS depuis l'API interne --}}
-        @if ($hasResponseTime)
-        <div class="card mb-4" data-response-time-chart data-url="{{ route('targets.metrics.response-time', $target) }}" data-period="1h">
+        {{-- Graphique (SCRUM-44, séries du type en SCRUM-72) : données chargées en JS depuis l'API interne --}}
+        @php
+            $chartSeries = $target->provisioner()->chartSeries();
+        @endphp
+        @if ($chartSeries !== [])
+        <div class="card mb-4" data-metric-chart data-url="{{ route('targets.metrics', [$target, array_key_first($chartSeries)]) }}" data-period="1h">
             <div class="card-header d-flex flex-wrap align-items-center gap-2 py-3">
-                <span class="fw-semibold">Response time</span>
+                <span class="fw-semibold" data-chart-title>{{ reset($chartSeries)['label'] }}</span>
+                @if (count($chartSeries) > 1)
+                    <div class="btn-group btn-group-sm" role="group" aria-label="Metric">
+                        @foreach ($chartSeries as $metric => $series)
+                            <button type="button" class="btn btn-outline-primary" data-metric-url="{{ route('targets.metrics', [$target, $metric]) }}" aria-pressed="false">{{ $series['label'] }}</button>
+                        @endforeach
+                    </div>
+                @endif
                 <div class="btn-group btn-group-sm ms-auto" role="group" aria-label="Period">
                     @foreach (\App\Services\MetricsService::PERIODS as $period => $seconds)
                         <button type="button" class="btn btn-outline-secondary" data-period="{{ $period }}" aria-pressed="false">{{ $period }}</button>
@@ -216,7 +226,7 @@
                     @endforeach
                 </div>
                 <div class="position-relative" data-chart-frame style="height: 280px; transition: opacity .15s ease">
-                    <canvas role="img" aria-label="Response time chart"></canvas>
+                    <canvas role="img" aria-label="{{ reset($chartSeries)['label'] }} chart"></canvas>
                     <div class="position-absolute top-50 start-50 translate-middle small text-body-secondary text-center d-none" data-chart-message role="status"></div>
                 </div>
             </div>

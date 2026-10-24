@@ -26,6 +26,16 @@ enum TargetType: string
         };
     }
 
+    /** Libellé au pluriel, pour les catégories du dashboard et du menu (SCRUM-72) : « APIs », « Websites »… */
+    public function pluralLabel(): string
+    {
+        return match ($this) {
+            self::Api => 'APIs',
+            self::Custom => 'Custom metrics',
+            default => $this->label().'s',
+        };
+    }
+
     /** Icône Bootstrap Icons du type. */
     public function icon(): string
     {
