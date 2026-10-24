@@ -17,6 +17,8 @@ final class MetricRange
 {
     public const CUSTOM = 'custom';
 
+    public const WINDOW = 'window';
+
     /** Une période choisie remonte au plus à un an : durée des tendances Zabbix */
     public const MAX_DAYS = 365;
 
@@ -33,6 +35,12 @@ final class MetricRange
         $to = now()->timestamp;
 
         return new self($period, $to - MetricsService::PERIODS[$period], $to);
+    }
+
+    /** Fenêtre précise, en secondes (ex. la durée d'un incident, SCRUM-50) */
+    public static function window(int $from, int $to): self
+    {
+        return new self(self::WINDOW, $from, $to);
     }
 
     /** Du début du premier jour à la fin du dernier (ou maintenant, si c'est aujourd'hui) */
@@ -84,7 +92,11 @@ final class MetricRange
     /** Clé de cache : une période prédéfinie glisse avec le temps, des dates choisies non */
     public function cacheKey(): string
     {
-        return $this->isCustom() ? "{$this->fromDate}_{$this->toDate}" : $this->period;
+        return match ($this->period) {
+            self::CUSTOM => "{$this->fromDate}_{$this->toDate}",
+            self::WINDOW => "w{$this->from}_{$this->to}",
+            default => $this->period,
+        };
     }
 
     /** Paramètres d'URL de cette période (API interne, liens) */
@@ -95,6 +107,13 @@ final class MetricRange
 
     public function label(): string
     {
+        if ($this->period === self::WINDOW) {
+            $timezone = config('app.display_timezone');
+
+            return CarbonImmutable::createFromTimestamp($this->from, $timezone)->format('d/m/Y H:i').' – '
+                .CarbonImmutable::createFromTimestamp($this->to, $timezone)->format('d/m/Y H:i');
+        }
+
         if ($this->isCustom()) {
             $format = fn (string $date) => CarbonImmutable::createFromFormat('Y-m-d', $date)->format('d/m/Y');
 

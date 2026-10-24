@@ -19,7 +19,7 @@ class Alert extends Model
 
     protected $fillable = [
         'monitoring_target_id', 'zabbix_event_id', 'zabbix_trigger_id', 'severity', 'status', 'message',
-        'metric', 'value', 'threshold', 'started_at', 'acknowledged_at', 'acknowledged_by', 'resolved_at',
+        'metric', 'value', 'threshold', 'peak_value', 'started_at', 'acknowledged_at', 'acknowledged_by', 'resolved_at',
     ];
 
     protected $attributes = [
@@ -33,6 +33,7 @@ class Alert extends Model
             'status' => AlertStatus::class,
             'value' => 'float',
             'threshold' => 'integer',
+            'peak_value' => 'float',
             'started_at' => 'datetime',
             'acknowledged_at' => 'datetime',
             'resolved_at' => 'datetime',
@@ -81,6 +82,12 @@ class Alert extends Model
     public function valueLabel(): ?string
     {
         return $this->value === null ? null : number_format($this->value).$this->unitSuffix();
+    }
+
+    /** Valeur maximale atteinte pendant l'incident (SCRUM-50), avec l'unité de la valeur : « 3,250 ms », « 94 % ». */
+    public function peakLabel(?float $peak): ?string
+    {
+        return $peak === null ? null : number_format($peak).$this->unitSuffix();
     }
 
     /** Seuil franchi avec son sens et son unité (SCRUM-68) : « > 500 ms », « < 14 days ». */
