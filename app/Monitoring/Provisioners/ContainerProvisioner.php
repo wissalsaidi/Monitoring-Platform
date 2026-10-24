@@ -151,6 +151,22 @@ class ContainerProvisioner extends ZabbixProvisioner
         };
     }
 
+    /** Graphiques (SCRUM-72) : CPU en %, mémoire en Mo avec son seuil */
+    public function chartSeries(): array
+    {
+        return [
+            'cpu' => ['label' => 'CPU', 'key' => self::KEYS['cpu'], 'unit' => '%', 'scale' => 1, 'value_type' => self::VALUE_TYPE_FLOAT],
+            'memory' => ['label' => 'Memory', 'key' => self::KEYS['memory'], 'unit' => 'MB', 'scale' => 1 / self::MB, 'value_type' => self::VALUE_TYPE_UNSIGNED],
+        ];
+    }
+
+    public function chartThresholds(MonitoringTarget $target, string $series): array
+    {
+        return $series === 'memory'
+            ? ['warning' => $target->setting('memory_warning'), 'critical' => null]
+            : parent::chartThresholds($target, $series);
+    }
+
     public function checkSummary(MonitoringTarget $target): array
     {
         return [

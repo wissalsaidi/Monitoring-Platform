@@ -84,6 +84,22 @@ interface TargetProvisioner
      */
     public function metricItemKeys(): array;
 
+    /**
+     * Séries affichables en graphique sur la page de la target (SCRUM-72), lues dans l'historique Zabbix :
+     * nom → libellé, clé d'item, unité affichée, facteur (valeur Zabbix × scale) et type de valeur Zabbix (0 flottant, 3 entier).
+     * La première série est affichée par défaut.
+     *
+     * @return array<string, array{label: string, key: string, unit: string, scale: float|int, value_type: int}>
+     */
+    public function chartSeries(): array;
+
+    /**
+     * Seuils tracés sur le graphique d'une série, dans son unité (null : pas de ligne).
+     *
+     * @return array{warning: int|float|null, critical: int|float|null}
+     */
+    public function chartThresholds(MonitoringTarget $target, string $series): array;
+
     /** Seuil d'un niveau d'alerte (tag "level"), enregistré avec l'alerte. */
     public function threshold(MonitoringTarget $target, string $level): int|float|null;
 

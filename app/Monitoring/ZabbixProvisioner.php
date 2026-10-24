@@ -19,6 +19,11 @@ abstract class ZabbixProvisioner implements TargetProvisioner
 
     public const PRIORITY_DISASTER = 5;
 
+    /** Types de valeur Zabbix des séries de graphique (history.get, paramètre history) */
+    public const VALUE_TYPE_FLOAT = 0;
+
+    public const VALUE_TYPE_UNSIGNED = 3;
+
     /** Type d'interface Zabbix « agent » (hostinterface.type) : zabbix-server interroge l'agent en mode passif. */
     public const INTERFACE_AGENT = 1;
 
@@ -60,6 +65,23 @@ abstract class ZabbixProvisioner implements TargetProvisioner
     public function checkSummary(MonitoringTarget $target): array
     {
         return [];
+    }
+
+    /** Par défaut : le temps de réponse, si le type en a un (Zabbix le mesure en secondes, affiché en ms). */
+    public function chartSeries(): array
+    {
+        $key = $this->statusItemKeys()['response_time'] ?? null;
+
+        return $key === null ? [] : [
+            'response_time' => ['label' => 'Response time', 'key' => $key, 'unit' => 'ms', 'scale' => 1000, 'value_type' => self::VALUE_TYPE_FLOAT],
+        ];
+    }
+
+    public function chartThresholds(MonitoringTarget $target, string $series): array
+    {
+        return $series === 'response_time'
+            ? ['warning' => $target->warning_threshold_ms, 'critical' => $target->critical_threshold_ms]
+            : ['warning' => null, 'critical' => null];
     }
 
     /**

@@ -1,6 +1,6 @@
 import './bootstrap';
 import * as bootstrap from 'bootstrap';
-import './response-time-chart';
+import './metric-chart';
 import './target-form';
 
 window.bootstrap = bootstrap;

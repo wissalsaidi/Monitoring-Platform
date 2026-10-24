@@ -5,10 +5,12 @@ namespace App\Services;
 use App\Exceptions\Zabbix\ZabbixException;
 use App\Models\MonitoringTarget;
 use Illuminate\Support\Facades\Cache;
+use InvalidArgumentException;
 
 /**
- * Séries de métriques lues dans Zabbix pour les graphiques (SCRUM-44).
+ * Séries de métriques lues dans Zabbix pour les graphiques (SCRUM-44, généralisé à tous les types en SCRUM-72).
  * Laravel ne stocke pas les mesures brutes (§38) : il les lit à la demande, avec un cache court.
+ * Les séries d'un type sont déclarées par son provisioner (chartSeries) : clé d'item, unité, facteur.
  */
 class MetricsService
 {
@@ -26,58 +28,76 @@ class MetricsService
     /**
      * Temps de réponse (ms) d'une target sur une période.
      *
-     * @return array{period: string, from: int, to: int, source: string, points: list<array{0: int, 1: float}>,
-     *               stats: array{avg: ?float, min: ?float, max: ?float, count: int},
-     *               thresholds: array{warning: int, critical: int}}
-     *
      * @throws ZabbixException
      */
     public function responseTime(MonitoringTarget $target, string $period): array
     {
+        return $this->series($target, 'response_time', $period);
+    }
+
+    /**
+     * Une série d'une target sur une période, dans son unité d'affichage.
+     *
+     * @return array{metric: string, label: string, unit: string, period: string, from: int, to: int, source: string,
+     *               points: list<array{0: int, 1: float}>, stats: array{avg: ?float, min: ?float, max: ?float, count: int},
+     *               thresholds: array{warning: int|float|null, critical: int|float|null}}
+     *
+     * @throws ZabbixException
+     * @throws InvalidArgumentException série inconnue pour ce type
+     */
+    public function series(MonitoringTarget $target, string $metric, string $period): array
+    {
+        $series = $target->provisioner()->chartSeries()[$metric]
+            ?? throw new InvalidArgumentException("No \"$metric\" chart for a {$target->type->value} target.");
+
         return Cache::remember(
-            "metrics:response-time:{$target->id}:{$period}",
+            "metrics:{$metric}:{$target->id}:{$period}",
             self::CACHE_SECONDS,
-            fn () => $this->fetchResponseTime($target, $period),
+            fn () => $this->fetch($target, $metric, $series, $period),
         );
     }
 
-    private function fetchResponseTime(MonitoringTarget $target, string $period): array
+    private function fetch(MonitoringTarget $target, string $metric, array $series, string $period): array
     {
         $to = now()->timestamp;
         $from = $to - self::PERIODS[$period];
-        $itemId = $target->zabbix_host_id ? $this->responseTimeItemId($target) : null;
+        $itemId = $target->zabbix_host_id ? $this->itemId($target->zabbix_host_id, $metric, $series['key']) : null;
+        $scale = (float) $series['scale'];
 
         [$source, $points, $stats] = match (true) {
             $itemId === null => ['none', [], self::stats([])],
-            $period === '7d' => $this->fromTrends($itemId, $from) ?? $this->fromHistory($itemId, $from),
-            default => $this->fromHistory($itemId, $from),
+            $period === '7d' => $this->fromTrends($itemId, $from, $scale) ?? $this->fromHistory($itemId, $from, $scale, $series['value_type']),
+            default => $this->fromHistory($itemId, $from, $scale, $series['value_type']),
         };
 
         return [
+            'metric' => $metric,
+            'label' => $series['label'],
+            'unit' => $series['unit'],
             'period' => $period,
             'from' => $from * 1000,
             'to' => $to * 1000,
             'source' => $source,
             'points' => $points,
             'stats' => $stats,
-            'thresholds' => ['warning' => $target->warning_threshold_ms, 'critical' => $target->critical_threshold_ms],
+            'thresholds' => $target->provisioner()->chartThresholds($target, $metric),
         ];
     }
 
     /** Mesures brutes (history.get), regroupées si elles sont trop nombreuses. */
-    private function fromHistory(string $itemId, int $from): array
+    private function fromHistory(string $itemId, int $from, float $scale, int $valueType): array
     {
         $rows = $this->zabbix->getHistory([
             'output' => ['clock', 'value'],
             'itemids' => [$itemId],
-            'history' => 0,                // valeurs flottantes
+            'history' => $valueType,       // 0 flottant, 3 entier : type de valeur de l'item
             'time_from' => $from,
             'sortfield' => 'clock',
             'sortorder' => 'ASC',
         ]);
 
-        // Zabbix mesure en secondes ; la plateforme affiche des millisecondes.
-        $points = array_map(fn (array $row) => [(int) $row['clock'] * 1000, round((float) $row['value'] * 1000, 3)], $rows);
+        // Unité d'affichage : ex. secondes de Zabbix → millisecondes (scale 1000), octets → Mo
+        $points = array_map(fn (array $row) => [(int) $row['clock'] * 1000, round((float) $row['value'] * $scale, 3)], $rows);
 
         return ['history', self::downsample($points), self::stats(array_column($points, 1))];
     }
@@ -86,7 +106,7 @@ class MetricsService
      * Tendances horaires (trend.get) pour les longues périodes : min / moyenne / max déjà calculés par Zabbix.
      * Null si Zabbix n'en a pas encore (target récente) : on retombe alors sur l'historique.
      */
-    private function fromTrends(string $itemId, int $from): ?array
+    private function fromTrends(string $itemId, int $from, float $scale): ?array
     {
         $rows = $this->zabbix->getTrends([
             'output' => ['clock', 'num', 'value_min', 'value_avg', 'value_max'],
@@ -104,33 +124,23 @@ class MetricsService
 
         return [
             'trends',
-            array_map(fn (array $row) => [(int) $row['clock'] * 1000, round((float) $row['value_avg'] * 1000, 3)], $rows),
+            array_map(fn (array $row) => [(int) $row['clock'] * 1000, round((float) $row['value_avg'] * $scale, 3)], $rows),
             [
-                'avg' => $count > 0 ? round($weighted / $count * 1000, 1) : null,
-                'min' => round(min(array_map('floatval', array_column($rows, 'value_min'))) * 1000, 1),
-                'max' => round(max(array_map('floatval', array_column($rows, 'value_max'))) * 1000, 1),
+                'avg' => $count > 0 ? round($weighted / $count * $scale, 1) : null,
+                'min' => round(min(array_map('floatval', array_column($rows, 'value_min'))) * $scale, 1),
+                'max' => round(max(array_map('floatval', array_column($rows, 'value_max'))) * $scale, 1),
                 'count' => (int) $count,
             ],
         ];
     }
 
-    /**
-     * Id de l'item « temps de réponse » déclaré par le provisioner du type (null si le type n'en a pas) ;
-     * il ne change pas, on le garde un jour.
-     */
-    private function responseTimeItemId(MonitoringTarget $target): ?string
+    /** Id de l'item d'une série ; il ne change pas, on le garde un jour. */
+    private function itemId(string $hostId, string $metric, string $key): ?string
     {
-        $key = $target->provisioner()->statusItemKeys()['response_time'] ?? null;
-        $hostId = $target->zabbix_host_id;
-
-        if ($key === null) {
-            return null;
-        }
-
-        return Cache::remember("zabbix:item:response-time:$hostId", now()->addDay(), fn () => $this->zabbix->getItems([
+        return Cache::remember("zabbix:item:$metric:$hostId", now()->addDay(), fn () => $this->zabbix->getItems([
             'output' => ['itemid'],
             'hostids' => [$hostId],
-            'webitems' => true,
+            'webitems' => true,            // items des web scenarios (API, site web) en plus des items classiques
             'filter' => ['key_' => [$key]],
         ])[0]['itemid'] ?? null);
     }

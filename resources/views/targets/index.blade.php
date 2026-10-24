@@ -11,6 +11,10 @@
 @endsection
 
 @section('content')
+    @php
+        // Colonnes adaptées au type filtré (SCRUM-72), sinon la métrique principale de chaque target
+        $columns = \App\Support\TargetColumns::for(\App\Enums\TargetType::tryFrom((string) ($filters['type'] ?? '')));
+    @endphp
     {{-- Filtres (SCRUM-34) : type + recherche par nom, en GET pour garder des URLs partageables --}}
     <form method="GET" action="{{ route('targets.index') }}" class="row g-2 align-items-center mb-3" role="search">
         <div class="col-12 col-md-5 col-lg-4">
@@ -57,7 +61,7 @@
                     <a href="{{ route('targets.index') }}" class="small">Show all targets</a>
                 @else
                     <p class="mt-3 mb-1 fw-semibold">No target monitored yet</p>
-                    <p class="text-body-secondary small mb-3">Add your first API and Zabbix will start checking it automatically.</p>
+                    <p class="text-body-secondary small mb-3">Add your first target and Zabbix will start checking it automatically.</p>
                     @if ($canCreate)
                         <a href="{{ route('targets.create') }}" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg me-1"></i>Add Monitoring Target</a>
                     @endif
@@ -71,7 +75,9 @@
                             <th class="ps-3">Name</th>
                             <th>Type</th>
                             <th>Status</th>
-                            <th class="text-end">Response time</th>
+                            @foreach ($columns as $label)
+                                <th class="text-end">{{ $label }}</th>
+                            @endforeach
                             <th class="text-end pe-3">Last check</th>
                         </tr>
                     </thead>
@@ -84,21 +90,12 @@
                                 </td>
                                 <td class="small text-body-secondary text-nowrap"><i class="bi {{ $target->type->icon() }} me-1"></i>{{ $target->type->label() }}</td>
                                 <td><x-status-pill :status="$target->status" /></td>
-                                <td class="text-end small text-nowrap">
-                                    @if ($target->last_response_ms !== null)
-                                        @php
-                                            $color = match (true) {
-                                                $target->critical_threshold_ms === null => '',     // base de données : pas de seuils en ms
-                                                $target->last_response_ms > $target->critical_threshold_ms => 'text-danger',
-                                                $target->last_response_ms > $target->warning_threshold_ms => 'text-warning',
-                                                default => '',
-                                            };
-                                        @endphp
-                                        <span class="{{ $color }}">{{ number_format($target->last_response_ms) }} ms</span>
-                                    @else
-                                        <span class="text-body-secondary">—</span>
-                                    @endif
-                                </td>
+                                @foreach ($columns as $column => $label)
+                                    @php
+                                        $cell = \App\Support\TargetColumns::cell($target, $column);
+                                    @endphp
+                                    <td class="text-end small text-nowrap"><span class="{{ $cell['class'] }}">{{ $cell['text'] }}</span></td>
+                                @endforeach
                                 <td class="text-end pe-3 small text-body-secondary text-nowrap">
                                     @if ($target->last_checked_at)
                                         <time datetime="{{ $target->last_checked_at->toIso8601String() }}" title="{{ $target->last_checked_at->toDisplay()->format('d/m/Y H:i:s') }}">{{ $target->last_checked_at->diffForHumans() }}</time>

@@ -155,6 +155,21 @@ class ServerProvisioner extends ZabbixProvisioner
             : null;
     }
 
+    /** Graphiques (SCRUM-72) : CPU, mémoire, disque /, en %, avec leurs seuils */
+    public function chartSeries(): array
+    {
+        return array_map(fn (array $resource) => [
+            'label' => $resource['label'], 'key' => $resource['key'], 'unit' => '%', 'scale' => 1, 'value_type' => self::VALUE_TYPE_FLOAT,
+        ], self::RESOURCES);
+    }
+
+    public function chartThresholds(MonitoringTarget $target, string $series): array
+    {
+        return isset(self::RESOURCES[$series])
+            ? ['warning' => $target->setting("{$series}_warning"), 'critical' => $target->setting("{$series}_critical")]
+            : parent::chartThresholds($target, $series);
+    }
+
     public function checkSummary(MonitoringTarget $target): array
     {
         $lines = [

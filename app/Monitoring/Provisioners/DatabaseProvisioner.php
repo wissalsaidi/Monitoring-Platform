@@ -174,6 +174,22 @@ class DatabaseProvisioner extends ZabbixProvisioner
         return $level === 'connections_warning' ? $target->setting('connections_warning') : null;
     }
 
+    /** Graphiques (SCRUM-72) : temps de réponse (par défaut), puis connexions avec leur seuil */
+    public function chartSeries(): array
+    {
+        return [
+            ...parent::chartSeries(),
+            'connections' => ['label' => 'Connections', 'key' => self::KEYS['connections'], 'unit' => '', 'scale' => 1, 'value_type' => self::VALUE_TYPE_UNSIGNED],
+        ];
+    }
+
+    public function chartThresholds(MonitoringTarget $target, string $series): array
+    {
+        return $series === 'connections'
+            ? ['warning' => $target->setting('connections_warning'), 'critical' => null]
+            : parent::chartThresholds($target, $series);
+    }
+
     public function checkSummary(MonitoringTarget $target): array
     {
         return [
