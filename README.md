@@ -169,6 +169,20 @@ curl -s "http://localhost:8081/control?mode=ok&delay=0" # retour à la normale
 
 Vue depuis Zabbix, son adresse est `http://fake-api:8080/health` (nom du service Docker).
 
+## Environnement de démonstration
+
+Une ressource de chaque type, et des pannes à provoquer (SCRUM-73) :
+
+- Server-01, Website-01, MySQL-01, Redis-01 et Nginx-01, en plus de la fausse API ;
+- pannes : CPU élevé, disque qui se remplit, site lent, conteneur arrêté, base injoignable.
+
+```bash
+docker compose --profile demo up -d                                          # profil "demo" : non lancé par défaut
+docker compose exec -u www-data app php artisan db:seed --class=DemoSeeder   # compte demo@example.com, team Demo, 6 targets
+```
+
+Commandes des pannes et scénario de démonstration : [`docs/demo/README.md`](docs/demo/README.md).
+
 ## Agent Zabbix 2
 
 Les serveurs, conteneurs et bases de données se supervisent avec l'agent Zabbix 2 (service `zabbix-agent2`).
@@ -203,5 +217,6 @@ tests, build Vite et build de l'image Docker.
 
 - [`docs/conception/`](docs/conception/README.md) : cas d'utilisation, exigences, risques, modèle de données, séquences, STRIDE, écrans
 - [`docs/exploitation/`](docs/exploitation/) : sauvegardes, mise en production, mises à jour
+- [`docs/demo/`](docs/demo/README.md) : environnement de démonstration, pannes provoquées, scénario
 - [`docs/poc-zabbix/`](docs/poc-zabbix/README.md) : POC SCRUM-18, pilotage de Zabbix par l'API (validé)
 - [`CONTRIBUTING.md`](CONTRIBUTING.md) : branches, commits, pull requests

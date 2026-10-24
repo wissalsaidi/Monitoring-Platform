@@ -15,7 +15,7 @@ return [
     */
     'allowed_internal_hosts' => array_values(array_filter(array_map(
         'trim',
-        explode(',', (string) env('TARGET_ALLOWED_INTERNAL_HOSTS', 'fake-api')),
+        explode(',', (string) env('TARGET_ALLOWED_INTERNAL_HOSTS', 'fake-api,demo-website-01')),
     ))),
 
     /*
@@ -44,6 +44,16 @@ return [
     'agent' => [
         'host' => env('ZABBIX_AGENT_HOST', 'zabbix-agent2'),
         'port' => (int) env('ZABBIX_AGENT_PORT', 10050),
+    ],
+
+    /*
+    | Environnement de démonstration (SCRUM-73) : compte et mot de passe de MySQL-01 utilisés par DemoSeeder.
+    | Sans DEMO_USER_PASSWORD, le seeder génère un mot de passe et l'affiche une fois.
+    */
+    'demo' => [
+        'email' => env('DEMO_USER_EMAIL', 'demo@example.com'),
+        'password' => env('DEMO_USER_PASSWORD'),
+        'mysql_monitor_password' => env('DEMO_MYSQL_MONITOR_PASSWORD'),
     ],
 
 ];
