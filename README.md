@@ -203,6 +203,16 @@ docker compose exec zabbix-agent2 zabbix_agent2 -t docker.containers
 docker compose run --rm mysql-monitor-user                            # recrée zbx_monitor (ex. après un changement de mot de passe)
 ```
 
+## Notifications
+
+Quand la synchro crée une alerte, les membres de la team reçoivent un email selon les règles de la team (SCRUM-52, 53).
+Par défaut : CRITICAL et HIGH par email, WARNING et INFO au dashboard seulement.
+
+- L'email donne la sévérité, la target, la métrique, la valeur mesurée, le seuil, l'heure de début et un lien vers l'alerte.
+- Envoi par la queue Redis (service `queue`) : la synchro n'attend pas le serveur mail. En cas d'échec SMTP : 3 essais,
+  puis la notification passe en échec (table `notifications`) et l'erreur est journalisée.
+- En local, les emails arrivent dans Mailpit : http://localhost:8025.
+
 ## Onglet Metrics
 
 Sur la page d'une target, l'onglet **Metrics** (SCRUM-49) montre chaque métrique du type sur la période choisie :
