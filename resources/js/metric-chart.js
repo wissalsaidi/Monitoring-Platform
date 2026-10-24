@@ -226,8 +226,18 @@ function initMetricChart(root) {
         });
     }
 
+    // Bouton « Open Grafana dashboard » (SCRUM-47) : même période que le graphique
+    function syncGrafanaLinks() {
+        document.querySelectorAll('[data-grafana-link]').forEach((link) => {
+            const target = new URL(link.href);
+            target.searchParams.set('period', period);
+            link.href = target.toString();
+        });
+    }
+
     async function load() {
         select(periodButtons, (b) => b.dataset.period === period);
+        syncGrafanaLinks();
         select(metricButtons, (b) => b.dataset.metricUrl === url);
         // Rechargement : l'ancien graphique reste affiché, atténué (pas de saut de mise en page)
         frame.style.opacity = '0.45';

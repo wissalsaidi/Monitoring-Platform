@@ -43,8 +43,12 @@ return [
         'retry_delay' => (int) env('ZABBIX_RETRY_DELAY', 200),
     ],
 
+    // Grafana (SCRUM-47) : url = adresse vue par le navigateur (liens) ; internal_url = vue par l'application (état)
     'grafana' => [
         'url' => env('GRAFANA_URL', 'http://localhost:3000'),
+        'internal_url' => env('GRAFANA_INTERNAL_URL', 'http://grafana:3000'),
+        'dashboard_uid' => env('GRAFANA_DASHBOARD_UID', 'monitoring-platform-target'),
+        'timeout' => (int) env('GRAFANA_TIMEOUT', 2),
     ],
 
 ];

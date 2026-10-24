@@ -3,6 +3,13 @@
 @section('title', $target->name)
 
 @section('actions')
+    @if (app(\App\Services\GrafanaService::class)->supports($target))
+        {{-- Dashboard Grafana de la target (SCRUM-47) ; la période suit celle du graphique (metric-chart.js) --}}
+        <a href="{{ route('targets.grafana', [$target, 'period' => '1h']) }}" class="btn btn-outline-secondary btn-sm"
+           target="_blank" rel="noopener" data-grafana-link>
+            <i class="bi bi-box-arrow-up-right me-1"></i>Open Grafana dashboard
+        </a>
+    @endif
     @can('update', $target)
         <a href="{{ route('targets.edit', $target) }}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-pencil me-1"></i>Edit</a>
     @endcan

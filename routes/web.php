@@ -5,6 +5,7 @@ use App\Http\Controllers\AlertController;
 use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\MonitoringTargetController;
+use App\Http\Controllers\TargetGrafanaController;
 use App\Http\Controllers\TargetMetricsController;
 use App\Http\Controllers\TeamInvitationController;
 use App\Http\Controllers\TeamMemberController;
@@ -34,6 +35,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/targets/{target}/metrics/{metric}', [TargetMetricsController::class, 'show'])
         ->where('metric', '[a-z_]+')
         ->name('targets.metrics');
+    // Dashboard Grafana de la target (SCRUM-47) : redirection, ou retour à la page si Grafana est indisponible
+    Route::get('/targets/{target}/grafana', TargetGrafanaController::class)->name('targets.grafana');
 
     // Membres d'une team (SCRUM-59) : réservé aux Admin de la team (permissions user.*)
     Route::get('/team', [TeamMemberController::class, 'current'])->name('teams.current');
