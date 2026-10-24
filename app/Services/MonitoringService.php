@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Enums\TargetType;
+use App\Exceptions\GrafanaException;
 use App\Exceptions\UnsupportedTargetTypeException;
 use App\Exceptions\Zabbix\ZabbixApiException;
 use App\Exceptions\Zabbix\ZabbixException;
@@ -86,6 +87,7 @@ class MonitoringService
             ]);
 
             $provisioner->create($target, $hostId);
+            $provisioner->syncThresholdItems($target, $hostId);
 
             // Dans le try : un log impossible à écrire ne doit pas laisser un host orphelin dans Zabbix
             Log::info('Monitoring target provisioned in Zabbix', ['target_id' => $target->id, 'type' => $target->type->value, 'zabbix_host_id' => $hostId]);
@@ -174,6 +176,13 @@ class MonitoringService
             $this->deleteTarget($target);
         }
 
+        // Accès Grafana de la team (SCRUM-48) : facultatif, un échec ne bloque pas la suppression
+        try {
+            app(GrafanaAccessService::class)->deleteTeam($team);
+        } catch (GrafanaException|ZabbixException $e) {
+            Log::warning('Grafana access of a deleted team not cleaned up', ['team_id' => $team->id, 'error' => $e->getMessage()]);
+        }
+
         if ($team->zabbix_hostgroup_id !== null) {
             try {
                 $this->zabbix->deleteHostGroup($team->zabbix_hostgroup_id);
@@ -206,6 +215,7 @@ class MonitoringService
         $this->zabbix->updateHost($target->zabbix_host_id, ['name' => $target->zabbixVisibleName()]);
 
         $target->provisioner()->update($target);
+        $target->provisioner()->syncThresholdItems($target, $target->zabbix_host_id);
     }
 
     /** Après un échec de modification : remet Zabbix dans l'état d'avant (au mieux, sans masquer l'erreur d'origine). */
@@ -223,8 +233,9 @@ class MonitoringService
 
     /**
      * Host group de la team : réutilisé s'il existe déjà dans Zabbix (même nom), créé sinon.
+     * Aussi utilisé pour les droits de l'utilisateur Zabbix de la team dans Grafana (SCRUM-48).
      */
-    private function hostGroupFor(Team $team): string
+    public function hostGroupFor(Team $team): string
     {
         if ($team->zabbix_hostgroup_id !== null) {
             return $team->zabbix_hostgroup_id;

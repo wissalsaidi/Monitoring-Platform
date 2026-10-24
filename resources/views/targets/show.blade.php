@@ -3,6 +3,13 @@
 @section('title', $target->name)
 
 @section('actions')
+    @if (app(\App\Services\GrafanaService::class)->supports($target))
+        {{-- Dashboard Grafana de la target (SCRUM-47) ; la période suit celle du graphique (metric-chart.js) --}}
+        <a href="{{ route('targets.grafana', [$target, ...($range?->query() ?? ['period' => '1h'])]) }}" class="btn btn-outline-secondary btn-sm"
+           target="_blank" rel="noopener" data-grafana-link>
+            <i class="bi bi-box-arrow-up-right me-1"></i>Open Grafana dashboard
+        </a>
+    @endif
     @can('update', $target)
         <a href="{{ route('targets.edit', $target) }}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-pencil me-1"></i>Edit</a>
     @endcan
@@ -31,12 +38,12 @@
                 <span><i class="bi bi-calendar3 me-1"></i>Created {{ $target->created_at->diffForHumans() }}{{ $target->creator ? ' by '.$target->creator->name : '' }}</span>
             </div>
 
-            {{-- Onglets du cahier des charges §14 : Metrics et History arrivent en V1 --}}
+            {{-- Onglets du cahier des charges §14 : Metrics (SCRUM-49), History (SCRUM-50) --}}
             @php
                 $tabs = [
                     'overview' => 'Overview',
-                    'metrics' => null,
-                    'history' => null,
+                    'metrics' => 'Metrics',
+                    'history' => 'History',
                     'alerts' => 'Alerts',
                     'configuration' => 'Configuration',
                 ];
@@ -44,17 +51,13 @@
             <ul class="nav nav-underline mt-4 small">
                 @foreach ($tabs as $key => $label)
                     <li class="nav-item">
-                        @if ($label === null)
-                            <span class="nav-link disabled" title="Coming in V1">{{ ucfirst($key) }}</span>
-                        @else
-                            <a class="nav-link {{ $tab === $key ? 'active' : '' }}" @if ($tab === $key) aria-current="page" @endif
-                               href="{{ route('targets.show', $key === 'overview' ? $target : [$target, 'tab' => $key]) }}">
-                                {{ $label }}
-                                @if ($key === 'alerts' && $alertCount > 0)
-                                    <span class="badge {{ $activeAlerts->isNotEmpty() ? 'text-bg-danger' : 'text-bg-secondary' }} ms-1">{{ $alertCount }}</span>
-                                @endif
-                            </a>
-                        @endif
+                        <a class="nav-link {{ $tab === $key ? 'active' : '' }}" @if ($tab === $key) aria-current="page" @endif
+                           href="{{ route('targets.show', $key === 'overview' ? $target : [$target, 'tab' => $key]) }}">
+                            {{ $label }}
+                            @if ($key === 'alerts' && $alertCount > 0)
+                                <span class="badge {{ $activeAlerts->isNotEmpty() ? 'text-bg-danger' : 'text-bg-secondary' }} ms-1">{{ $alertCount }}</span>
+                            @endif
+                        </a>
                     </li>
                 @endforeach
             </ul>
@@ -211,7 +214,7 @@
                     </div>
                 @endif
                 <div class="btn-group btn-group-sm ms-auto" role="group" aria-label="Period">
-                    @foreach (\App\Services\MetricsService::PERIODS as $period => $seconds)
+                    @foreach (\App\Services\MetricsService::OVERVIEW_PERIODS as $period)
                         <button type="button" class="btn btn-outline-secondary" data-period="{{ $period }}" aria-pressed="false">{{ $period }}</button>
                     @endforeach
                 </div>
@@ -247,6 +250,171 @@
                 </div>
             @else
                 @include('alerts._table', ['alerts' => $activeAlerts, 'showTarget' => false])
+            @endif
+        </div>
+    @elseif ($tab === 'metrics')
+        {{-- Onglet Metrics (SCRUM-49) : une carte par série (valeur actuelle, moyenne, min, max, graphique), même période pour toutes --}}
+        @include('targets._period-bar')
+
+        @foreach ($target->provisioner()->chartSeries() as $metric => $series)
+            <div class="card mb-4" data-metric-chart data-url="{{ route('targets.metrics', [$target, $metric]) }}" data-query="{{ json_encode($range->query()) }}">
+                <div class="card-header py-3"><span class="fw-semibold" data-chart-title>{{ $series['label'] }}</span></div>
+                <div class="card-body">
+                    <div class="row g-3 mb-3 small">
+                        @foreach (['last' => 'Current', 'avg' => 'Average', 'min' => 'Minimum', 'max' => 'Maximum', 'count' => 'Samples'] as $key => $label)
+                            <div class="col-6 col-md">
+                                <div class="kpi-label">{{ $label }}</div>
+                                <div class="fs-5 fw-semibold" data-stat="{{ $key }}">—</div>
+                            </div>
+                        @endforeach
+                    </div>
+                    <div class="position-relative" data-chart-frame style="height: 240px; transition: opacity .15s ease">
+                        <canvas role="img" aria-label="{{ $series['label'] }} chart"></canvas>
+                        <div class="position-absolute top-50 start-50 translate-middle small text-body-secondary text-center d-none" data-chart-message role="status"></div>
+                    </div>
+                </div>
+            </div>
+        @endforeach
+    @elseif ($tab === 'history')
+        {{-- Onglet History (SCRUM-50) : disponibilité, frise et liste des incidents ; « — » quand il n'y a pas de mesure --}}
+        {{-- Statistiques précalculées chaque heure (SCRUM-51) : aucune lecture de Zabbix ici --}}
+        @php
+            $latest = $history['summaries']->pluck('computed_at')->filter()->max();
+        @endphp
+        <div class="d-flex align-items-baseline gap-2 mb-2">
+            <p class="section-label mb-0">Availability</p>
+            <span class="small text-body-secondary ms-auto">
+                {{ $latest ? 'Updated '.$latest->toDisplay()->format('d/m H:i').' · computed every hour' : 'Statistics are computed every hour.' }}
+            </span>
+        </div>
+        <div class="row g-3 mb-3">
+            @foreach ($history['summaries'] as $days => $summary)
+                <div class="col-12 col-md-4">
+                    <div class="card kpi-card h-100"><div class="card-body">
+                        <span class="kpi-label">{{ $days === 1 ? 'Today' : "Last {$days} days" }}</span>
+                        <div class="kpi-value {{ \App\Support\StatFormat::availabilityColor($summary['availability']) }}" data-availability="{{ $days }}">
+                            @if ($summary['availability'] === null)
+                                —
+                            @else
+                                {{ \App\Support\StatFormat::percent($summary['availability']) }}<small class="fs-6 text-body-secondary ms-1">%</small>
+                            @endif
+                        </div>
+                        <span class="small text-body-secondary">{{ $summary['availability'] === null ? 'No measure over this period' : 'available (checks and downtime)' }}</span>
+                    </div></div>
+                </div>
+            @endforeach
+        </div>
+        @php
+            $month = $history['summaries'][30];
+            $week = $history['summaries'][7];
+        @endphp
+        <div class="row g-3 mb-4">
+            <div class="col-12 col-md-4">
+                <div class="card kpi-card h-100"><div class="card-body">
+                    <span class="kpi-label">Incidents · 30 days</span>
+                    <div class="kpi-value" data-stat="incidents">{{ $month['computed_at'] ? number_format($month['incidents']) : '—' }}</div>
+                </div></div>
+            </div>
+            <div class="col-12 col-md-4">
+                <div class="card kpi-card h-100"><div class="card-body">
+                    <span class="kpi-label">Mean time to resolve · 30 days</span>
+                    <div class="kpi-value" data-stat="mttr">{{ \App\Support\StatFormat::duration($month['mttr_seconds']) ?? '—' }}</div>
+                </div></div>
+            </div>
+            <div class="col-12 col-md-4">
+                <div class="card kpi-card h-100"><div class="card-body">
+                    <span class="kpi-label">Average response · 7 days</span>
+                    <div class="kpi-value" data-stat="response">
+                        @if ($week['avg_response_ms'] === null)
+                            —
+                        @else
+                            {{ number_format($week['avg_response_ms']) }}<small class="fs-6 text-body-secondary ms-1">ms</small>
+                        @endif
+                    </div>
+                </div></div>
+            </div>
+        </div>
+        @if ($history['zabbixFailed'])
+            <div class="alert alert-warning d-flex align-items-center gap-2" role="status">
+                <i class="bi bi-exclamation-triangle"></i>
+                <span>Some values are temporarily unavailable from the monitoring service.</span>
+            </div>
+        @endif
+
+        @include('targets._period-bar', ['periods' => ['24h', '7d', '30d']])
+
+        <div class="card mb-4">
+            <div class="card-header d-flex align-items-center py-3">
+                <span class="fw-semibold">Incidents</span>
+                <span class="badge {{ $history['total'] > 0 ? 'text-bg-danger' : 'text-bg-secondary' }} ms-2">{{ $history['total'] }}</span>
+            </div>
+            <div class="card-body">
+                @php
+                    $span = max(1, $range->to - $range->from);
+                    $timezone = config('app.display_timezone');
+                @endphp
+                <div class="incident-timeline" role="img" aria-label="{{ $history['total'] }} {{ \Illuminate\Support\Str::plural('incident', $history['total']) }}, {{ \Illuminate\Support\Str::lower($range->label()) }}">
+                    @foreach ($history['timeline'] as $incident)
+                        @php
+                            $start = max($incident->started_at->timestamp, $range->from);
+                            $end = min(($incident->resolved_at ?? now())->timestamp, $range->to);
+                            $left = ($start - $range->from) / $span * 100;
+                            $width = max(0, $end - $start) / $span * 100;
+                        @endphp
+                        <span class="incident-segment incident-segment-{{ $incident->severity->value }}" style="left: {{ round($left, 3) }}%; width: {{ round($width, 3) }}%"
+                              title="{{ $incident->severity->label() }} · {{ $incident->message }} · {{ $incident->started_at->toDisplay()->format('d/m H:i') }} → {{ $incident->resolved_at?->toDisplay()->format('d/m H:i') ?? 'ongoing' }}"></span>
+                    @endforeach
+                </div>
+                <div class="d-flex justify-content-between small text-body-secondary mt-1">
+                    <span>{{ \Carbon\CarbonImmutable::createFromTimestamp($range->from, $timezone)->format('d/m H:i') }}</span>
+                    <span>{{ \Carbon\CarbonImmutable::createFromTimestamp($range->to, $timezone)->format('d/m H:i') }}</span>
+                </div>
+            </div>
+
+            @if ($history['incidents']->isEmpty())
+                <div class="card-body text-center pt-0 pb-4">
+                    <i class="bi bi-check-circle text-success fs-3"></i>
+                    <p class="mb-0 mt-2 small text-body-secondary">No incident over this period.</p>
+                </div>
+            @else
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th class="ps-3">Started</th>
+                                <th>Resolved</th>
+                                <th class="text-end">Duration</th>
+                                <th>Severity</th>
+                                <th class="text-end">Maximum</th>
+                                <th class="text-end pe-3">Threshold</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach ($history['incidents'] as $incident)
+                                <tr>
+                                    <td class="ps-3 small text-nowrap"><time datetime="{{ $incident->started_at->toIso8601String() }}">{{ $incident->started_at->toDisplay()->format('d/m/Y H:i') }}</time></td>
+                                    <td class="small text-nowrap">
+                                        @if ($incident->resolved_at)
+                                            <time datetime="{{ $incident->resolved_at->toIso8601String() }}">{{ $incident->resolved_at->toDisplay()->format('d/m/Y H:i') }}</time>
+                                        @else
+                                            <span class="text-danger">Ongoing</span>
+                                        @endif
+                                    </td>
+                                    <td class="text-end small text-nowrap">{{ $incident->durationForHumans() }}</td>
+                                    <td class="text-nowrap">
+                                        <x-severity-badge :severity="$incident->severity" />
+                                        <span class="small text-body-secondary ms-1">{{ $incident->metricLabel() }}</span>
+                                    </td>
+                                    <td class="text-end small text-nowrap fw-semibold">{{ $incident->peakLabel($history['peaks'][$incident->id] ?? null) ?? '—' }}</td>
+                                    <td class="text-end small text-nowrap text-body-secondary pe-3">{{ $incident->thresholdLabel() ?? '—' }}</td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+                @if ($history['incidents']->hasPages())
+                    <div class="card-footer pt-3 small">{{ $history['incidents']->onEachSide(1)->links() }}</div>
+                @endif
             @endif
         </div>
     @elseif ($tab === 'alerts')

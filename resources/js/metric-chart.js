@@ -1,5 +1,6 @@
 // Graphique d'une métrique d'une target (SCRUM-44 : temps de réponse ; SCRUM-72 : toutes les séries du type,
-// CPU, mémoire, disque, connexions…), alimenté par l'API interne GET /targets/{id}/metrics/{metric}?period=1h|24h|7d
+// CPU, mémoire, disque, connexions… ; SCRUM-49 : disponibilité, code HTTP, onglet Metrics), alimenté par l'API interne
+// GET /targets/{id}/metrics/{metric}?period=15m|1h|6h|24h|7d|30d ou ?from=AAAA-MM-JJ&to=AAAA-MM-JJ
 import {
     Chart,
     Filler,
@@ -22,11 +23,13 @@ const COLORS = {
     surface: '#1e2036',
 };
 
-const timeFormats = {
-    '1h': { hour: '2-digit', minute: '2-digit' },
-    '24h': { hour: '2-digit', minute: '2-digit' },
-    '7d': { weekday: 'short', day: '2-digit', hour: '2-digit' },
-};
+// Graduations de l'axe du temps selon la durée affichée : heures, puis jours et heures, puis dates
+const DAY = 86400000;
+function timeFormat(span) {
+    if (span <= DAY) return { hour: '2-digit', minute: '2-digit' };
+    if (span <= 8 * DAY) return { weekday: 'short', day: '2-digit', hour: '2-digit' };
+    return { day: '2-digit', month: '2-digit' };
+}
 
 // Valeur dans l'unité de la série : « 512 ms », « 42.5 % », « 300.0 MB », « 12 »
 function format(value, unit) {
@@ -108,7 +111,7 @@ function withGaps(points) {
 }
 
 function render(canvas, data, chart) {
-    const { from, to, points, thresholds, period, unit, label } = data;
+    const { from, to, points, thresholds, unit, label } = data;
     const series = withGaps(points);
     // Seuils de la série, chacun facultatif (base de données : aucun en ms ; conteneur : warning seulement)
     const lines = [
@@ -154,7 +157,7 @@ function render(canvas, data, chart) {
                     color: COLORS.text,
                     padding: 8,
                     maxTicksLimit: 7,
-                    callback: (value) => new Date(value).toLocaleString(undefined, timeFormats[period]),
+                    callback: (value) => new Date(value).toLocaleString(undefined, timeFormat(to - from)),
                 },
             },
             y: {
@@ -205,6 +208,7 @@ function initMetricChart(root) {
     const periodButtons = root.querySelectorAll('[data-period]');
     const metricButtons = root.querySelectorAll('[data-metric-url]');
     const stats = {
+        last: root.querySelector('[data-stat="last"]'),     // onglet Metrics seulement (SCRUM-49)
         avg: root.querySelector('[data-stat="avg"]'),
         min: root.querySelector('[data-stat="min"]'),
         max: root.querySelector('[data-stat="max"]'),
@@ -213,6 +217,8 @@ function initMetricChart(root) {
     let chart = null;
     let url = root.dataset.url;
     let period = root.dataset.period || '1h';
+    // Onglet Metrics (SCRUM-49) : période choisie pour la page entière, ex. {"period":"30d"} ou {"from":…,"to":…}
+    const fixedQuery = root.dataset.query ? JSON.parse(root.dataset.query) : null;
 
     function showMessage(text) {
         message.textContent = text;
@@ -226,26 +232,37 @@ function initMetricChart(root) {
         });
     }
 
+    // Bouton « Open Grafana dashboard » (SCRUM-47) : même période que le graphique
+    function syncGrafanaLinks() {
+        document.querySelectorAll('[data-grafana-link]').forEach((link) => {
+            const target = new URL(link.href);
+            target.searchParams.set('period', period);
+            link.href = target.toString();
+        });
+    }
+
     async function load() {
         select(periodButtons, (b) => b.dataset.period === period);
+        if (periodButtons.length) syncGrafanaLinks();
         select(metricButtons, (b) => b.dataset.metricUrl === url);
         // Rechargement : l'ancien graphique reste affiché, atténué (pas de saut de mise en page)
         frame.style.opacity = '0.45';
 
         try {
-            const response = await window.axios.get(url, { params: { period } });
+            const response = await window.axios.get(url, { params: fixedQuery ?? { period } });
             const data = response.data;
             const show = (value) => (value !== null ? format(value, data.unit) : '—');
             chart = render(canvas, data, chart);
 
             if (title) title.textContent = data.label;
+            if (stats.last) stats.last.textContent = show(data.stats.last);
             stats.avg.textContent = show(data.stats.avg);
             stats.min.textContent = show(data.stats.min);
             stats.max.textContent = show(data.stats.max);
             stats.count.textContent = data.stats.count.toLocaleString('en-US');
             canvas.setAttribute('aria-label', data.stats.count
-                ? `${data.label} over the last ${period}: average ${show(data.stats.avg)}, minimum ${show(data.stats.min)}, maximum ${show(data.stats.max)}.`
-                : `No ${data.label.toLowerCase()} measured over the last ${period}.`);
+                ? `${data.label}, ${data.period_label}: average ${show(data.stats.avg)}, minimum ${show(data.stats.min)}, maximum ${show(data.stats.max)}.`
+                : `No ${data.label.toLowerCase()} measured, ${data.period_label}.`);
 
             showMessage(data.points.length ? '' : 'No measure over this period yet.');
         } catch (error) {

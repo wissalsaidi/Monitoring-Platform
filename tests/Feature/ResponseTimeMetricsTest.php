@@ -68,6 +68,7 @@ class ResponseTimeMetricsTest extends TestCase
             'itemids' => ['502'],
             'history' => 0,
             'time_from' => now()->timestamp - 86400,
+            'time_till' => now()->timestamp,
             'sortfield' => 'clock',
             'sortorder' => 'ASC',
         ], $this->callsTo('history.get')[0]);

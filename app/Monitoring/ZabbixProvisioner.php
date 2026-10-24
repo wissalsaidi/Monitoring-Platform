@@ -4,8 +4,10 @@ namespace App\Monitoring;
 
 use App\Exceptions\Zabbix\ZabbixException;
 use App\Models\MonitoringTarget;
+use App\Services\MetricsService;
 use App\Services\ZabbixService;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Base des provisioners : triggers chaînés, tags lus par la synchro, mise à jour des triggers par niveau.
@@ -26,6 +28,13 @@ abstract class ZabbixProvisioner implements TargetProvisioner
 
     /** Type d'interface Zabbix « agent » (hostinterface.type) : zabbix-server interroge l'agent en mode passif. */
     public const INTERFACE_AGENT = 1;
+
+    /** Item de seuil (SCRUM-46) : platform.threshold[série,niveau], ex. platform.threshold[response_time,warning] */
+    public const THRESHOLD_KEY = 'platform.threshold[%s,%s]';
+
+    private const ITEM_DEPENDENT = 18;
+
+    private const PREPROCESSING_JAVASCRIPT = 21;
 
     public function __construct(protected readonly ZabbixService $zabbix) {}
 
@@ -67,8 +76,29 @@ abstract class ZabbixProvisioner implements TargetProvisioner
         return [];
     }
 
-    /** Par défaut : le temps de réponse, si le type en a un (Zabbix le mesure en secondes, affiché en ms). */
+    /**
+     * Séries du type (metricSeries), puis la disponibilité, commune à tous les types (SCRUM-49) : 100 % quand l'item
+     * de disponibilité (statusItemKeys) dit que la target répond, 0 % sinon ; moyenne = disponibilité sur la période.
+     */
     public function chartSeries(): array
+    {
+        return [
+            ...$this->metricSeries(),
+            'availability' => [
+                'label' => 'Availability', 'key' => $this->statusItemKeys()['availability'], 'unit' => '%', 'scale' => 1,
+                'value_type' => self::VALUE_TYPE_UNSIGNED, 'availability' => $this->upWhen(),
+            ],
+        ];
+    }
+
+    /** Par défaut : la série du même nom que la métrique de l'alerte (response_time, cpu, connections…). */
+    public function incidentSeries(string $metric): ?string
+    {
+        return array_key_exists($metric, $this->metricSeries()) ? $metric : null;
+    }
+
+    /** Séries propres au type. Par défaut : le temps de réponse, si le type en a un (Zabbix le mesure en secondes, affiché en ms). */
+    protected function metricSeries(): array
     {
         $key = $this->statusItemKeys()['response_time'] ?? null;
 
@@ -77,11 +107,98 @@ abstract class ZabbixProvisioner implements TargetProvisioner
         ];
     }
 
+    /** Valeur de l'item de disponibilité quand la target répond : 1 (ping de l'agent, de MySQL, conteneur en marche) */
+    protected function upWhen(): string
+    {
+        return MetricsService::UP_WHEN_ONE;
+    }
+
     public function chartThresholds(MonitoringTarget $target, string $series): array
     {
         return $series === 'response_time'
             ? ['warning' => $target->warning_threshold_ms, 'critical' => $target->critical_threshold_ms]
             : ['warning' => null, 'critical' => null];
+    }
+
+    /**
+     * Seuils des graphiques en items Zabbix (SCRUM-46), pour que Grafana les trace à côté de la métrique, quel que soit
+     * le type et quelle que soit la target choisie dans le dashboard. Un item dépendant par seuil, de la même unité que
+     * l'item de la série (valeur Zabbix = seuil ÷ scale), qui renvoie le seuil à chaque relevé : l'historique garde
+     * aussi les seuils passés.
+     *
+     * Crée les items manquants et met à jour la valeur des autres. Facultatif pour la plateforme (ses pages lisent les
+     * seuils dans la base) : un échec est journalisé, il ne bloque ni la création ni la modification d'une target.
+     *
+     * @return bool false si Zabbix a refusé : relancer avec php artisan zabbix:sync-thresholds
+     */
+    public function syncThresholdItems(MonitoringTarget $target, string $hostId): bool
+    {
+        $wanted = [];
+
+        foreach ($this->chartSeries() as $series => $definition) {
+            foreach ($this->chartThresholds($target, $series) as $level => $threshold) {
+                if ($threshold !== null) {
+                    $wanted[sprintf(self::THRESHOLD_KEY, $series, $level)] = [
+                        'master' => $definition['key'],
+                        'name' => "Threshold: {$definition['label']} {$level}",
+                        'value' => $threshold / $definition['scale'],
+                    ];
+                }
+            }
+        }
+
+        if ($wanted === []) {
+            return true;
+        }
+
+        try {
+            $items = collect($this->zabbix->getItems([
+                'output' => ['itemid', 'key_', 'units'],
+                'hostids' => [$hostId],
+                'filter' => ['key_' => [...array_keys($wanted), ...array_unique(array_column($wanted, 'master'))]],
+                'webitems' => true,     // le temps de réponse d'un check HTTP est un item de web scenario
+            ]))->keyBy('key_');
+
+            $updates = [];
+            $creates = [];
+
+            foreach ($wanted as $key => $threshold) {
+                $preprocessing = [[
+                    'type' => self::PREPROCESSING_JAVASCRIPT,
+                    'params' => 'return '.self::number($threshold['value']).';',
+                    'error_handler' => 0,
+                    'error_handler_params' => '',
+                ]];
+
+                if ($items->has($key)) {
+                    $updates[] = ['itemid' => $items[$key]['itemid'], 'preprocessing' => $preprocessing];
+                } elseif (($master = $items->get($threshold['master'])) !== null) {
+                    $creates[] = [
+                        'hostid' => $hostId,
+                        'name' => $threshold['name'],
+                        'key_' => $key,
+                        'type' => self::ITEM_DEPENDENT,
+                        'master_itemid' => $master['itemid'],
+                        'value_type' => self::VALUE_TYPE_FLOAT,
+                        'units' => $master['units'],
+                        'preprocessing' => $preprocessing,
+                    ];
+                }
+            }
+
+            if ($creates !== []) {
+                $this->zabbix->createItems($creates);
+            }
+            if ($updates !== []) {
+                $this->zabbix->updateItems($updates);
+            }
+
+            return true;
+        } catch (ZabbixException $e) {
+            Log::channel('zabbix')->warning('Unable to sync the threshold items of a target', ['target_id' => $target->id, 'error' => $e->getMessage()]);
+
+            return false;
+        }
     }
 
     /**
@@ -189,6 +306,12 @@ abstract class ZabbixProvisioner implements TargetProvisioner
             ['tag' => 'metric', 'value' => $metric],
             ['tag' => 'level', 'value' => $level],
         ];
+    }
+
+    /** 0.5 → "0.5", 67108864.0 → "67108864" : nombre lisible dans une expression ou un script Zabbix. */
+    private static function number(int|float $value): string
+    {
+        return rtrim(rtrim(sprintf('%.6F', $value), '0'), '.');
     }
 
     /** 500 ms → "0.5", 1000 ms → "1" : Zabbix mesure les temps de réponse en secondes. */

@@ -7,7 +7,8 @@
 #
 #   App Laravel  http://localhost:8000
 #   Zabbix       http://localhost:8080   (Admin / zabbix)
-#   Grafana      http://localhost:3000   (admin / GRAFANA_ADMIN_PASSWORD)
+#   Grafana      http://localhost:8000/grafana/   (utilisateurs de la plateforme)
+#                http://localhost:3000/grafana/   (admin / GRAFANA_ADMIN_PASSWORD)
 #   Fake API     http://localhost:8081/health   et   /control?delay=1200
 #   phpMyAdmin   http://localhost:8082   (serveur Laravel ou Zabbix, identifiants du .env)
 #   Mailpit      http://localhost:8025   (emails envoyés par l'app)
@@ -63,6 +64,11 @@ services:
     volumes:
       - ./:/var/www/html:ro
       - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./docker/nginx/grafana-proxy.conf:/etc/nginx/snippets/grafana-proxy.conf:ro
+    networks:
+      default: {}
+      grafana-proxy:
+        ipv4_address: 172.31.250.2   # seule adresse dont Grafana accepte l'en-tête X-WEBAUTH-USER (SCRUM-48)
     depends_on:
       - app
 
@@ -192,6 +198,9 @@ services:
     restart: "no"
 
   # ─── Grafana (V1, préparé dès maintenant) ──────────────────────────
+  # Les utilisateurs de la plateforme y accèdent par http://localhost:8000/grafana/ (auth proxy, SCRUM-48) :
+  # Viewer de l'organisation de chacune de leurs teams, sans mot de passe Grafana. L'admin garde son accès direct
+  # http://localhost:3000/grafana/ (formulaire de connexion, admin / GRAFANA_ADMIN_PASSWORD).
   grafana:
     image: grafana/grafana:11.6.0
     environment:
@@ -199,8 +208,28 @@ services:
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
       ZABBIX_USER: ${ZABBIX_USER}
       ZABBIX_PASSWORD: ${ZABBIX_PASSWORD}
+      GF_SERVER_ROOT_URL: ${GRAFANA_URL}/
+      GF_SERVER_SERVE_FROM_SUB_PATH: "true"
+      GF_AUTH_PROXY_ENABLED: "true"
+      GF_AUTH_PROXY_HEADER_NAME: X-WEBAUTH-USER
+      GF_AUTH_PROXY_HEADER_PROPERTY: username
+      GF_AUTH_PROXY_HEADERS: "Name:X-WEBAUTH-NAME Email:X-WEBAUTH-EMAIL"
+      GF_AUTH_PROXY_AUTO_SIGN_UP: "false"        # comptes créés par la plateforme seulement (GrafanaAccessService)
+      GF_AUTH_PROXY_SYNC_TTL: "1"                # login → compte gardé 1 min (défaut 60) : un compte recréé marche vite
+      GF_AUTH_PROXY_WHITELIST: 172.31.250.2      # nginx sur le réseau grafana-proxy, personne d'autre
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_USERS_ALLOW_ORG_CREATE: "false"
+      # Compte rattaché par défaut à l'organisation principale SANS rôle (aucun accès à sa datasource, qui voit tout),
+      # plutôt qu'à une organisation personnelle dont il serait Admin. La plateforme l'en retire aussitôt.
+      GF_USERS_AUTO_ASSIGN_ORG: "true"
+      GF_USERS_AUTO_ASSIGN_ORG_ID: "1"
+      GF_USERS_AUTO_ASSIGN_ORG_ROLE: None
     ports:
       - "127.0.0.1:3000:3000"
+    networks:
+      default: {}
+      grafana-proxy:
+        ipv4_address: 172.31.250.3
     volumes:
       - grafana-data:/var/lib/grafana
       - ./docker/grafana/provisioning:/etc/grafana/provisioning:ro
@@ -308,6 +337,14 @@ services:
     image: nginx:1.27-alpine
     container_name: demo-nginx-01
     profiles: [demo]
+
+networks:
+  # Réseau interne nginx ↔ Grafana (SCRUM-48) : adresses fixes, pour que Grafana ne fasse confiance qu'à nginx
+  grafana-proxy:
+    internal: true
+    ipam:
+      config:
+        - subnet: 172.31.250.0/29
 
 volumes:
   vendor:

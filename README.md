@@ -42,7 +42,7 @@ navigateur ──► grafana :3000 ── datasource Zabbix ──────�
 | `zabbix-agent2` | — | Agent Zabbix 2 : serveurs, conteneurs, bases de données ([détails](#agent-zabbix-2)) |
 | `docker-socket-proxy` | — | Filtre du socket Docker : l'agent ne peut que lire |
 | `mysql-monitor-user` | — | Ponctuel : crée l'utilisateur MySQL `zbx_monitor` de l'agent, puis s'arrête |
-| `grafana` | http://localhost:3000 (`admin` / `GRAFANA_ADMIN_PASSWORD`) | Dashboards |
+| `grafana` | http://localhost:8000/grafana/ (utilisateurs) · http://localhost:3000/grafana/ (`admin` / `GRAFANA_ADMIN_PASSWORD`) | Dashboards |
 | `fake-api` | http://localhost:8081/health | API de démo à latence réglable |
 | `phpmyadmin` | http://localhost:8082 | phpMyAdmin : interface web des bases MySQL (dev) |
 | `mailpit` | http://localhost:8025 | Boîte mail de dev : reset de mot de passe, vérification d'email |
@@ -201,6 +201,64 @@ Tester une clé directement dans l'agent :
 docker compose exec zabbix-agent2 zabbix_agent2 -t docker.ping       # [s|1]
 docker compose exec zabbix-agent2 zabbix_agent2 -t docker.containers
 docker compose run --rm mysql-monitor-user                            # recrée zbx_monitor (ex. après un changement de mot de passe)
+```
+
+## Onglet Metrics
+
+Sur la page d'une target, l'onglet **Metrics** (SCRUM-49) montre chaque métrique du type sur la période choisie :
+
+- périodes : 15 min, 1 h, 6 h, 24 h, 7 j, 30 j, ou des dates de début et de fin (jusqu'à un an) ;
+- pour chaque métrique (temps de réponse, code HTTP, CPU, mémoire, disque, connexions…, et la **disponibilité** pour tous
+  les types) : valeur actuelle, moyenne, minimum, maximum, nombre de mesures et graphique avec ses seuils ;
+- à partir de 7 jours, les tendances horaires de Zabbix remplacent l'historique : 30 jours s'affichent en moins d'une
+  seconde.
+
+## Onglet History
+
+L'onglet **History** d'une target (SCRUM-50) :
+
+- disponibilité aujourd'hui, sur 7 et sur 30 jours, nombre d'incidents, durée moyenne de résolution (MTTR) et temps
+  de réponse moyen : **statistiques journalières** calculées chaque heure (`php artisan stats:compute`, SCRUM-51), sans
+  appel à Zabbix à l'affichage. Disponibilité = la plus basse de la part des checks réussis et de la part du temps hors
+  incident « indisponible » ; « — » quand il n'y a aucune mesure. Le dashboard en montre le résumé sur 7 jours ;
+- frise des incidents sur la période choisie (24 h, 7 j, 30 j ou dates), couleur de leur sévérité ;
+- liste des incidents : début, fin, durée, sévérité, **valeur maximale** atteinte pendant l'incident (lue dans Zabbix,
+  gardée une fois l'incident résolu) et seuil.
+
+
+Grafana lit Zabbix par le datasource du plugin Zabbix (provisionné dans `docker/grafana/provisioning/`).
+
+**Accès** (SCRUM-48) :
+
+- les utilisateurs de la plateforme passent par **http://localhost:8000/grafana/**, connectés automatiquement (auth proxy :
+  nginx demande à Laravel qui est connecté), sans compte ni mot de passe Grafana à retenir ;
+- chaque team a son organisation Grafana. Sa datasource se connecte avec un utilisateur Zabbix en lecture seule sur le seul
+  host group de la team. Un utilisateur est **Viewer** des organisations de ses teams, et de rien d'autre : il ne voit
+  que leurs hosts ;
+- organisation, utilisateur Zabbix, datasource et dashboard sont créés au premier clic sur « Open Grafana dashboard ».
+  Un membre retiré d'une team perd l'accès tout de suite. `php artisan grafana:sync` (chaque heure) répare et met à jour
+  les dashboards ;
+- l'administrateur garde son accès direct : http://localhost:3000/grafana/ (`admin` / `GRAFANA_ADMIN_PASSWORD`). Ce mot
+  de passe ne sert qu'à la plateforme, côté serveur.
+Le dashboard **Target overview** (dossier *Monitoring Platform*) sert pour toutes les targets (SCRUM-46) :
+
+- en haut : la team, puis une de ses targets ;
+- disponibilité, code HTTP, disponibilité dans le temps, problèmes Zabbix actifs ;
+- temps de réponse, avec les seuils warning et critical de la target en pointillés.
+
+Sur la page d'une API, d'un site web ou d'une base de données, le bouton **Open Grafana dashboard** ouvre ce dashboard
+dans l'organisation de la team, déjà réglé sur la target et sur la période du graphique (SCRUM-47). Avant d'y aller,
+l'application vérifie que Grafana répond (`GRAFANA_INTERNAL_URL`, état gardé 30 s). Sinon, la page affiche « Advanced
+metrics are temporarily unavailable. ». Le lien utilise `GRAFANA_URL`, l'adresse vue par le navigateur.
+
+Il est versionné dans `docker/grafana/provisioning/dashboards/target-overview.json`. On peut le modifier dans Grafana sans
+pouvoir l'enregistrer : on modifie le fichier.
+
+Les seuils viennent de Zabbix : chaque target a des items `platform.threshold[série,niveau]`, mis à jour quand on modifie
+ses seuils. Pour les targets créées avant cette version :
+
+```bash
+docker compose exec -u www-data app php artisan zabbix:sync-thresholds
 ```
 
 ## Tests et qualité

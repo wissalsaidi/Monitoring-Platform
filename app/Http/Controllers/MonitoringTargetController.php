@@ -10,12 +10,17 @@ use App\Http\Requests\UpdateTargetRequest;
 use App\Models\AuditLog;
 use App\Models\MonitoringTarget;
 use App\Monitoring\ProvisionerRegistry;
+use App\Services\IncidentHistoryService;
 use App\Services\MonitoringService;
+use App\Services\StatisticsService;
+use App\Support\MetricRange;
 use App\Support\ZabbixSyncHealth;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class MonitoringTargetController extends Controller
@@ -23,7 +28,15 @@ class MonitoringTargetController extends Controller
     public const PER_PAGE = 15;
 
     /** Onglets de la page d'une target (§14). Metrics et History arrivent en V1. */
-    public const TABS = ['overview', 'alerts', 'configuration'];
+    public const TABS = ['overview', 'metrics', 'history', 'alerts', 'configuration'];
+
+    /** Onglet History (SCRUM-50) : incidents par page, et au plus sur la frise */
+    public const INCIDENTS_PER_PAGE = 20;
+
+    public const TIMELINE_MAX = 300;
+
+    /** Statistiques de l'onglet History (SCRUM-51) : aujourd'hui, 7 et 30 derniers jours */
+    public const SUMMARY_DAYS = [1, 7, 30];
 
     /** Liste des targets des teams de l'utilisateur, filtrable par type et par nom (SCRUM-34). */
     public function index(Request $request): View
@@ -154,14 +167,64 @@ class MonitoringTargetController extends Controller
         $activeAlerts->each->setRelation('target', $target);
         $alerts?->getCollection()->each->setRelation('target', $target);
 
+        // Onglets Metrics (SCRUM-49, 24 h par défaut) et History (SCRUM-50, 7 j) : période choisie ;
+        // dates invalides → période par défaut, avec le message d'erreur
+        $range = null;
+        $rangeErrors = null;
+        if (in_array($tab, ['metrics', 'history'], true)) {
+            $default = $tab === 'metrics' ? '24h' : '7d';
+            try {
+                $range = MetricRange::fromRequest($request, $default);
+            } catch (ValidationException $e) {
+                $range = MetricRange::preset($default);
+                $rangeErrors = $e->validator->errors();
+            }
+        }
+
+        $history = $tab === 'history' ? $this->history($target, $range) : null;
+
         return view('targets.show', [
             'target' => $target,
             'tab' => $tab,
+            'range' => $range,
+            'rangeErrors' => $rangeErrors,
             'intervals' => MonitoringTarget::CHECK_INTERVALS,
             'activeAlerts' => $activeAlerts,
             'alertCount' => $target->alerts()->count(),
             'alerts' => $alerts,
             'zabbixFailing' => ZabbixSyncHealth::isFailing(),
+            'history' => $history,
         ]);
+    }
+
+    /**
+     * Onglet History (SCRUM-50) : incidents (alertes) qui touchent la période, frise et tableau paginé,
+     * valeur maximale de chaque incident du tableau ; statistiques du jour, de 7 et de 30 jours (SCRUM-51).
+     */
+    private function history(MonitoringTarget $target, MetricRange $range): array
+    {
+        $from = Carbon::createFromTimestamp($range->from);
+        $to = Carbon::createFromTimestamp($range->to);
+        // Incident commencé avant la fin de la période et pas terminé avant son début
+        $inRange = fn () => $target->alerts()
+            ->where('started_at', '<=', $to)
+            ->where(fn ($query) => $query->whereNull('resolved_at')->orWhere('resolved_at', '>=', $from));
+
+        $incidents = $inRange()->orderByDesc('started_at')->orderByDesc('id')
+            ->paginate(self::INCIDENTS_PER_PAGE)->withQueryString();
+        $service = app(IncidentHistoryService::class);
+        $peaks = $service->peaks($target, $incidents->getCollection());
+        // Chiffres précalculés chaque heure (SCRUM-51) : aucun appel à Zabbix
+        $statistics = app(StatisticsService::class);
+        $summaries = collect(self::SUMMARY_DAYS)->mapWithKeys(fn (int $days) => [$days => $statistics->summary($target->id, $days)]);
+
+        return [
+            'incidents' => $incidents,
+            'timeline' => $inRange()->orderBy('started_at')->limit(self::TIMELINE_MAX)->get(['id', 'severity', 'metric', 'message', 'started_at', 'resolved_at']),
+            'total' => $incidents->total(),
+            'peaks' => $peaks,
+            'summaries' => $summaries,
+            'zabbixFailed' => $service->zabbixFailed,
+        ];
     }
 }

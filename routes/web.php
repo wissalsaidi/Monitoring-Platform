@@ -4,7 +4,9 @@ use App\Http\Controllers\AccountController;
 use App\Http\Controllers\AlertController;
 use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\GrafanaAuthController;
 use App\Http\Controllers\MonitoringTargetController;
+use App\Http\Controllers\TargetGrafanaController;
 use App\Http\Controllers\TargetMetricsController;
 use App\Http\Controllers\TeamInvitationController;
 use App\Http\Controllers\TeamMemberController;
@@ -13,6 +15,9 @@ use Illuminate\Support\Facades\Route;
 // Les routes de connexion / inscription / déconnexion sont fournies par Fortify.
 
 // Email vérifié obligatoire (SCRUM-32) : sinon redirection vers la page « Verify your email »
+// Auth proxy de Grafana (SCRUM-48), appelé par nginx avant chaque requête vers /grafana/ : 200 / 401 / 403, sans redirection
+Route::get('/_grafana_auth', GrafanaAuthController::class)->name('grafana.auth');
+
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/', DashboardController::class)->name('dashboard');
 
@@ -34,6 +39,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/targets/{target}/metrics/{metric}', [TargetMetricsController::class, 'show'])
         ->where('metric', '[a-z_]+')
         ->name('targets.metrics');
+    // Dashboard Grafana de la target (SCRUM-47) : redirection, ou retour à la page si Grafana est indisponible
+    Route::get('/targets/{target}/grafana', TargetGrafanaController::class)->name('targets.grafana');
 
     // Membres d'une team (SCRUM-59) : réservé aux Admin de la team (permissions user.*)
     Route::get('/team', [TeamMemberController::class, 'current'])->name('teams.current');

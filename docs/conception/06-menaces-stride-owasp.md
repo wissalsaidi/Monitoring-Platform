@@ -51,13 +51,16 @@ Frontières de confiance : le navigateur (non fiable) → l'application ; l'appl
 | Erreurs | **I** | Lire une trace technique (chemins, requêtes) | Messages génériques (§47) ; `APP_DEBUG=false` en production, contrôlé par `php artisan security:check` (SCRUM-61) | ✅ |
 | Emails | **S** | Faux emails de réinitialisation (phishing) | Expéditeur unique `noreply@…` ; SPF/DKIM à configurer en production | ⏳ |
 | Webhooks (V2) | **S / T** | Appeler un webhook entrant sans y être autorisé | Signature HMAC des webhooks prévue avec la fonctionnalité | ⏳ V2 |
+| Grafana | **S** | Se faire passer pour un autre compte Grafana en envoyant soi-même l'en-tête `X-WEBAUTH-USER` | nginx remplace toujours cet en-tête par le login donné par Laravel ; Grafana ne l'accepte que de l'adresse fixe de nginx sur un réseau interne (`GF_AUTH_PROXY_WHITELIST`) ; comptes créés par la plateforme seulement (SCRUM-48) | ✅ testé : en-tête refusé sur le port direct (`auth-proxy.invalid-ip`) |
+| Grafana | **I** | Voir les hosts d'une autre team dans Grafana | Une organisation Grafana par team, dont la datasource se connecte avec un utilisateur Zabbix en lecture seule sur le seul host group de la team ; compte Viewer des seules organisations de ses teams, retiré de l'organisation principale ; retrait de team répercuté tout de suite, synchro horaire (SCRUM-48) | ✅ testé : 0 donnée, 403 sur les autres organisations |
+| Grafana | **E** | Un utilisateur qui ajoute une datasource vers le réseau interne | Rôle Viewer partout, pas de création d'organisation ; mot de passe admin de Grafana seulement dans `.env`, utilisé côté serveur (SCRUM-48) | ✅ testé : 403 |
 | Base de données | **I / D** | Accès direct à MySQL ou phpMyAdmin | Ports réservés à la machine locale (phpMyAdmin sur `127.0.0.1`) ; non exposés en production : `docker-compose.prod.yml` retire le port MySQL et arrête phpMyAdmin (SCRUM-61) | ✅ (MySQL publié sur `127.0.0.1:3307` en dev seulement) |
 
 ## Checklist OWASP Top 10 (2021) appliquée au projet
 
 | Catégorie | Ce qui est en place | Reste à faire |
 |---|---|---|
-| **A01 Contrôle d'accès défaillant** | Policies Laravel sur chaque action, permissions nommées par rôle (RBAC, SCRUM-58), cloisonnement par team, filtres limités aux données visibles, tests de toute la matrice rôle × action ; gestion des membres et invitations (SCRUM-59) | — |
+| **A01 Contrôle d'accès défaillant** | Policies Laravel sur chaque action, permissions nommées par rôle (RBAC, SCRUM-58), cloisonnement par team, filtres limités aux données visibles, tests de toute la matrice rôle × action ; gestion des membres et invitations (SCRUM-59) ; Grafana cloisonné par team (organisation + utilisateur Zabbix en lecture seule, SCRUM-48) | — |
 | **A02 Défaillances cryptographiques** | bcrypt pour les mots de passe, URLs signées, `APP_KEY` secrète ; en production : HTTPS (TLS 1.2 / 1.3), HSTS, cookies `Secure` et session chiffrée (SCRUM-61) | — |
 | **A03 Injection** | Requêtes préparées, `LIKE` échappé, validation serveur (FormRequest), échappement Blade | — |
 | **A04 Conception non sécurisée** | Analyse STRIDE, création « tout ou rien », aucune page dépendante de Zabbix | Revoir à chaque nouvelle fonctionnalité V1 |

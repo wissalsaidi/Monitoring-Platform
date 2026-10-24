@@ -117,6 +117,12 @@ class MonitoringTarget extends Model
         return app(ProvisionerRegistry::class)->for($this->type);
     }
 
+    /** Statistiques journalières (SCRUM-51) */
+    public function dailyStats(): HasMany
+    {
+        return $this->hasMany(TargetDailyStat::class);
+    }
+
     public function team(): BelongsTo
     {
         return $this->belongsTo(Team::class);

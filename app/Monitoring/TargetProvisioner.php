@@ -87,11 +87,18 @@ interface TargetProvisioner
     /**
      * Séries affichables en graphique sur la page de la target (SCRUM-72), lues dans l'historique Zabbix :
      * nom → libellé, clé d'item, unité affichée, facteur (valeur Zabbix × scale) et type de valeur Zabbix (0 flottant, 3 entier).
-     * La première série est affichée par défaut.
+     * Clé facultative availability (SCRUM-49) : la série est une disponibilité en % (MetricsService::UP_WHEN_*).
+     * La première série est affichée par défaut ; la disponibilité est toujours la dernière.
      *
-     * @return array<string, array{label: string, key: string, unit: string, scale: float|int, value_type: int}>
+     * @return array<string, array{label: string, key: string, unit: string, scale: float|int, value_type: int, availability?: string}>
      */
     public function chartSeries(): array;
+
+    /**
+     * Série dont on lit la valeur maximale pendant un incident (SCRUM-50), selon la métrique de l'alerte (tag "metric") ;
+     * null si elle n'en a pas (disponibilité, certificat, redémarrages). Même unité que la valeur de l'alerte.
+     */
+    public function incidentSeries(string $metric): ?string;
 
     /**
      * Seuils tracés sur le graphique d'une série, dans son unité (null : pas de ligne).
@@ -99,6 +106,14 @@ interface TargetProvisioner
      * @return array{warning: int|float|null, critical: int|float|null}
      */
     public function chartThresholds(MonitoringTarget $target, string $series): array;
+
+    /**
+     * Crée ou met à jour les items Zabbix qui portent les seuils des graphiques (SCRUM-46, lus par Grafana).
+     * Ne lève pas d'exception : un échec est journalisé.
+     *
+     * @return bool false si Zabbix a refusé
+     */
+    public function syncThresholdItems(MonitoringTarget $target, string $hostId): bool;
 
     /** Seuil d'un niveau d'alerte (tag "level"), enregistré avec l'alerte. */
     public function threshold(MonitoringTarget $target, string $level): int|float|null;
