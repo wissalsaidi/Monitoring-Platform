@@ -10,7 +10,7 @@
             </button>
             <ul class="dropdown-menu dropdown-menu-end">
                 @foreach ($teams as $other)
-                    <li><a class="dropdown-item @if ($other->is($team)) active @endif" href="{{ route('teams.notifications.index', $other) }}">{{ $other->name }}</a></li>
+                    <li><a class="dropdown-item @if ($other->is($team)) active @endif" href="{{ route(request()->route()->getName(), $other) }}">{{ $other->name }}</a></li>
                 @endforeach
             </ul>
         </div>
@@ -18,6 +18,8 @@
 @endsection
 
 @section('content')
+    @include('teams._notification-tabs')
+
     <div class="row g-4">
         <div class="col-xl-8">
             {{-- Règles de notification (SCRUM-55) : un choix par sévérité et par événement --}}

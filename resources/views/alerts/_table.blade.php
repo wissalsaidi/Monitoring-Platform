@@ -60,12 +60,21 @@
                         @endif
                     </td>
                     <td class="pe-3 text-end">
-                        @can('acknowledge', $alert)
-                            <form method="POST" action="{{ route('alerts.acknowledge', $alert) }}">
-                                @csrf
-                                <button type="submit" class="btn btn-outline-warning btn-sm text-nowrap"><i class="bi bi-eye me-1"></i>Acknowledge</button>
-                            </form>
-                        @endcan
+                        <div class="d-flex justify-content-end align-items-center gap-2">
+                            {{-- Notifications envoyées pour cette alerte (SCRUM-56) --}}
+                            @if (($alert->notifications_count ?? 0) > 0)
+                                <a href="{{ route('teams.notifications.history', [$alert->target->team_id, 'alert' => $alert->id]) }}"
+                                   class="btn btn-link btn-sm text-body-secondary text-nowrap p-0" title="Notifications sent for this alert">
+                                    <i class="bi bi-envelope me-1"></i>{{ $alert->notifications_count }}
+                                </a>
+                            @endif
+                            @can('acknowledge', $alert)
+                                <form method="POST" action="{{ route('alerts.acknowledge', $alert) }}">
+                                    @csrf
+                                    <button type="submit" class="btn btn-outline-warning btn-sm text-nowrap"><i class="bi bi-eye me-1"></i>Acknowledge</button>
+                                </form>
+                            @endcan
+                        </div>
                     </td>
                 </tr>
             @endforeach
