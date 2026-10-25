@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Exceptions\PlatformAdminException;
 use App\Exceptions\TeamMembershipException;
 use App\Exceptions\Zabbix\ZabbixException;
 use App\Services\AccountDeletionService;
+use App\Services\PlatformAdminService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -21,6 +23,7 @@ class AccountController extends Controller
             'user' => $request->user(),
             'teams' => $request->user()->teams()->orderBy('name')->withCount('members')->get(),
             'blockingTeams' => $deletion->blockingTeams($request->user()),
+            'lastSuperAdmin' => app(PlatformAdminService::class)->isLastSuperAdmin($request->user()),
         ]);
     }
 
@@ -32,7 +35,7 @@ class AccountController extends Controller
 
         try {
             $deletion->delete($request->user());
-        } catch (TeamMembershipException $e) {
+        } catch (TeamMembershipException|PlatformAdminException $e) {
             return back()->with('error', $e->getMessage());
         } catch (ZabbixException $e) {
             return back()->with('error', $e->userMessage().' Your account was not deleted, please try again.');

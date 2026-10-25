@@ -13,6 +13,11 @@
                         <dd class="col-sm-9">{{ $user->name }}</dd>
                         <dt class="col-sm-3 text-body-secondary fw-normal">Email</dt>
                         <dd class="col-sm-9">{{ $user->email }}</dd>
+                        @if ($user->isSuperAdmin())
+                            {{-- Rôle de plateforme (SCRUM-81) --}}
+                            <dt class="col-sm-3 text-body-secondary fw-normal">Platform</dt>
+                            <dd class="col-sm-9"><span class="badge text-bg-primary"><i class="bi bi-shield-lock me-1"></i>{{ $user->platform_role->label() }}</span></dd>
+                        @endif
                         <dt class="col-sm-3 text-body-secondary fw-normal">Teams</dt>
                         <dd class="col-sm-9 mb-0">
                             @foreach ($teams as $team)
@@ -30,7 +35,12 @@
                 <div class="card-body p-4">
                     <p class="section-label text-danger mb-3">Delete my account</p>
 
-                    @if ($blockingTeams)
+                    @if ($lastSuperAdmin)
+                        <div class="alert alert-warning small d-flex gap-2" role="status">
+                            <i class="bi bi-exclamation-triangle"></i>
+                            <span>You are the last Super Admin of the platform. Promote someone else first, then you can delete your account.</span>
+                        </div>
+                    @elseif ($blockingTeams)
                         <div class="alert alert-warning small d-flex gap-2" role="status">
                             <i class="bi bi-exclamation-triangle"></i>
                             <span>You are the last Admin of {{ implode(', ', $blockingTeams) }}. Give the Admin role to another member, or remove the other members, before deleting your account.</span>

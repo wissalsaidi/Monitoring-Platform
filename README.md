@@ -58,6 +58,7 @@ docker compose up -d --build       # 1er démarrage ≈ 5 min (Zabbix crée sa b
 docker compose exec app composer install
 docker compose exec app php artisan key:generate
 docker compose exec app php artisan migrate
+docker compose exec app php artisan platform:create-admin <votre-email>   # premier Super Admin (mot de passe demandé)
 
 npm install
 npm run build                      # ou "npm run dev" pendant le développement
@@ -122,6 +123,18 @@ Pour un serveur, seuls les triggers créés par la plateforme deviennent des ale
 visibles dans Zabbix. Serveur de démo : `zabbix-agent2`, port `10050`.
 
 ## Équipes, rôles et sécurité
+
+**Super Admin de la plateforme** (DSI, SCRUM-81) : au-dessus des teams. Il est désigné en ligne de commande, jamais
+par le web, et n'a aucun droit dans une team dont il n'est pas membre.
+
+```bash
+docker compose exec app php artisan platform:create-admin it.admin@company.com   # nouveau compte (mot de passe demandé) ou promotion
+docker compose exec app php artisan platform:create-admin demo@example.com       # environnement de démo : promouvoir le compte demo
+docker compose exec app php artisan platform:list-admins
+docker compose exec app php artisan platform:revoke-admin it.admin@company.com   # refusé pour le dernier Super Admin
+```
+
+Rôles dans une team :
 
 | Rôle | Peut |
 |---|---|

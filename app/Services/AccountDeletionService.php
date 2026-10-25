@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Enums\TeamRole;
 use App\Exceptions\GrafanaException;
+use App\Exceptions\PlatformAdminException;
 use App\Exceptions\TeamMembershipException;
 use App\Exceptions\Zabbix\ZabbixException;
 use App\Models\AlertNotification;
@@ -42,11 +43,17 @@ class AccountDeletionService
     }
 
     /**
+     * @throws PlatformAdminException si l'utilisateur est le dernier Super Admin de la plateforme
      * @throws TeamMembershipException si l'utilisateur est le dernier Admin d'une team qui a d'autres membres
      * @throws ZabbixException si une target ne peut pas être supprimée de Zabbix (compte gardé)
      */
     public function delete(User $user): void
     {
+        // La plateforme garde toujours un Super Admin (SCRUM-81)
+        if (app(PlatformAdminService::class)->isLastSuperAdmin($user)) {
+            throw new PlatformAdminException('You are the last Super Admin of the platform. Promote someone else first (php artisan platform:create-admin).');
+        }
+
         if ($blocking = $this->blockingTeams($user)) {
             throw new TeamMembershipException(sprintf(
                 'You are the last Admin of %s. Give the Admin role to another member, or remove the other members, before deleting your account.',

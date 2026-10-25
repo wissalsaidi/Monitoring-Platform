@@ -36,6 +36,7 @@ erDiagram
         varchar email UK
         timestamp email_verified_at "null tant que non vérifié"
         varchar password "haché (bcrypt)"
+        varchar platform_role "super_admin ou null (SCRUM-81)"
         varchar remember_token
         timestamps created_updated
     }

@@ -25,6 +25,11 @@ Depuis la V1 (SCRUM-58), chaque rôle correspond à une liste de **permissions n
 | `target.create`, `target.update`, `target.delete` | — | ✅ | ✅ |
 | `alert.acknowledge` | — | ✅ | ✅ |
 | `notification.manage` (règles de notification, SCRUM-55) | — | ✅ | ✅ |
+
+Depuis la V2 (SCRUM-81), un rôle de **plateforme** s'ajoute aux rôles de team : le **Super Admin** (DSI), désigné en
+ligne de commande (`php artisan platform:create-admin`), jamais par le web. Il a les permissions `platform.users.manage`,
+`platform.teams.manage` et `platform.audit.view`, mais **aucun droit dans une team dont il n'est pas membre**. La
+plateforme garde toujours au moins un Super Admin.
 | `user.view`, `user.create`, `user.update`, `user.delete` | — | — | ✅ |
 | `configuration.manage` | — | — | ✅ |
 
