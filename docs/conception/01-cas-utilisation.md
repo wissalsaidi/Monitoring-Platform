@@ -24,6 +24,7 @@ Depuis la V1 (SCRUM-58), chaque rôle correspond à une liste de **permissions n
 | `dashboard.view`, `target.view`, `alert.view` | ✅ | ✅ | ✅ |
 | `target.create`, `target.update`, `target.delete` | — | ✅ | ✅ |
 | `alert.acknowledge` | — | ✅ | ✅ |
+| `notification.manage` (règles de notification, SCRUM-55) | — | ✅ | ✅ |
 | `user.view`, `user.create`, `user.update`, `user.delete` | — | — | ✅ |
 | `configuration.manage` | — | — | ✅ |
 

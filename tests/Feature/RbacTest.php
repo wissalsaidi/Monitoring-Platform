@@ -25,8 +25,9 @@ class RbacTest extends TestCase
     /** Permissions attendues par rôle (cahier des charges §26-27) */
     private const MATRIX = [
         'admin' => ['target.view', 'target.create', 'target.update', 'target.delete', 'alert.view', 'alert.acknowledge',
-            'user.view', 'user.create', 'user.update', 'user.delete', 'dashboard.view', 'configuration.manage', 'audit.view'],
-        'manager' => ['target.view', 'target.create', 'target.update', 'target.delete', 'alert.view', 'alert.acknowledge', 'dashboard.view'],
+            'user.view', 'user.create', 'user.update', 'user.delete', 'dashboard.view', 'configuration.manage', 'audit.view', 'notification.manage'],
+        'manager' => ['target.view', 'target.create', 'target.update', 'target.delete', 'alert.view', 'alert.acknowledge', 'dashboard.view',
+            'notification.manage'],
         'viewer' => ['target.view', 'alert.view', 'dashboard.view'],
     ];
 

@@ -28,6 +28,12 @@ class AlertRule extends Model
         ];
     }
 
+    /** Clé d'une règle dans le formulaire et dans l'audit : « high_resolved » (SCRUM-55) */
+    public function key(): string
+    {
+        return "{$this->severity->value}_{$this->event->value}";
+    }
+
     public function team(): BelongsTo
     {
         return $this->belongsTo(Team::class);

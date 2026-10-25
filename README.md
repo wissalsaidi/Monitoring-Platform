@@ -214,6 +214,9 @@ seulement. Seuls ceux qui ont été prévenus de l'ouverture d'une alerte sont p
 - Envoi par la queue Redis (service `queue`) : la synchro n'attend pas le serveur mail. En cas d'échec SMTP : 3 essais,
   puis la notification passe en échec (table `notifications`) et l'erreur est journalisée.
 - En local, les emails arrivent dans Mailpit : http://localhost:8025.
+- Page **Notifications** (menu enveloppe, SCRUM-55) : pour chaque sévérité, « Email » ou « Dashboard only », à l'ouverture
+  et à la résolution. Tous les membres voient les règles ; seuls les Admin et Manager les modifient, et chaque
+  modification est inscrite au journal d'audit.
 
 ## Onglet Metrics
 

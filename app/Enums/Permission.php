@@ -21,4 +21,5 @@ enum Permission: string
     case DashboardView = 'dashboard.view';
     case ConfigurationManage = 'configuration.manage';
     case AuditView = 'audit.view';
+    case NotificationManage = 'notification.manage';
 }
