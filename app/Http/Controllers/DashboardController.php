@@ -49,6 +49,7 @@ class DashboardController extends Controller
             'activeAlerts' => Alert::active()->whereIn('monitoring_target_id', $targetIds)->count(),
             'recentAlerts' => Alert::whereIn('monitoring_target_id', $targetIds)
                 ->with(['target.team', 'acknowledger:id,name'])
+                ->withCount('notifications')
                 ->orderByDesc('started_at')->orderByDesc('id')
                 ->limit(self::RECENT_ALERTS)->get(),
             // Les targets en difficulté d'abord : critical, warning, unknown, puis up

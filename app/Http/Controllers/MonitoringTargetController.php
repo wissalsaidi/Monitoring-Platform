@@ -157,9 +157,9 @@ class MonitoringTargetController extends Controller
         $tab = in_array($request->query('tab'), self::TABS, true) ? $request->query('tab') : 'overview';
         $target->load('team', 'creator');
 
-        $activeAlerts = $target->alerts()->active()->with('acknowledger:id,name')->orderByDesc('started_at')->get();
+        $activeAlerts = $target->alerts()->active()->with('acknowledger:id,name')->withCount('notifications')->orderByDesc('started_at')->get();
         $alerts = $tab === 'alerts'
-            ? $target->alerts()->with('acknowledger:id,name')->orderByDesc('started_at')->orderByDesc('id')
+            ? $target->alerts()->with('acknowledger:id,name')->withCount('notifications')->orderByDesc('started_at')->orderByDesc('id')
                 ->paginate(AlertController::PER_PAGE)->withQueryString()
             : null;
 

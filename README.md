@@ -217,6 +217,10 @@ seulement. Seuls ceux qui ont été prévenus de l'ouverture d'une alerte sont p
 - Page **Notifications** (menu enveloppe, SCRUM-55) : pour chaque sévérité, « Email » ou « Dashboard only », à l'ouverture
   et à la résolution. Tous les membres voient les règles ; seuls les Admin et Manager les modifient, et chaque
   modification est inscrite au journal d'audit.
+- Onglet **History** de la même page (SCRUM-56) : chaque notification de la team (date, alerte, événement, destinataire,
+  canal, statut envoyée / en attente / échec), filtres par statut et par target, 25 par page. Dans les listes d'alertes,
+  l'icône enveloppe d'une alerte ouvre ses notifications. Les adresses email et le détail des erreurs SMTP ne sont
+  visibles que des Admin.
 
 ## Onglet Metrics
 
