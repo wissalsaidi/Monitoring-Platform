@@ -3,6 +3,8 @@
 namespace Tests\Feature;
 
 use App\Enums\Permission;
+use App\Enums\PlatformPermission;
+use App\Enums\PlatformRole;
 use App\Enums\TeamRole;
 use App\Models\Alert;
 use App\Models\MonitoringTarget;
@@ -88,6 +90,18 @@ class RbacTest extends TestCase
         $this->assertSame($expected, $role->can($permission));
         $this->assertSame($expected, $user->hasPermission($permission, $this->team));
         $this->assertSame($expected, Gate::forUser($user)->allows($permission->value, $this->team), 'ability '.$permission->value);
+    }
+
+    /** Plateforme (SCRUM-81) : le Super Admin a toutes les permissions de plateforme, et rien de plus dans les teams */
+    public function test_platform_matrix(): void
+    {
+        $this->assertSame(['platform.users.manage', 'platform.teams.manage', 'platform.audit.view'],
+            array_map(fn (PlatformPermission $p) => $p->value, PlatformRole::SuperAdmin->permissions()));
+
+        $admin = User::factory()->superAdmin()->create();
+        foreach (Permission::cases() as $permission) {
+            $this->assertFalse($admin->hasPermission($permission, $this->team), $permission->value);
+        }
     }
 
     public function test_roles_are_nested_viewer_manager_admin(): void

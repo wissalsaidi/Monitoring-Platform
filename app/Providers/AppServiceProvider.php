@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Enums\Permission;
+use App\Enums\PlatformPermission;
 use App\Models\Team;
 use App\Models\User;
 use App\Monitoring\ProvisionerRegistry;
@@ -43,6 +44,12 @@ class AppServiceProvider extends ServiceProvider
         foreach (Permission::cases() as $permission) {
             Gate::define($permission->value, fn (User $user, Team $team) => $user->hasPermission($permission, $team));
         }
+
+        // Plateforme (SCRUM-81) : @can('platform.users.manage'), Gate::authorize('isSuperAdmin'), sans team
+        foreach (PlatformPermission::cases() as $permission) {
+            Gate::define($permission->value, fn (User $user) => $user->hasPlatformPermission($permission));
+        }
+        Gate::define('isSuperAdmin', fn (User $user) => $user->isSuperAdmin());
 
         // Date stockée en UTC → heure affichée à l'utilisateur
         Carbon::macro('toDisplay', fn () => $this->copy()->setTimezone(config('app.display_timezone')));

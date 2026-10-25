@@ -3,9 +3,13 @@
 namespace App\Models;
 
 use App\Enums\Permission;
+use App\Enums\PlatformPermission;
+use App\Enums\PlatformRole;
 use App\Enums\TeamRole;
 use Database\Factories\UserFactory;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
+use Illuminate\Database\Eloquent\Attributes\Scope;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -51,7 +55,26 @@ class User extends Authenticatable implements MustVerifyEmail
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'grafana_user_id' => 'integer',     // compte Grafana (SCRUM-48), créé par GrafanaAccessService
+            // Rôle de plateforme (SCRUM-81) : volontairement hors $fillable, modifié seulement par PlatformAdminService
+            'platform_role' => PlatformRole::class,
         ];
+    }
+
+    public function isSuperAdmin(): bool
+    {
+        return $this->platform_role === PlatformRole::SuperAdmin;
+    }
+
+    /** Permission de plateforme (SCRUM-81) ; ne donne aucun accès aux données d'une team */
+    public function hasPlatformPermission(PlatformPermission $permission): bool
+    {
+        return $this->platform_role?->can($permission) ?? false;
+    }
+
+    #[Scope]
+    protected function superAdmins(Builder $query): void
+    {
+        $query->where('platform_role', PlatformRole::SuperAdmin->value);
     }
 
     public function teams(): BelongsToMany

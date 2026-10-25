@@ -63,6 +63,9 @@ class AuditLog extends Model
         'member.remove' => 'Member removed',
         'member.account_deleted' => 'Account deleted',
         'notification_rule.update' => 'Notification rules updated',
+        'user.create' => 'Account created',
+        'platform.admin_grant' => 'Super Admin granted',
+        'platform.admin_revoke' => 'Super Admin revoked',
     ];
 
     public function actionLabel(): string
@@ -77,6 +80,7 @@ class AuditLog extends Model
             $this->subject instanceof MonitoringTarget => $this->subject->name,
             $this->subject instanceof Alert => 'Alert on '.($this->subject->target?->name ?? $this->details['target'] ?? '?'),
             $this->subject instanceof Team => 'Team '.$this->subject->name,
+            $this->subject instanceof User => $this->subject->name,
             isset($this->details['name']) => $this->details['name'].' (deleted)',
             isset($this->details['target']) => 'Alert on '.$this->details['target'],
             default => class_basename((string) $this->subject_type).' #'.$this->subject_id,
