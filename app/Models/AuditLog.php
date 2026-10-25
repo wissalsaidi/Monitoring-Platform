@@ -62,6 +62,7 @@ class AuditLog extends Model
         'member.role_change' => 'Role changed',
         'member.remove' => 'Member removed',
         'member.account_deleted' => 'Account deleted',
+        'notification_rule.update' => 'Notification rules updated',
     ];
 
     public function actionLabel(): string

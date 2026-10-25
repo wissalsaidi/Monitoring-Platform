@@ -32,6 +32,7 @@ enum TeamRole: string
             Permission::TargetUpdate,
             Permission::TargetDelete,
             Permission::AlertAcknowledge,
+            Permission::NotificationManage,
         ];
 
         return match ($this) {
