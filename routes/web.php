@@ -6,6 +6,8 @@ use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\GrafanaAuthController;
 use App\Http\Controllers\MonitoringTargetController;
+use App\Http\Controllers\NotificationHistoryController;
+use App\Http\Controllers\NotificationRuleController;
 use App\Http\Controllers\TargetGrafanaController;
 use App\Http\Controllers\TargetMetricsController;
 use App\Http\Controllers\TeamInvitationController;
@@ -50,6 +52,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/teams/{team}/invitations', [TeamInvitationController::class, 'store'])
         ->middleware('throttle:20,1')->name('teams.invitations.store');
     Route::delete('/teams/{team}/invitations/{invitation}', [TeamInvitationController::class, 'destroy'])->name('teams.invitations.destroy');
+
+    // Règles de notification (SCRUM-55) : lecture pour tous les membres, modification Admin et Manager (notification.manage)
+    Route::get('/notifications', [NotificationRuleController::class, 'current'])->name('teams.notifications.current');
+    Route::get('/teams/{team}/notifications', [NotificationRuleController::class, 'index'])->name('teams.notifications.index');
+    Route::put('/teams/{team}/notifications', [NotificationRuleController::class, 'update'])->name('teams.notifications.update');
+    // Historique des notifications (SCRUM-56) : tout membre de la team
+    Route::get('/teams/{team}/notifications/history', NotificationHistoryController::class)->name('teams.notifications.history');
 
     // Mon compte et droit à l'effacement (RGPD-5, SCRUM-63)
     Route::get('/account', [AccountController::class, 'edit'])->name('account.edit');

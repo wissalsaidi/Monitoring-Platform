@@ -203,6 +203,25 @@ docker compose exec zabbix-agent2 zabbix_agent2 -t docker.containers
 docker compose run --rm mysql-monitor-user                            # recrée zbx_monitor (ex. après un changement de mot de passe)
 ```
 
+## Notifications
+
+Quand la synchro crée une alerte, les membres de la team reçoivent un email selon les règles de la team (SCRUM-52, 53),
+puis un second quand elle est résolue (SCRUM-54). Par défaut : CRITICAL et HIGH par email, WARNING et INFO au dashboard
+seulement. Seuls ceux qui ont été prévenus de l'ouverture d'une alerte sont prévenus de sa résolution.
+
+- Ouverture : sévérité, target, métrique, valeur mesurée, seuil, heure de début et lien vers l'alerte.
+- Résolution : début, fin, durée de l'incident, valeur maximale atteinte (« — » si inconnue) et lien vers l'historique.
+- Envoi par la queue Redis (service `queue`) : la synchro n'attend pas le serveur mail. En cas d'échec SMTP : 3 essais,
+  puis la notification passe en échec (table `notifications`) et l'erreur est journalisée.
+- En local, les emails arrivent dans Mailpit : http://localhost:8025.
+- Page **Notifications** (menu enveloppe, SCRUM-55) : pour chaque sévérité, « Email » ou « Dashboard only », à l'ouverture
+  et à la résolution. Tous les membres voient les règles ; seuls les Admin et Manager les modifient, et chaque
+  modification est inscrite au journal d'audit.
+- Onglet **History** de la même page (SCRUM-56) : chaque notification de la team (date, alerte, événement, destinataire,
+  canal, statut envoyée / en attente / échec), filtres par statut et par target, 25 par page. Dans les listes d'alertes,
+  l'icône enveloppe d'une alerte ouvre ses notifications. Les adresses email et le détail des erreurs SMTP ne sont
+  visibles que des Admin.
+
 ## Onglet Metrics
 
 Sur la page d'une target, l'onglet **Metrics** (SCRUM-49) montre chaque métrique du type sur la période choisie :

@@ -15,6 +15,9 @@
         ['route' => 'targets.index', 'match' => 'targets.*', 'icon' => 'bi-hdd-network', 'label' => 'Monitoring',
             'menu' => app(\App\Monitoring\ProvisionerRegistry::class)->supportedTypes()],
         ['route' => 'alerts.index', 'match' => 'alerts.*', 'icon' => 'bi-bell', 'label' => 'Alerts'],
+        // Règles de notification (SCRUM-55) : tout membre d'une team
+        ...(auth()->user()->teams->isNotEmpty()
+            ? [['route' => 'teams.notifications.current', 'match' => 'teams.notifications.*', 'icon' => 'bi-envelope', 'label' => 'Notifications']] : []),
         // Membres de la team (SCRUM-59) : seulement pour qui a user.view dans au moins une team
         ...(auth()->user()->teams->contains(fn ($team) => auth()->user()->hasPermission(\App\Enums\Permission::UserView, $team))
             ? [['route' => 'teams.current', 'match' => 'teams.members.*', 'icon' => 'bi-people', 'label' => 'Team members']] : []),

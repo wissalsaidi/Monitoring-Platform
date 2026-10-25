@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Alert extends Model
 {
@@ -38,6 +39,12 @@ class Alert extends Model
             'acknowledged_at' => 'datetime',
             'resolved_at' => 'datetime',
         ];
+    }
+
+    /** Notifications envoyées pour cette alerte (SCRUM-52, historique SCRUM-56) */
+    public function notifications(): HasMany
+    {
+        return $this->hasMany(AlertNotification::class);
     }
 
     public function target(): BelongsTo

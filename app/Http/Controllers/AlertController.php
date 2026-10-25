@@ -64,6 +64,7 @@ class AlertController extends Controller
             ->when($filters['severity'] ?? null, fn ($q, $severity) => $q->where('severity', $severity))
             ->when($filters['target'] ?? null, fn ($q, $target) => $q->where('monitoring_target_id', $target))
             ->with(['target.team', 'acknowledger:id,name'])
+            ->withCount('notifications')
             ->orderByDesc('started_at')
             ->orderByDesc('id')
             ->paginate(self::PER_PAGE)

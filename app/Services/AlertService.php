@@ -22,7 +22,10 @@ use Illuminate\Support\Facades\Log;
  */
 class AlertService
 {
-    public function __construct(private readonly ZabbixService $zabbix) {}
+    public function __construct(
+        private readonly ZabbixService $zabbix,
+        private readonly AlertNotifier $notifier,
+    ) {}
 
     /**
      * Acquitte une alerte (SCRUM-42) : d'abord dans Zabbix, puis en base, avec une trace d'audit.
@@ -134,7 +137,16 @@ class AlertService
             $alert = $this->upsertAlert($target, $problem, $items);
 
             $stats['created'] += $alert->wasRecentlyCreated ? 1 : 0;
-            $stats['resolved'] += $alert->wasChanged('status') && $alert->status === AlertStatus::Resolved ? 1 : 0;
+
+            // Nouvelle alerte : emails selon les règles de la team, par la queue (SCRUM-53)
+            if ($alert->wasRecentlyCreated) {
+                $this->notifier->alertOpened($alert);
+            }
+            // Alerte qui passe en RESOLVED (pas une alerte découverte déjà résolue) : email de résolution (SCRUM-54)
+            if (! $alert->wasRecentlyCreated && $alert->wasChanged('status') && $alert->status === AlertStatus::Resolved) {
+                $stats['resolved']++;
+                $this->notifier->alertResolved($alert);
+            }
         }
 
         $stats['resolved'] += $this->resolveVanishedAlerts($seen);
@@ -225,6 +237,7 @@ class AlertService
                 'resolved_at' => $clock ? Carbon::createFromTimestamp((int) $clock) : now(),
             ]);
             $resolved++;
+            $this->notifier->alertResolved($alert);
         }
 
         return $resolved;

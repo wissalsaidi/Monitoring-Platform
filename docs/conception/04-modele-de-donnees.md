@@ -14,12 +14,17 @@ erDiagram
     MONITORING_TARGET ||--o{ ALERT : "déclenche"
     USER |o--o{ ALERT : "a acquitté"
     USER |o--o{ AUDIT_LOG : "a fait"
+    TEAM ||--o{ ALERT_RULE : "définit"
+    ALERT ||--o{ NOTIFICATION : "est notifiée par"
+    USER |o--o{ NOTIFICATION : "reçoit"
 ```
 
 - Un **utilisateur** appartient à une ou plusieurs **teams**, avec un **rôle** dans chacune (Admin, Manager, Viewer).
 - Une **target** appartient à une seule team (pas à un utilisateur) ; on garde son auteur pour l'audit.
 - Une target déclenche des **alertes** ; une alerte peut être acquittée par un utilisateur.
 - Chaque action sensible laisse une ligne dans l'**audit**, qui peut concerner n'importe quel objet (target, alerte…).
+- Une team a des **règles de notification** (V1, SCRUM-52) : pour chaque sévérité et chaque événement (ouverture,
+  résolution), email ou dashboard seulement. Chaque **notification** envoyée pour une alerte est gardée.
 
 ## MLD : les tables
 
@@ -83,6 +88,27 @@ erDiagram
         timestamp resolved_at
         timestamps created_updated
     }
+    alert_rules {
+        bigint id PK
+        bigint team_id FK
+        varchar severity "info, warning, high, critical"
+        varchar event "opened, resolved"
+        varchar channel "email, dashboard"
+        timestamps created_updated
+    }
+    notifications {
+        bigint id PK
+        bigint alert_id FK
+        bigint user_id FK "null si le compte est supprimé"
+        varchar recipient "email au moment de l'envoi"
+        varchar channel "email"
+        varchar event "opened, resolved"
+        varchar status "pending, sent, failed"
+        tinyint attempts
+        varchar error
+        timestamp sent_at
+        timestamps created_updated
+    }
     audit_logs {
         bigint id PK
         bigint user_id FK
@@ -101,6 +127,9 @@ erDiagram
     monitoring_targets ||--o{ alerts : ""
     users |o--o{ alerts : "acknowledged_by"
     users |o--o{ audit_logs : ""
+    teams ||--o{ alert_rules : ""
+    alerts ||--o{ notifications : ""
+    users |o--o{ notifications : ""
 ```
 
 ## Clés étrangères et règles de suppression
@@ -114,6 +143,9 @@ erDiagram
 | `alerts.monitoring_target_id` | `monitoring_targets.id` | les alertes sont supprimées (cascade) |
 | `alerts.acknowledged_by` | `users.id` | mis à `null` (l'alerte reste) |
 | `audit_logs.user_id` | `users.id` | mis à `null` (la trace reste) |
+| `alert_rules.team_id` | `teams.id` | les règles sont supprimées (cascade) |
+| `notifications.alert_id` | `alerts.id` | les notifications sont supprimées (cascade) |
+| `notifications.user_id` | `users.id` | mis à `null` ; l'email du destinataire est remplacé par « deleted user » (RGPD) |
 
 ## Contraintes d'unicité et index
 
@@ -129,6 +161,9 @@ erDiagram
 | `alerts` | index (`status`, `started_at`) | pages Alertes actives / Historique triées par date |
 | `audit_logs` | index (`action`, `created_at`) | recherche dans l'audit par type d'action |
 | `audit_logs` | index (`subject_type`, `subject_id`) | historique d'un objet précis |
+| `alert_rules` | (`team_id`, `severity`, `event`) unique | une seule règle par sévérité et par événement |
+| `notifications` | (`alert_id`, `recipient`, `channel`, `event`) unique | une notification n'est jamais envoyée deux fois pour le même événement |
+| `notifications` | index (`status`, `created_at`) | historique des notifications, filtre par statut |
 
 Le nom d'une target est aussi unique **dans sa team** (règle de validation applicative).
 
@@ -136,8 +171,11 @@ Le nom d'une target est aussi unique **dans sa team** (règle de validation appl
 
 `sessions`, `password_reset_tokens`, `cache`, `cache_locks`, `jobs`, `job_batches` et `failed_jobs` sont créées par Laravel et ne portent pas de données métier.
 
-## Évolutions prévues
+## Évolutions de la V1
 
-- **`alert_rules`** (V1, notifications) : règles « sévérité → canal » par team (§24), par exemple CRITICAL → email.
-- **`notifications`** (V1) : notifications envoyées, pour l'historique et éviter les doublons.
-- **`grafana_dashboards`** (V1) : lien entre une target et son dashboard Grafana.
+- **`alert_rules`** et **`notifications`** (SCRUM-52) : voir ci-dessus. Règles par défaut de chaque team : CRITICAL et
+  HIGH par email à l'ouverture et à la résolution, WARNING et INFO au dashboard seulement.
+- **`target_daily_stats`** (SCRUM-51) : statistiques journalières par target (disponibilité, temps de réponse moyen,
+  incidents, MTTR), une ligne par target et par jour.
+- Grafana : pas de table `grafana_dashboards` (prévue au départ). Un dashboard générique sert pour toutes les targets
+  (SCRUM-46) ; les ids de l'organisation Grafana et de l'utilisateur Zabbix d'une team sont dans `teams` (SCRUM-48).
