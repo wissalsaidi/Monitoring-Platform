@@ -138,7 +138,7 @@ class ResponseTimeMetricsTest extends TestCase
 
     public function test_users_of_other_teams_get_a_403(): void
     {
-        $this->actingAs(User::factory()->create())
+        $this->actingAs(User::factory()->withTeam()->create())
             ->getJson(route('targets.metrics.response-time', $this->target))
             ->assertForbidden();
     }

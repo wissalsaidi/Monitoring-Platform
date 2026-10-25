@@ -3,6 +3,8 @@
 namespace Database\Factories;
 
 use App\Enums\PlatformRole;
+use App\Enums\TeamRole;
+use App\Models\Team;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Facades\Hash;
@@ -42,6 +44,15 @@ class UserFactory extends Factory
         return $this->state(fn (array $attributes) => [
             'email_verified_at' => null,
         ]);
+    }
+
+    /**
+     * Membre d'une team à lui (SCRUM-82) : un compte sans team est renvoyé sur « Waiting for access »,
+     * donc un utilisateur « d'une autre team » doit vraiment en avoir une pour recevoir un 403.
+     */
+    public function withTeam(TeamRole $role = TeamRole::Admin): static
+    {
+        return $this->afterCreating(fn (User $user) => Team::factory()->create()->members()->attach($user, ['role' => $role]));
     }
 
     /** Super Admin de la plateforme (SCRUM-81) */

@@ -26,6 +26,9 @@
             @error('email')
                 <div class="invalid-feedback">{{ $message }}</div>
             @enderror
+            @if ($domains)
+                <div class="form-text">Use your company address: {{ collect($domains)->map(fn ($d) => '@'.$d)->join(', ') }}.</div>
+            @endif
         </div>
 
         <div class="mb-3">
@@ -48,6 +51,10 @@
             <i class="bi bi-person-plus me-1"></i> Create account
         </button>
     </form>
+
+    <p class="text-body-secondary small mt-3 mb-0">
+        <i class="bi bi-info-circle me-1"></i>After you verify your email, an administrator adds you to a team. Until then, you will not see any data.
+    </p>
 
     <p class="text-center text-body-secondary small mt-4 mb-0">
         Already registered? <a href="{{ route('login') }}">Log in</a>

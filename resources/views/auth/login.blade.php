@@ -46,6 +46,10 @@
     </form>
 
     <p class="text-center text-body-secondary small mt-4 mb-0">
-        No account yet? <a href="{{ route('register') }}">Create one</a>
+        @if (\App\Enums\RegistrationMode::current()->allowsSignUp())
+            No account yet? <a href="{{ route('register') }}">Create one</a>
+        @else
+            Access is by invitation. Ask your administrator to invite you.
+        @endif
     </p>
 @endsection

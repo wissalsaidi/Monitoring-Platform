@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Actions\Fortify\CreateNewUser;
 use App\Actions\Fortify\ResetUserPassword;
+use App\Enums\RegistrationMode;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
@@ -24,7 +25,12 @@ class FortifyServiceProvider extends ServiceProvider
         Fortify::resetUserPasswordsUsing(ResetUserPassword::class);
 
         Fortify::loginView(fn () => view('auth.login'));
-        Fortify::registerView(fn () => view('auth.register'));
+        // Inscription (SCRUM-82) : 404 en mode invite, comme si la page n'existait pas (le POST est refusé dans CreateNewUser)
+        Fortify::registerView(function () {
+            abort_unless(RegistrationMode::current()->allowsSignUp(), 404);
+
+            return view('auth.register', ['domains' => RegistrationMode::current() === RegistrationMode::Domain ? RegistrationMode::domains() : []]);
+        });
         Fortify::requestPasswordResetLinkView(fn () => view('auth.forgot-password'));
         Fortify::resetPasswordView(fn ($request) => view('auth.reset-password', ['request' => $request]));
         Fortify::verifyEmailView(fn () => view('auth.verify-email'));

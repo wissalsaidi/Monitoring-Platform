@@ -59,7 +59,7 @@ class PlatformAdminTest extends TestCase
 
     public function test_a_super_admin_has_no_access_to_a_team_they_do_not_belong_to(): void
     {
-        $admin = User::factory()->superAdmin()->create();
+        $admin = User::factory()->superAdmin()->withTeam()->create();   // admin de sa propre team, pas de celle-ci
         $team = Team::factory()->create();
 
         foreach (Permission::cases() as $permission) {

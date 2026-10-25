@@ -134,6 +134,18 @@ docker compose exec app php artisan platform:list-admins
 docker compose exec app php artisan platform:revoke-admin it.admin@company.com   # refusé pour le dernier Super Admin
 ```
 
+**Création des comptes** (SCRUM-82), réglée par `REGISTRATION_MODE` dans `.env` :
+
+| Mode | Inscription |
+|---|---|
+| `invite` (par défaut) | aucune page d'inscription (404) : on entre seulement sur invitation |
+| `domain` | ouverte aux adresses des domaines de `REGISTRATION_DOMAINS` (ex. `company.com,company.fr`) |
+| `open` | ouverte à tous, pour une démo publique |
+
+Aucune team n'est créée à l'inscription. Un compte sans team voit la page **Waiting for access** (son adresse, et le
+contact `REGISTRATION_CONTACT` s'il est défini) jusqu'à ce qu'un Admin de team l'ajoute. Les Super Admin reçoivent un
+email dès qu'un nouveau compte a vérifié son adresse.
+
 Rôles dans une team :
 
 | Rôle | Peut |
