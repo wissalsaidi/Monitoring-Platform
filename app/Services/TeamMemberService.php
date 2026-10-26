@@ -20,7 +20,7 @@ use Illuminate\Support\Str;
 class TeamMemberService
 {
     /** Invite (ou réinvite) une adresse : une invitation en attente pour le même email est remplacée. */
-    public function invite(Team $team, string $email, TeamRole $role, User $by): TeamInvitation
+    public function invite(Team $team, string $email, TeamRole $role, ?User $by): TeamInvitation
     {
         $email = Str::lower(trim($email));
 
@@ -30,7 +30,7 @@ class TeamMemberService
 
         $invitation = TeamInvitation::updateOrCreate(
             ['team_id' => $team->id, 'email' => $email],
-            ['role' => $role, 'invited_by' => $by->id, 'expires_at' => now()->addDays(TeamInvitation::VALID_DAYS)],
+            ['role' => $role, 'invited_by' => $by?->id, 'expires_at' => now()->addDays(TeamInvitation::VALID_DAYS)],
         );
 
         Mail::to($email)->queue(new TeamInvitationMail($invitation));
@@ -38,6 +38,7 @@ class TeamMemberService
             'email' => $email,
             'role' => $role->value,
             'resent' => ! $invitation->wasRecentlyCreated,
+            ...($by === null ? ['via' => 'console'] : []),   // platform:invite (SCRUM-83)
         ]);
 
         return $invitation;

@@ -202,6 +202,7 @@ class TeamMembersTest extends TestCase
 
     public function test_a_guest_logs_in_first_then_comes_back_to_the_invitation(): void
     {
+        User::factory()->create(['email' => 'sara@example.com']);   // compte existant (adresse inconnue : SCRUM-83)
         $invitation = $this->invitationFor('sara@example.com');
         $url = $invitation->acceptUrl();
 

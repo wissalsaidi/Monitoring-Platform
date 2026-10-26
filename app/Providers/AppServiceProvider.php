@@ -51,6 +51,10 @@ class AppServiceProvider extends ServiceProvider
         }
         Gate::define('isSuperAdmin', fn (User $user) => $user->isSuperAdmin());
 
+        // Inviter dans une team (SCRUM-83) : un Admin de la team, ou un Super Admin vers n'importe quelle team
+        Gate::define('team.invite', fn (User $user, Team $team) => $user->hasPermission(Permission::UserCreate, $team)
+            || $user->hasPlatformPermission(PlatformPermission::UsersManage));
+
         // Date stockée en UTC → heure affichée à l'utilisateur
         Carbon::macro('toDisplay', fn () => $this->copy()->setTimezone(config('app.display_timezone')));
     }

@@ -22,16 +22,24 @@ use Illuminate\Support\Facades\Route;
 // Auth proxy de Grafana (SCRUM-48), appelé par nginx avant chaque requête vers /grafana/ : 200 / 401 / 403, sans redirection
 Route::get('/_grafana_auth', GrafanaAuthController::class)->name('grafana.auth');
 
+// Lien d'invitation reçu par email (SCRUM-59, 83), public : connexion pour un compte existant, création du compte
+// pour une adresse inconnue. Signature vérifiée dans le contrôleur pour afficher un message clair.
+Route::get('/invitations/{invitation}/accept', [TeamInvitationController::class, 'accept'])
+    ->whereNumber('invitation')->name('invitations.accept');
+Route::post('/invitations/{invitation}/accept', [TeamInvitationController::class, 'register'])
+    ->whereNumber('invitation')->middleware(['guest', 'throttle:6,1'])->name('invitations.register');
+
 Route::middleware(['auth', 'verified'])->group(function () {
-    // Sans team (SCRUM-82) : seules ces pages restent accessibles, le reste renvoie sur « Waiting for access »
+    // Sans team (SCRUM-82) : seules ces pages (et le lien d'invitation) restent accessibles, le reste renvoie sur « Waiting for access »
     Route::get('/waiting', WaitingForAccessController::class)->name('access.waiting');
     // Mon compte et droit à l'effacement (RGPD-5, SCRUM-63)
     Route::get('/account', [AccountController::class, 'edit'])->name('account.edit');
     Route::delete('/account', [AccountController::class, 'destroy'])->middleware('throttle:6,1')->name('account.destroy');
 
-    // Lien reçu par email : signature vérifiée dans le contrôleur pour afficher un message clair
-    Route::get('/invitations/{invitation}/accept', [TeamInvitationController::class, 'accept'])
-        ->whereNumber('invitation')->name('invitations.accept');
+    // Inviter / annuler (gate team.invite) : aussi pour un Super Admin qui n'est membre d'aucune team (SCRUM-83)
+    Route::post('/teams/{team}/invitations', [TeamInvitationController::class, 'store'])
+        ->middleware('throttle:20,1')->name('teams.invitations.store');
+    Route::delete('/teams/{team}/invitations/{invitation}', [TeamInvitationController::class, 'destroy'])->name('teams.invitations.destroy');
 
     Route::middleware(EnsureUserHasTeam::class)->group(function () {
         Route::get('/', DashboardController::class)->name('dashboard');
@@ -62,9 +70,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/teams/{team}/members', [TeamMemberController::class, 'index'])->name('teams.members.index');
         Route::patch('/teams/{team}/members/{member}', [TeamMemberController::class, 'update'])->name('teams.members.update');
         Route::delete('/teams/{team}/members/{member}', [TeamMemberController::class, 'destroy'])->name('teams.members.destroy');
-        Route::post('/teams/{team}/invitations', [TeamInvitationController::class, 'store'])
-            ->middleware('throttle:20,1')->name('teams.invitations.store');
-        Route::delete('/teams/{team}/invitations/{invitation}', [TeamInvitationController::class, 'destroy'])->name('teams.invitations.destroy');
 
         // Règles de notification (SCRUM-55) : lecture pour tous les membres, modification Admin et Manager (notification.manage)
         Route::get('/notifications', [NotificationRuleController::class, 'current'])->name('teams.notifications.current');
