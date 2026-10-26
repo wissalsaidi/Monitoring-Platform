@@ -118,7 +118,7 @@ class GrafanaLinkTest extends TestCase
 
     public function test_a_user_outside_the_team_cannot_open_it(): void
     {
-        $this->actingAs(User::factory()->create())->get(route('targets.grafana', $this->api))->assertForbidden();
+        $this->actingAs(User::factory()->withTeam()->create())->get(route('targets.grafana', $this->api))->assertForbidden();
 
         $this->assertSame([], $this->grafanaCalls);
     }

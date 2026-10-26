@@ -11,7 +11,7 @@
 | **Visiteur** | humain | Personne qui n'a pas encore de compte ou n'est pas connectée. Elle peut seulement créer un compte, se connecter ou réinitialiser son mot de passe. |
 | **Viewer** | humain | Membre d'une team qui **consulte** : dashboard, targets, alertes, graphiques. Il ne modifie rien. |
 | **Manager** | humain | Membre d'une team qui **gère la supervision** : il fait tout ce que fait un Viewer, et en plus il crée, modifie et supprime des targets et acquitte les alertes. |
-| **Admin** | humain | Responsable de la team. Il a les mêmes droits qu'un Manager dans le MVP ; la gestion des membres et des rôles arrive en V1/V2. Celui qui s'inscrit devient Admin de sa team « Default ». |
+| **Admin** | humain | Responsable de la team. Il a les mêmes droits qu'un Manager dans le MVP ; la gestion des membres et des rôles arrive en V1/V2. Depuis SCRUM-82, l'inscription ne crée plus de team : un compte arrive sans team et attend qu'un Admin l'ajoute. |
 | **Zabbix** | système | Moteur de supervision. Il reçoit la configuration envoyée par la plateforme, vérifie les URLs, détecte les problèmes et les résout. |
 | **Scheduler Laravel** | système | Horloge interne. Chaque minute, il lance la synchronisation des problèmes Zabbix vers les alertes. |
 
@@ -79,7 +79,7 @@ flowchart LR
 
 | Cas d'utilisation | Acteur principal | Ce qui se passe | Ticket |
 |---|---|---|---|
-| S'inscrire | Visiteur | Création du compte et d'une team « Default » dont il devient Admin. Un email de vérification est envoyé. | SCRUM-30, 31 |
+| S'inscrire | Visiteur | Seulement si `REGISTRATION_MODE` vaut `domain` (domaines de l'entreprise) ou `open` ; en `invite` (par défaut), la page n'existe pas. Le compte est créé **sans team** et un email de vérification est envoyé ; une fois l'adresse vérifiée, les Super Admin sont prévenus. Jusqu'à son ajout dans une team, l'utilisateur voit « Waiting for access ». | SCRUM-30, 31, 82 |
 | Se connecter | Visiteur | Email + mot de passe, 5 essais par minute maximum. | SCRUM-30 |
 | Réinitialiser son mot de passe | Visiteur | Lien envoyé par email, valable 60 minutes. | SCRUM-32 |
 | Vérifier son email | Visiteur | Lien signé valable 60 minutes ; obligatoire avant d'accéder à l'application. | SCRUM-32 |

@@ -31,6 +31,7 @@ class EmailVerificationTest extends TestCase
 
     public function test_registration_sends_a_verification_email(): void
     {
+        config(['registration.mode' => 'open']);
         $this->post('/register', [
             'name' => 'Wissal',
             'email' => 'wissal@example.com',
@@ -54,12 +55,12 @@ class EmailVerificationTest extends TestCase
 
     public function test_a_verified_user_reaches_the_dashboard(): void
     {
-        $this->actingAs(User::factory()->create())->get('/')->assertOk();
+        $this->actingAs(User::factory()->withTeam()->create())->get('/')->assertOk();
     }
 
     public function test_the_signed_link_verifies_the_email(): void
     {
-        $user = User::factory()->unverified()->create();
+        $user = User::factory()->unverified()->withTeam()->create();
 
         $this->actingAs($user)->get($this->verificationUrl($user))->assertRedirect('/?verified=1');
 

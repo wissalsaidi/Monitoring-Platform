@@ -13,8 +13,6 @@ class Team extends Model
     /** @use HasFactory<TeamFactory> */
     use HasFactory;
 
-    public const DEFAULT_NAME = 'Default';
-
     /** grafana_org_id, zabbix_usrgrp_id, zabbix_user_id : accès à Grafana de la team (SCRUM-48, GrafanaAccessService) */
     protected $fillable = ['name', 'zabbix_hostgroup_id', 'grafana_org_id', 'zabbix_usrgrp_id', 'zabbix_user_id'];
 

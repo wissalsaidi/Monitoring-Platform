@@ -271,7 +271,8 @@ class TeamMembersTest extends TestCase
         $this->assertNull($this->roleOf($karim));
         $this->assertDatabaseHas('users', ['id' => $karim->id]);
         $this->assertDatabaseHas('audit_logs', ['action' => 'member.remove']);
-        $this->actingAs($karim)->get(route('targets.index'))->assertOk();
+        // Plus aucune team : il attend sur « Waiting for access » (SCRUM-82)
+        $this->actingAs($karim)->get(route('targets.index'))->assertRedirect(route('access.waiting'));
     }
 
     public function test_the_last_admin_cannot_be_demoted_or_removed(): void
