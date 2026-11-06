@@ -79,6 +79,7 @@ flowchart LR
 
 | Cas d'utilisation | Acteur principal | Ce qui se passe | Ticket |
 |---|---|---|---|
+| Créer son compte depuis une invitation | Invité | Le lien signé (7 jours, usage unique) ouvre « Create your account » pour une adresse inconnue : email prérempli et vérifié d'office, la personne arrive dans la team avec le rôle choisi, sans autre team. Compte existant : connexion puis acceptation. Le Super Admin peut inviter dans n'importe quelle team (`platform:invite`). | SCRUM-83 |
 | S'inscrire | Visiteur | Seulement si `REGISTRATION_MODE` vaut `domain` (domaines de l'entreprise) ou `open` ; en `invite` (par défaut), la page n'existe pas. Le compte est créé **sans team** et un email de vérification est envoyé ; une fois l'adresse vérifiée, les Super Admin sont prévenus. Jusqu'à son ajout dans une team, l'utilisateur voit « Waiting for access ». | SCRUM-30, 31, 82 |
 | Se connecter | Visiteur | Email + mot de passe, 5 essais par minute maximum. | SCRUM-30 |
 | Réinitialiser son mot de passe | Visiteur | Lien envoyé par email, valable 60 minutes. | SCRUM-32 |

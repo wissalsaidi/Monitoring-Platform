@@ -132,6 +132,7 @@ docker compose exec app php artisan platform:create-admin it.admin@company.com  
 docker compose exec app php artisan platform:create-admin demo@example.com       # environnement de démo : promouvoir le compte demo
 docker compose exec app php artisan platform:list-admins
 docker compose exec app php artisan platform:revoke-admin it.admin@company.com   # refusé pour le dernier Super Admin
+docker compose exec app php artisan platform:invite jane@company.com Payments --role=admin   # invitation dans n'importe quelle team
 ```
 
 **Création des comptes** (SCRUM-82), réglée par `REGISTRATION_MODE` dans `.env` :
@@ -141,6 +142,11 @@ docker compose exec app php artisan platform:revoke-admin it.admin@company.com  
 | `invite` (par défaut) | aucune page d'inscription (404) : on entre seulement sur invitation |
 | `domain` | ouverte aux adresses des domaines de `REGISTRATION_DOMAINS` (ex. `company.com,company.fr`) |
 | `open` | ouverte à tous, pour une démo publique |
+
+**L'invitation est la porte d'entrée normale** (SCRUM-83), quel que soit le mode. Pour une adresse sans compte, le
+lien ouvre « Create your account » : l'email est prérempli et non modifiable, il est considéré comme vérifié, et la
+personne arrive directement dans la team avec le rôle choisi. Avec un compte existant, elle se connecte puis rejoint la
+team. Le lien est signé, valable 7 jours et ne sert qu'une fois.
 
 Aucune team n'est créée à l'inscription. Un compte sans team voit la page **Waiting for access** (son adresse, et le
 contact `REGISTRATION_CONTACT` s'il est défini) jusqu'à ce qu'un Admin de team l'ajoute. Les Super Admin reçoivent un
