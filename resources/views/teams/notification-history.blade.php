@@ -98,12 +98,17 @@
                                 </td>
                                 <td class="small">{{ $notification->event->label() }}</td>
                                 <td class="small">
-                                    {{ $notification->user?->name ?? 'Deleted user' }}
-                                    @if ($showEmails && $notification->user)
-                                        <div class="text-body-secondary">{{ $notification->recipient }}</div>
+                                    @if ($notification->channel === \App\Enums\NotificationChannel::Webhook)
+                                        {{-- Webhook (SCRUM-75) : son nom n'est pas une donnée personnelle, visible de tous --}}
+                                        {{ $notification->recipient }}@unless ($notification->webhook_id)<span class="text-body-secondary"> (deleted)</span>@endunless
+                                    @else
+                                        {{ $notification->user?->name ?? 'Deleted user' }}
+                                        @if ($showEmails && $notification->user)
+                                            <div class="text-body-secondary">{{ $notification->recipient }}</div>
+                                        @endif
                                     @endif
                                 </td>
-                                <td class="small text-nowrap"><i class="bi bi-envelope me-1"></i>{{ $notification->channel->label() }}</td>
+                                <td class="small text-nowrap"><i class="bi {{ $notification->channel === \App\Enums\NotificationChannel::Webhook ? 'bi-broadcast' : 'bi-envelope' }} me-1"></i>{{ $notification->channel->label() }}</td>
                                 <td class="pe-3 small text-nowrap">
                                     @switch($notification->status)
                                         @case(\App\Enums\NotificationStatus::Sent)

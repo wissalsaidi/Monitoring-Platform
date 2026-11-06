@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Enums\NotificationChannel;
 use App\Enums\NotificationEvent;
 use App\Enums\NotificationStatus;
 use App\Mail\AlertOpenedMail;
@@ -38,6 +39,11 @@ class SendAlertNotification implements ShouldQueue
 
         // Supprimée entre-temps (alerte ou target supprimée), ou déjà envoyée : rien à faire
         if ($notification === null || $notification->status !== NotificationStatus::Pending) {
+            return;
+        }
+
+        // Webhook (SCRUM-75) : son envoi signé arrive avec SCRUM-76 ; la notification reste en attente
+        if ($notification->channel === NotificationChannel::Webhook) {
             return;
         }
 

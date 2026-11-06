@@ -52,7 +52,7 @@
                                         <td>
                                             <select name="{{ $name }}" class="form-select form-select-sm"
                                                     aria-label="{{ $severity->label() }}, {{ strtolower($event->label()) }}" @disabled(! $canManage)>
-                                                @foreach (\App\Enums\NotificationChannel::cases() as $channel)
+                                                @foreach (\App\Enums\NotificationChannel::ruleChoices() as $channel)
                                                     <option value="{{ $channel->value }}" @selected(old("rules.{$severity->value}.{$event->value}", $channels[$severity->value][$event->value]->value) === $channel->value)>{{ $channel->label() }}</option>
                                                 @endforeach
                                             </select>
