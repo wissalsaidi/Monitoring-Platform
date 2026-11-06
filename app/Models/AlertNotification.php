@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * Notification d'une alerte à un membre de la team (SCRUM-52), table « notifications » : historique des envois et
+ * Notification d'une alerte à un membre de la team (SCRUM-52) ou à un webhook (SCRUM-75), table « notifications » : historique des envois et
  * garde-fou contre les doublons (une seule par alerte, destinataire, canal et événement).
  * Nom différent de la table pour ne pas confondre avec Illuminate\Notifications\Notification.
  */
