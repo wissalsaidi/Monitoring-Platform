@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 
 class Team extends Model
 {
@@ -45,6 +46,12 @@ class Team extends Model
     public function invitations(): HasMany
     {
         return $this->hasMany(TeamInvitation::class);
+    }
+
+    /** Alertes des targets de la team (console d'administration, SCRUM-85) */
+    public function alerts(): HasManyThrough
+    {
+        return $this->hasManyThrough(Alert::class, MonitoringTarget::class, 'team_id', 'monitoring_target_id');
     }
 
     public function monitoringTargets(): HasMany

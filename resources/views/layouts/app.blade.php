@@ -26,7 +26,7 @@
             ? [['route' => 'teams.audit.current', 'match' => 'teams.audit.*', 'icon' => 'bi-journal-text', 'label' => 'Audit log']] : []),
         ['route' => null, 'match' => null, 'icon' => 'bi-graph-up', 'label' => 'Dashboards (soon)'],
         // Console d'administration (SCRUM-84) : Super Admin
-        ...(auth()->user()->can('platform.users.manage')
+        ...(auth()->user()->can('isSuperAdmin')
             ? [['route' => 'admin.users.index', 'match' => 'admin.*', 'icon' => 'bi-shield-lock', 'label' => 'Administration']] : []),
     ];
 @endphp

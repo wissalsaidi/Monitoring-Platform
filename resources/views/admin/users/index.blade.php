@@ -3,6 +3,7 @@
 @section('title', 'Users')
 
 @section('content')
+    @include('admin._tabs')
     @php
         $filterUrl = fn (array $change) => route('admin.users.index', array_filter([...request()->only(['q', 'status', 'team']), ...$change], fn ($v) => $v !== null && $v !== ''));
     @endphp

@@ -7,6 +7,7 @@
 @endsection
 
 @section('content')
+    @include('admin._tabs')
     @php $isMe = $user->is(auth()->user()); @endphp
 
     <div class="row g-4">
