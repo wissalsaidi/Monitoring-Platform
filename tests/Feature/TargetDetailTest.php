@@ -155,7 +155,7 @@ class TargetDetailTest extends TestCase
 
     public function test_users_of_other_teams_cannot_see_the_page(): void
     {
-        $this->actingAs(User::factory()->create())
+        $this->actingAs(User::factory()->withTeam()->create())
             ->get(route('targets.show', $this->target))
             ->assertForbidden();
     }

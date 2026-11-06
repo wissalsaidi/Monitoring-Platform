@@ -107,7 +107,7 @@ class GrafanaAccessService
 
         // Organisation Grafana de la team
         if ($team->grafana_org_id === null || ! $this->grafana->orgExists($team->grafana_org_id)) {
-            $team->update(['grafana_org_id' => $this->grafana->createOrg("{$team->name} #{$team->id}")]);
+            $team->update(['grafana_org_id' => $this->grafana->createOrg(self::orgName($team))]);
         }
         $orgId = $team->grafana_org_id;
 
@@ -139,7 +139,8 @@ class GrafanaAccessService
      */
     public function syncUser(User $user): void
     {
-        $teams = $user->teams()->get();
+        // Compte désactivé (SCRUM-84) : comme sans team, il est retiré de toutes les organisations
+        $teams = $user->isActive() ? $user->teams()->get() : collect();
 
         foreach ($teams as $team) {
             if ($team->grafana_org_id === null) {
@@ -209,6 +210,24 @@ class GrafanaAccessService
         }
 
         $team->update(['grafana_org_id' => null, 'zabbix_user_id' => null, 'zabbix_usrgrp_id' => null]);
+    }
+
+    /** Nom de l'organisation Grafana d'une team ; l'id la rend unique même si deux teams ont le même nom */
+    public static function orgName(Team $team): string
+    {
+        return "{$team->name} #{$team->id}";
+    }
+
+    /**
+     * Team renommée (SCRUM-85) : son organisation Grafana suit.
+     *
+     * @throws GrafanaException
+     */
+    public function renameTeam(Team $team): void
+    {
+        if ($team->grafana_org_id !== null) {
+            $this->grafana->renameOrg($team->grafana_org_id, self::orgName($team));
+        }
     }
 
     /** Compte supprimé (SCRUM-63) : son compte Grafana aussi. */

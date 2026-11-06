@@ -131,6 +131,7 @@ class DashboardTest extends TestCase
     public function test_the_page_needs_few_queries_whatever_the_number_of_targets(): void
     {
         // Chargement < 1 s : nombre de requêtes constant (pas de N+1), aucune requête Zabbix.
+        // 13 = 12 + la vérification « a une team » (SCRUM-82).
         foreach (range(1, 30) as $i) {
             $target = $this->target(TargetStatus::Warning, "API $i");
             Alert::factory()->for($target, 'target')->create();
@@ -140,6 +141,6 @@ class DashboardTest extends TestCase
         $this->actingAs($this->user)->get('/')->assertOk();
         $queries = count(DB::getQueryLog());
 
-        $this->assertLessThanOrEqual(12, $queries, "The dashboard ran $queries queries.");
+        $this->assertLessThanOrEqual(13, $queries, "The dashboard ran $queries queries.");
     }
 }

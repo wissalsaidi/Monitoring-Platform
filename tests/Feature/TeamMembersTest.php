@@ -202,6 +202,7 @@ class TeamMembersTest extends TestCase
 
     public function test_a_guest_logs_in_first_then_comes_back_to_the_invitation(): void
     {
+        User::factory()->create(['email' => 'sara@example.com']);   // compte existant (adresse inconnue : SCRUM-83)
         $invitation = $this->invitationFor('sara@example.com');
         $url = $invitation->acceptUrl();
 
@@ -271,7 +272,8 @@ class TeamMembersTest extends TestCase
         $this->assertNull($this->roleOf($karim));
         $this->assertDatabaseHas('users', ['id' => $karim->id]);
         $this->assertDatabaseHas('audit_logs', ['action' => 'member.remove']);
-        $this->actingAs($karim)->get(route('targets.index'))->assertOk();
+        // Plus aucune team : il attend sur « Waiting for access » (SCRUM-82)
+        $this->actingAs($karim)->get(route('targets.index'))->assertRedirect(route('access.waiting'));
     }
 
     public function test_the_last_admin_cannot_be_demoted_or_removed(): void

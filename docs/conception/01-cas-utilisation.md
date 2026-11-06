@@ -11,7 +11,7 @@
 | **Visiteur** | humain | Personne qui n'a pas encore de compte ou n'est pas connectée. Elle peut seulement créer un compte, se connecter ou réinitialiser son mot de passe. |
 | **Viewer** | humain | Membre d'une team qui **consulte** : dashboard, targets, alertes, graphiques. Il ne modifie rien. |
 | **Manager** | humain | Membre d'une team qui **gère la supervision** : il fait tout ce que fait un Viewer, et en plus il crée, modifie et supprime des targets et acquitte les alertes. |
-| **Admin** | humain | Responsable de la team. Il a les mêmes droits qu'un Manager dans le MVP ; la gestion des membres et des rôles arrive en V1/V2. Celui qui s'inscrit devient Admin de sa team « Default ». |
+| **Admin** | humain | Responsable de la team. Il a les mêmes droits qu'un Manager dans le MVP ; la gestion des membres et des rôles arrive en V1/V2. Depuis SCRUM-82, l'inscription ne crée plus de team : un compte arrive sans team et attend qu'un Admin l'ajoute. |
 | **Zabbix** | système | Moteur de supervision. Il reçoit la configuration envoyée par la plateforme, vérifie les URLs, détecte les problèmes et les résout. |
 | **Scheduler Laravel** | système | Horloge interne. Chaque minute, il lance la synchronisation des problèmes Zabbix vers les alertes. |
 
@@ -25,6 +25,11 @@ Depuis la V1 (SCRUM-58), chaque rôle correspond à une liste de **permissions n
 | `target.create`, `target.update`, `target.delete` | — | ✅ | ✅ |
 | `alert.acknowledge` | — | ✅ | ✅ |
 | `notification.manage` (règles de notification, SCRUM-55) | — | ✅ | ✅ |
+
+Depuis la V2 (SCRUM-81), un rôle de **plateforme** s'ajoute aux rôles de team : le **Super Admin** (DSI), désigné en
+ligne de commande (`php artisan platform:create-admin`), jamais par le web. Il a les permissions `platform.users.manage`,
+`platform.teams.manage` et `platform.audit.view`, mais **aucun droit dans une team dont il n'est pas membre**. La
+plateforme garde toujours au moins un Super Admin.
 | `user.view`, `user.create`, `user.update`, `user.delete` | — | — | ✅ |
 | `configuration.manage` | — | — | ✅ |
 
@@ -74,7 +79,12 @@ flowchart LR
 
 | Cas d'utilisation | Acteur principal | Ce qui se passe | Ticket |
 |---|---|---|---|
-| S'inscrire | Visiteur | Création du compte et d'une team « Default » dont il devient Admin. Un email de vérification est envoyé. | SCRUM-30, 31 |
+| Activer la double authentification | Tout utilisateur (obligatoire pour Super Admin et Admin) | « My account → 2FA » : mot de passe, QR code à scanner, premier code ; 8 codes de secours montrés une fois. Ensuite, un code est demandé après le mot de passe à chaque connexion. Un Super Admin peut la réinitialiser (téléphone perdu). | SCRUM-86 |
+| Gérer les teams | Super Admin | `/admin/teams` : liste (Admins, membres, targets, alertes actives) ; créer une team avec son premier Admin (compte existant ou invitation), host group Zabbix et organisation Grafana créés ; renommer (Zabbix et Grafana suivent) ; supprimer en tapant son nom exact. | SCRUM-85 |
+| Lire l'audit de la plateforme | Super Admin | `/admin/audit` : toutes les teams et les actions de plateforme, filtres par team, action, auteur et dates. | SCRUM-85 |
+| Gérer les utilisateurs de la plateforme | Super Admin | `/admin/users` : liste (teams, rôles, statut, dernière connexion, 2FA), recherche et filtres, invitations ; ajouter à une team, changer de rôle, retirer, promouvoir ou retirer Super Admin ; désactiver / réactiver un compte ; forcer la réinitialisation du mot de passe. Garde-fous : pas soi-même, dernier Super Admin actif, dernier Admin actif d'une team. | SCRUM-84 |
+| Créer son compte depuis une invitation | Invité | Le lien signé (7 jours, usage unique) ouvre « Create your account » pour une adresse inconnue : email prérempli et vérifié d'office, la personne arrive dans la team avec le rôle choisi, sans autre team. Compte existant : connexion puis acceptation. Le Super Admin peut inviter dans n'importe quelle team (`platform:invite`). | SCRUM-83 |
+| S'inscrire | Visiteur | Seulement si `REGISTRATION_MODE` vaut `domain` (domaines de l'entreprise) ou `open` ; en `invite` (par défaut), la page n'existe pas. Le compte est créé **sans team** et un email de vérification est envoyé ; une fois l'adresse vérifiée, les Super Admin sont prévenus. Jusqu'à son ajout dans une team, l'utilisateur voit « Waiting for access ». | SCRUM-30, 31, 82 |
 | Se connecter | Visiteur | Email + mot de passe, 5 essais par minute maximum. | SCRUM-30 |
 | Réinitialiser son mot de passe | Visiteur | Lien envoyé par email, valable 60 minutes. | SCRUM-32 |
 | Vérifier son email | Visiteur | Lien signé valable 60 minutes ; obligatoire avant d'accéder à l'application. | SCRUM-32 |

@@ -58,6 +58,7 @@ docker compose up -d --build       # 1er démarrage ≈ 5 min (Zabbix crée sa b
 docker compose exec app composer install
 docker compose exec app php artisan key:generate
 docker compose exec app php artisan migrate
+docker compose exec app php artisan platform:create-admin <votre-email>   # premier Super Admin (mot de passe demandé)
 
 npm install
 npm run build                      # ou "npm run dev" pendant le développement
@@ -122,6 +123,64 @@ Pour un serveur, seuls les triggers créés par la plateforme deviennent des ale
 visibles dans Zabbix. Serveur de démo : `zabbix-agent2`, port `10050`.
 
 ## Équipes, rôles et sécurité
+
+**Super Admin de la plateforme** (DSI, SCRUM-81) : au-dessus des teams. Il est désigné en ligne de commande, jamais
+par le web, et n'a aucun droit dans une team dont il n'est pas membre.
+
+```bash
+docker compose exec app php artisan platform:create-admin it.admin@company.com   # nouveau compte (mot de passe demandé) ou promotion
+docker compose exec app php artisan platform:create-admin demo@example.com       # environnement de démo : promouvoir le compte demo
+docker compose exec app php artisan platform:list-admins
+docker compose exec app php artisan platform:revoke-admin it.admin@company.com   # refusé pour le dernier Super Admin
+docker compose exec app php artisan platform:invite jane@company.com Payments --role=admin   # invitation dans n'importe quelle team
+```
+
+**Création des comptes** (SCRUM-82), réglée par `REGISTRATION_MODE` dans `.env` :
+
+| Mode | Inscription |
+|---|---|
+| `invite` (par défaut) | aucune page d'inscription (404) : on entre seulement sur invitation |
+| `domain` | ouverte aux adresses des domaines de `REGISTRATION_DOMAINS` (ex. `company.com,company.fr`) |
+| `open` | ouverte à tous, pour une démo publique |
+
+**L'invitation est la porte d'entrée normale** (SCRUM-83), quel que soit le mode. Pour une adresse sans compte, le
+lien ouvre « Create your account » : l'email est prérempli et non modifiable, il est considéré comme vérifié, et la
+personne arrive directement dans la team avec le rôle choisi. Avec un compte existant, elle se connecte puis rejoint la
+team. Le lien est signé, valable 7 jours et ne sert qu'une fois.
+
+Aucune team n'est créée à l'inscription. Un compte sans team voit la page **Waiting for access** (son adresse, et le
+contact `REGISTRATION_CONTACT` s'il est défini) jusqu'à ce qu'un Admin de team l'ajoute. Les Super Admin reçoivent un
+email dès qu'un nouveau compte a vérifié son adresse.
+
+**Console d'administration** (menu bouclier, `/admin/users`, SCRUM-84) : la liste de tous les comptes (teams et rôles,
+Super Admin, statut, dernière connexion, 2FA) avec recherche et filtres, et l'onglet **Invited** des invitations sans
+compte. Sur la fiche d'un compte :
+
+- inviter, ajouter à une team, changer de rôle, retirer d'une team ; promouvoir ou retirer Super Admin ;
+- **désactiver** au lieu de supprimer : connexion refusée, sessions fermées, accès Grafana retiré, plus aucune
+  notification ; teams, historique et audit gardés ; réactivation en un clic ;
+- **forcer la réinitialisation du mot de passe** : l'ancien ne marche plus, les sessions sont fermées et l'email
+  « mot de passe oublié » est envoyé.
+
+Garde-fous : on ne se désactive pas soi-même, le dernier Super Admin actif reste, et une team garde toujours un Admin
+actif.
+
+**Double authentification** (SCRUM-86) : code TOTP d'une application (Google Authenticator, Microsoft Authenticator,
+1Password…) après le mot de passe, et 8 codes de secours. Chacun l'active depuis **My account → 2FA**. Elle est
+**obligatoire pour les Super Admin et les Admin de team** : sans elle, ils sont renvoyés sur la page d'activation (et
+Grafana leur est fermé). Téléphone perdu sans code de secours : un Super Admin la réinitialise depuis la fiche du
+compte. `TWO_FACTOR_FOR_ADMINS=false` coupe l'obligation, pour une démo jetable seulement.
+
+**Teams** (`/admin/teams`, SCRUM-85) : les teams sont créées par la DSI, plus à l'inscription. Liste (Admins, membres,
+targets, alertes actives) ; création avec le premier Admin (un compte existant est ajouté, une adresse inconnue est
+invitée comme Admin), et son host group Zabbix et son organisation Grafana dans la foulée ; renommage (Zabbix et Grafana
+suivent) ; suppression en tapant le nom exact : targets retirées de Zabbix, organisation Grafana supprimée, comptes
+des membres gardés.
+
+**Audit de la plateforme** (`/admin/audit`) : les entrées de toutes les teams et les actions de plateforme (comptes,
+Super Admin, teams supprimées), avec des filtres par team (ou « Platform only »), action, auteur et dates.
+
+Rôles dans une team :
 
 | Rôle | Peut |
 |---|---|

@@ -20,7 +20,7 @@ use Illuminate\Support\Str;
 class TeamMemberService
 {
     /** Invite (ou réinvite) une adresse : une invitation en attente pour le même email est remplacée. */
-    public function invite(Team $team, string $email, TeamRole $role, User $by): TeamInvitation
+    public function invite(Team $team, string $email, TeamRole $role, ?User $by): TeamInvitation
     {
         $email = Str::lower(trim($email));
 
@@ -30,7 +30,7 @@ class TeamMemberService
 
         $invitation = TeamInvitation::updateOrCreate(
             ['team_id' => $team->id, 'email' => $email],
-            ['role' => $role, 'invited_by' => $by->id, 'expires_at' => now()->addDays(TeamInvitation::VALID_DAYS)],
+            ['role' => $role, 'invited_by' => $by?->id, 'expires_at' => now()->addDays(TeamInvitation::VALID_DAYS)],
         );
 
         Mail::to($email)->queue(new TeamInvitationMail($invitation));
@@ -38,6 +38,7 @@ class TeamMemberService
             'email' => $email,
             'role' => $role->value,
             'resent' => ! $invitation->wasRecentlyCreated,
+            ...($by === null ? ['via' => 'console'] : []),   // platform:invite (SCRUM-83)
         ]);
 
         return $invitation;
@@ -59,6 +60,24 @@ class TeamMemberService
 
             $invitation->delete();
             AuditLog::record('member.join', $user, $invitation->team, ['role' => $invitation->role->value]);
+        });
+    }
+
+    /** Ajout direct par un Super Admin (SCRUM-84) : le compte existe déjà, pas besoin d'invitation */
+    public function add(Team $team, User $user, TeamRole $role, User $by): void
+    {
+        DB::transaction(function () use ($team, $user, $role, $by) {
+            if (DB::table('team_members')->where('team_id', $team->id)->lockForUpdate()->where('user_id', $user->id)->exists()) {
+                throw new TeamMembershipException('This person is already a member of the team.');
+            }
+
+            $team->members()->attach($user, ['role' => $role]);
+            TeamInvitation::where('team_id', $team->id)->where('email', $user->email)->delete();
+            AuditLog::record('member.add', $by, $team, [
+                'user_id' => $user->id,
+                'email' => $user->email,
+                'role' => $role->value,
+            ]);
         });
     }
 
@@ -126,6 +145,7 @@ class TeamMemberService
         $otherAdmins = $team->members()
             ->wherePivot('role', TeamRole::Admin->value)
             ->whereKeyNot($member->id)
+            ->active()                                  // un Admin désactivé n'administre plus rien (SCRUM-84)
             ->exists();
 
         if (! $otherAdmins) {

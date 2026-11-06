@@ -125,6 +125,7 @@ class Alert extends Model
     #[Scope]
     protected function active(Builder $query): void
     {
-        $query->whereIn('status', AlertStatus::active());
+        // Colonne qualifiée : la requête peut joindre monitoring_targets, qui a aussi un status (SCRUM-85)
+        $query->whereIn($query->qualifyColumn('status'), AlertStatus::active());
     }
 }

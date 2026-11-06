@@ -36,6 +36,12 @@ erDiagram
         varchar email UK
         timestamp email_verified_at "null tant que non vérifié"
         varchar password "haché (bcrypt)"
+        varchar platform_role "super_admin ou null (SCRUM-81)"
+        text two_factor_secret "2FA TOTP, chiffré (SCRUM-86)"
+        text two_factor_recovery_codes "codes de secours, chiffrés"
+        timestamp two_factor_confirmed_at "2FA active depuis"
+        timestamp deactivated_at "compte désactivé (SCRUM-84)"
+        timestamp last_login_at "dernière connexion (SCRUM-84)"
         varchar remember_token
         timestamps created_updated
     }

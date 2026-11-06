@@ -56,6 +56,12 @@ class ZabbixService
         return $this->call('hostgroup.create', ['name' => $name])['groupids'][0];
     }
 
+    /** Team renommée (SCRUM-85) : le nom du host group suit */
+    public function renameHostGroup(string $groupId, string $name): void
+    {
+        $this->call('hostgroup.update', ['groupid' => $groupId, 'name' => $name]);
+    }
+
     public function deleteHostGroup(string ...$groupIds): void
     {
         $this->call('hostgroup.delete', $groupIds);
