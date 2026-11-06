@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AccountController;
+use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\AlertController;
 use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\DashboardController;
@@ -40,6 +41,22 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/teams/{team}/invitations', [TeamInvitationController::class, 'store'])
         ->middleware('throttle:20,1')->name('teams.invitations.store');
     Route::delete('/teams/{team}/invitations/{invitation}', [TeamInvitationController::class, 'destroy'])->name('teams.invitations.destroy');
+
+    // Console d'administration (SCRUM-84) : Super Admin seulement, même sans team
+    Route::prefix('admin')->name('admin.')->middleware('can:platform.users.manage')->group(function () {
+        Route::get('/users', [AdminUserController::class, 'index'])->name('users.index');
+        Route::post('/users/invitations', [AdminUserController::class, 'invite'])->middleware('throttle:20,1')->name('users.invite');
+        Route::get('/users/{user}', [AdminUserController::class, 'show'])->name('users.show');
+        Route::post('/users/{user}/teams', [AdminUserController::class, 'addToTeam'])->name('users.teams.store');
+        Route::patch('/users/{user}/teams/{team}', [AdminUserController::class, 'updateRole'])->name('users.teams.update');
+        Route::delete('/users/{user}/teams/{team}', [AdminUserController::class, 'removeFromTeam'])->name('users.teams.destroy');
+        Route::post('/users/{user}/super-admin', [AdminUserController::class, 'promote'])->name('users.super-admin.store');
+        Route::delete('/users/{user}/super-admin', [AdminUserController::class, 'demote'])->name('users.super-admin.destroy');
+        Route::post('/users/{user}/deactivate', [AdminUserController::class, 'deactivate'])->name('users.deactivate');
+        Route::post('/users/{user}/reactivate', [AdminUserController::class, 'reactivate'])->name('users.reactivate');
+        Route::post('/users/{user}/password-reset', [AdminUserController::class, 'forcePasswordReset'])
+            ->middleware('throttle:10,1')->name('users.password-reset');
+    });
 
     Route::middleware(EnsureUserHasTeam::class)->group(function () {
         Route::get('/', DashboardController::class)->name('dashboard');

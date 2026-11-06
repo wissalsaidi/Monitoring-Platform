@@ -139,7 +139,8 @@ class GrafanaAccessService
      */
     public function syncUser(User $user): void
     {
-        $teams = $user->teams()->get();
+        // Compte désactivé (SCRUM-84) : comme sans team, il est retiré de toutes les organisations
+        $teams = $user->isActive() ? $user->teams()->get() : collect();
 
         foreach ($teams as $team) {
             if ($team->grafana_org_id === null) {

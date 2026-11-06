@@ -31,12 +31,12 @@ class PlatformAdminService
     public function revoke(User $user, ?User $by = null): void
     {
         DB::transaction(function () use ($user, $by) {
-            $admins = User::superAdmins()->lockForUpdate()->pluck('id');
-
-            if (! $admins->contains($user->id)) {
+            if (! $user->fresh()?->isSuperAdmin()) {
                 throw new PlatformAdminException("{$user->email} is not a Super Admin.");
             }
-            if ($admins->count() === 1) {
+            // Seuls les Super Admin actifs comptent (SCRUM-84) : un compte désactivé ne peut plus administrer
+            $active = User::superAdmins()->active()->lockForUpdate()->pluck('id');
+            if ($user->isActive() && $active->count() === 1) {
                 throw new PlatformAdminException('The platform must keep at least one Super Admin. Promote someone else first.');
             }
 
@@ -47,6 +47,6 @@ class PlatformAdminService
 
     public function isLastSuperAdmin(User $user): bool
     {
-        return $user->isSuperAdmin() && User::superAdmins()->count() === 1;
+        return $user->isSuperAdmin() && $user->isActive() && User::superAdmins()->active()->count() === 1;
     }
 }

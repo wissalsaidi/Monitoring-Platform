@@ -152,6 +152,19 @@ Aucune team n'est créée à l'inscription. Un compte sans team voit la page **W
 contact `REGISTRATION_CONTACT` s'il est défini) jusqu'à ce qu'un Admin de team l'ajoute. Les Super Admin reçoivent un
 email dès qu'un nouveau compte a vérifié son adresse.
 
+**Console d'administration** (menu bouclier, `/admin/users`, SCRUM-84) : la liste de tous les comptes (teams et rôles,
+Super Admin, statut, dernière connexion, 2FA) avec recherche et filtres, et l'onglet **Invited** des invitations sans
+compte. Sur la fiche d'un compte :
+
+- inviter, ajouter à une team, changer de rôle, retirer d'une team ; promouvoir ou retirer Super Admin ;
+- **désactiver** au lieu de supprimer : connexion refusée, sessions fermées, accès Grafana retiré, plus aucune
+  notification ; teams, historique et audit gardés ; réactivation en un clic ;
+- **forcer la réinitialisation du mot de passe** : l'ancien ne marche plus, les sessions sont fermées et l'email
+  « mot de passe oublié » est envoyé.
+
+Garde-fous : on ne se désactive pas soi-même, le dernier Super Admin actif reste, et une team garde toujours un Admin
+actif.
+
 Rôles dans une team :
 
 | Rôle | Peut |

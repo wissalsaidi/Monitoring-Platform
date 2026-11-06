@@ -21,7 +21,7 @@ class GrafanaAuthController extends Controller
     {
         $user = $request->user();
 
-        if ($user === null || ! $user->hasVerifiedEmail()) {
+        if ($user === null || ! $user->hasVerifiedEmail() || ! $user->isActive()) {
             return response('', 401);
         }
 

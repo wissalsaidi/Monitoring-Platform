@@ -46,6 +46,7 @@ class NotificationRouter
 
         return $team->members()
             ->whereNotNull('email_verified_at')
+            ->active()                                  // compte désactivé : plus aucune notification (SCRUM-84)
             ->when($event === NotificationEvent::Resolved, fn ($query) => $query->whereIn('users.id', AlertNotification::query()
                 ->select('user_id')
                 ->where('alert_id', $alert->id)
