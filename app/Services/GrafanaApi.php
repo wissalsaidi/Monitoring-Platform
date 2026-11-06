@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Exceptions\GrafanaException;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
+use Illuminate\Http\Client\RequestException;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 
@@ -19,6 +20,11 @@ class GrafanaApi
     /** Rôle des utilisateurs de la plateforme dans l'organisation de leur team */
     public const ROLE_VIEWER = 'Viewer';
 
+    /** Essais pour une requête idempotente qui reçoit une erreur 5xx, et délai entre deux essais */
+    public const RETRIES = 3;
+
+    public const RETRY_DELAY_MS = 300;
+
     public function createOrg(string $name): int
     {
         return (int) $this->send('post', '/api/orgs', ['name' => $name])->json('orgId');
@@ -27,6 +33,12 @@ class GrafanaApi
     public function orgExists(int $orgId): bool
     {
         return $this->send('get', "/api/orgs/{$orgId}", allowNotFound: true)->ok();
+    }
+
+    /** Team renommée (SCRUM-85) : le nom de l'organisation suit */
+    public function renameOrg(int $orgId, string $name): void
+    {
+        $this->send('put', "/api/orgs/{$orgId}", ['name' => $name]);
     }
 
     public function deleteOrg(int $orgId): void
@@ -109,8 +121,14 @@ class GrafanaApi
      */
     private function send(string $method, string $path, array $data = [], ?int $orgId = null, bool $allowNotFound = false, bool $allowConflict = false): Response
     {
+        // Erreur 5xx passagère (« database is locked » de la base SQLite de Grafana, SCRUM-85) : nouvel essai, seulement
+        // pour les méthodes idempotentes. Un POST rejoué pourrait créer deux fois une organisation ou un compte.
+        $request = $this->request($orgId)->when(in_array($method, ['get', 'put', 'delete'], true), fn (PendingRequest $r) => $r->retry(
+            self::RETRIES, self::RETRY_DELAY_MS, fn ($e) => $e instanceof RequestException && $e->response->serverError(), throw: false,
+        ));
+
         try {
-            $response = $this->request($orgId)->{$method}(rtrim(config('services.grafana.internal_url'), '/').$path, $data);
+            $response = $request->{$method}(rtrim(config('services.grafana.internal_url'), '/').$path, $data);
         } catch (ConnectionException $e) {
             throw new GrafanaException("Grafana unreachable: {$method} {$path}: {$e->getMessage()}", previous: $e);
         }

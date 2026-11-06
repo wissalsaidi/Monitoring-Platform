@@ -1,6 +1,8 @@
 <?php
 
 use App\Http\Controllers\AccountController;
+use App\Http\Controllers\Admin\AuditController as AdminAuditController;
+use App\Http\Controllers\Admin\TeamController as AdminTeamController;
 use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\AlertController;
 use App\Http\Controllers\AuditLogController;
@@ -57,6 +59,15 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/users/{user}/password-reset', [AdminUserController::class, 'forcePasswordReset'])
             ->middleware('throttle:10,1')->name('users.password-reset');
     });
+    // Teams et audit de la plateforme (SCRUM-85)
+    Route::prefix('admin')->name('admin.')->middleware('can:platform.teams.manage')->group(function () {
+        Route::get('/teams', [AdminTeamController::class, 'index'])->name('teams.index');
+        Route::post('/teams', [AdminTeamController::class, 'store'])->name('teams.store');
+        Route::get('/teams/{team}', [AdminTeamController::class, 'show'])->name('teams.show');
+        Route::patch('/teams/{team}', [AdminTeamController::class, 'update'])->name('teams.update');
+        Route::delete('/teams/{team}', [AdminTeamController::class, 'destroy'])->middleware('throttle:10,1')->name('teams.destroy');
+    });
+    Route::get('/admin/audit', [AdminAuditController::class, 'index'])->middleware('can:platform.audit.view')->name('admin.audit');
 
     Route::middleware(EnsureUserHasTeam::class)->group(function () {
         Route::get('/', DashboardController::class)->name('dashboard');

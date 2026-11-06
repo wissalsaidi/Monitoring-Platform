@@ -165,6 +165,15 @@ compte. Sur la fiche d'un compte :
 Garde-fous : on ne se désactive pas soi-même, le dernier Super Admin actif reste, et une team garde toujours un Admin
 actif.
 
+**Teams** (`/admin/teams`, SCRUM-85) : les teams sont créées par la DSI, plus à l'inscription. Liste (Admins, membres,
+targets, alertes actives) ; création avec le premier Admin (un compte existant est ajouté, une adresse inconnue est
+invitée comme Admin), et son host group Zabbix et son organisation Grafana dans la foulée ; renommage (Zabbix et Grafana
+suivent) ; suppression en tapant le nom exact : targets retirées de Zabbix, organisation Grafana supprimée, comptes
+des membres gardés.
+
+**Audit de la plateforme** (`/admin/audit`) : les entrées de toutes les teams et les actions de plateforme (comptes,
+Super Admin, teams supprimées), avec des filtres par team (ou « Platform only »), action, auteur et dates.
+
 Rôles dans une team :
 
 | Rôle | Peut |
