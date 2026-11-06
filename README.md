@@ -281,6 +281,65 @@ seulement. Seuls ceux qui ont été prévenus de l'ouverture d'une alerte sont p
   l'icône enveloppe d'une alerte ouvre ses notifications. Les adresses email et le détail des erreurs SMTP ne sont
   visibles que des Admin.
 
+## Webhooks
+
+Une team peut prévenir d'autres outils à l'ouverture et à la résolution de ses alertes (SCRUM-74) : un appel HTTP vers
+un outil interne (ITSM, astreinte), ou un message Slack ou Microsoft Teams. Chaque webhook choisit ses sévérités et ses
+événements, indépendamment des emails. Les envois passent par la queue Redis (3 essais, après 30 s puis 2 min) et
+apparaissent dans l'historique des notifications.
+
+**Webhook générique** : `POST` d'un JSON versionné (SCRUM-76).
+
+```json
+{
+  "version": 1,
+  "event": "alert.opened",
+  "delivery_id": "ccfbec4a-dd18-574c-9a73-eb3f017208fc",
+  "sent_at": "2026-11-07T09:01:30Z",
+  "alert": {
+    "id": 522, "severity": "high", "status": "open", "message": "Response time > 2000 ms",
+    "metric": "response_time", "value": 3017.004, "threshold": 2000, "peak_value": null,
+    "started_at": "2026-11-07T09:00:00Z", "resolved_at": null,
+    "url": "https://monitoring.company.com/targets/24?tab=alerts"
+  },
+  "target": { "id": 24, "name": "Website-01", "type": "website" },
+  "team": { "id": 9, "name": "Demo" }
+}
+```
+
+| En-tête | Contenu |
+|---|---|
+| `X-Platform-Event` | `alert.opened` ou `alert.resolved` |
+| `X-Platform-Delivery` | identifiant de livraison, le même à chaque nouvel essai : à garder pour ignorer un doublon |
+| `X-Platform-Timestamp` | heure d'envoi (secondes Unix) |
+| `X-Platform-Signature` | `sha256=` + HMAC-SHA256, avec le secret du webhook, de `<timestamp>.<corps brut>` |
+
+Vérifier la signature chez le receveur. Le timestamp est signé avec le corps : refuser les messages trop anciens
+bloque les rejeux.
+
+```php
+$body = file_get_contents('php://input');                      // corps brut, avant tout json_decode
+$timestamp = $_SERVER['HTTP_X_PLATFORM_TIMESTAMP'] ?? '';
+$expected = 'sha256='.hash_hmac('sha256', $timestamp.'.'.$body, getenv('WEBHOOK_SECRET'));
+
+if (! hash_equals($expected, $_SERVER['HTTP_X_PLATFORM_SIGNATURE'] ?? '') || abs(time() - (int) $timestamp) > 300) {
+    http_response_code(401);
+    exit;
+}
+```
+
+```python
+import hashlib, hmac, time
+
+def verify(body: bytes, timestamp: str, signature: str, secret: str) -> bool:
+    expected = "sha256=" + hmac.new(secret.encode(), timestamp.encode() + b"." + body, hashlib.sha256).hexdigest()
+    return hmac.compare_digest(expected, signature) and abs(time.time() - int(timestamp)) <= 300
+```
+
+Répondre un code 2xx dans les 5 s. Les redirections ne sont pas suivies, et l'adresse est revérifiée à chaque envoi
+(pas d'adresse interne). En local, `fake-api` sert de receveur : `POST http://fake-api:8080/webhook`, puis
+`GET http://localhost:8081/webhook/received` montre ce qui a été reçu.
+
 ## Onglet Metrics
 
 Sur la page d'une target, l'onglet **Metrics** (SCRUM-49) montre chaque métrique du type sur la période choisie :
