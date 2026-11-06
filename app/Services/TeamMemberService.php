@@ -63,6 +63,24 @@ class TeamMemberService
         });
     }
 
+    /** Ajout direct par un Super Admin (SCRUM-84) : le compte existe déjà, pas besoin d'invitation */
+    public function add(Team $team, User $user, TeamRole $role, User $by): void
+    {
+        DB::transaction(function () use ($team, $user, $role, $by) {
+            if (DB::table('team_members')->where('team_id', $team->id)->lockForUpdate()->where('user_id', $user->id)->exists()) {
+                throw new TeamMembershipException('This person is already a member of the team.');
+            }
+
+            $team->members()->attach($user, ['role' => $role]);
+            TeamInvitation::where('team_id', $team->id)->where('email', $user->email)->delete();
+            AuditLog::record('member.add', $by, $team, [
+                'user_id' => $user->id,
+                'email' => $user->email,
+                'role' => $role->value,
+            ]);
+        });
+    }
+
     public function changeRole(Team $team, User $member, TeamRole $role, User $by): void
     {
         DB::transaction(function () use ($team, $member, $role, $by) {
@@ -127,6 +145,7 @@ class TeamMemberService
         $otherAdmins = $team->members()
             ->wherePivot('role', TeamRole::Admin->value)
             ->whereKeyNot($member->id)
+            ->active()                                  // un Admin désactivé n'administre plus rien (SCRUM-84)
             ->exists();
 
         if (! $otherAdmins) {

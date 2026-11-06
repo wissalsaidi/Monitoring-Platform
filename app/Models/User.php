@@ -57,6 +57,9 @@ class User extends Authenticatable implements MustVerifyEmail
             'grafana_user_id' => 'integer',     // compte Grafana (SCRUM-48), créé par GrafanaAccessService
             // Rôle de plateforme (SCRUM-81) : volontairement hors $fillable, modifié seulement par PlatformAdminService
             'platform_role' => PlatformRole::class,
+            // Console d'administration (SCRUM-84) : hors $fillable, modifiés par AccountStatusService et RecordLastLogin
+            'deactivated_at' => 'datetime',
+            'last_login_at' => 'datetime',
         ];
     }
 
@@ -75,6 +78,18 @@ class User extends Authenticatable implements MustVerifyEmail
     protected function superAdmins(Builder $query): void
     {
         $query->where('platform_role', PlatformRole::SuperAdmin->value);
+    }
+
+    /** Compte non désactivé (SCRUM-84) : un compte désactivé ne peut plus se connecter */
+    public function isActive(): bool
+    {
+        return $this->deactivated_at === null;
+    }
+
+    #[Scope]
+    protected function active(Builder $query): void
+    {
+        $query->whereNull('users.deactivated_at');
     }
 
     public function teams(): BelongsToMany

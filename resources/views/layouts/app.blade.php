@@ -25,6 +25,9 @@
         ...(auth()->user()->teams->contains(fn ($team) => auth()->user()->hasPermission(\App\Enums\Permission::AuditView, $team))
             ? [['route' => 'teams.audit.current', 'match' => 'teams.audit.*', 'icon' => 'bi-journal-text', 'label' => 'Audit log']] : []),
         ['route' => null, 'match' => null, 'icon' => 'bi-graph-up', 'label' => 'Dashboards (soon)'],
+        // Console d'administration (SCRUM-84) : Super Admin
+        ...(auth()->user()->can('platform.users.manage')
+            ? [['route' => 'admin.users.index', 'match' => 'admin.*', 'icon' => 'bi-shield-lock', 'label' => 'Administration']] : []),
     ];
 @endphp
 

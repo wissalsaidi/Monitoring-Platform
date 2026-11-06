@@ -61,11 +61,15 @@ class AuditLog extends Model
         'member.join' => 'Member joined',
         'member.role_change' => 'Role changed',
         'member.remove' => 'Member removed',
+        'member.add' => 'Member added',
         'member.account_deleted' => 'Account deleted',
         'notification_rule.update' => 'Notification rules updated',
         'user.create' => 'Account created',
         'platform.admin_grant' => 'Super Admin granted',
         'platform.admin_revoke' => 'Super Admin revoked',
+        'user.deactivate' => 'Account deactivated',
+        'user.reactivate' => 'Account reactivated',
+        'user.password_reset_forced' => 'Password reset forced',
     ];
 
     public function actionLabel(): string

@@ -31,6 +31,7 @@
     @can('isSuperAdmin')
         <div class="alert alert-info small" role="status">
             <i class="bi bi-shield-lock me-1"></i>You are a Super Admin. You have no rights inside a team until you are a member of it.
+            <a href="{{ route('admin.users.index') }}" class="alert-link d-block mt-1">Open the administration console</a>
         </div>
     @endcan
 
