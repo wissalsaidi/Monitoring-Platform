@@ -73,6 +73,10 @@ class AuditLog extends Model
         'user.deactivate' => 'Account deactivated',
         'user.reactivate' => 'Account reactivated',
         'user.password_reset_forced' => 'Password reset forced',
+        'user.2fa_enable' => 'Two-factor enabled',
+        'user.2fa_disable' => 'Two-factor disabled',
+        'user.2fa_recovery_codes' => 'Recovery codes regenerated',
+        'user.2fa_reset' => 'Two-factor reset',
     ];
 
     /** Entrée d'une team supprimée depuis : team_id est passé à null, mais ce n'est pas une action de plateforme */

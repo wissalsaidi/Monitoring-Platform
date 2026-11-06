@@ -31,6 +31,8 @@
         <env name="SESSION_DRIVER" value="array"/>
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
+        <!-- 2FA obligatoire (SCRUM-86) : activée dans les tests qui la vérifient (TwoFactorTest), pas dans les autres -->
+        <env name="TWO_FACTOR_FOR_ADMINS" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>
     </php>
 </phpunit>

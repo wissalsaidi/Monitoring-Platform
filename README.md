@@ -165,6 +165,12 @@ compte. Sur la fiche d'un compte :
 Garde-fous : on ne se désactive pas soi-même, le dernier Super Admin actif reste, et une team garde toujours un Admin
 actif.
 
+**Double authentification** (SCRUM-86) : code TOTP d'une application (Google Authenticator, Microsoft Authenticator,
+1Password…) après le mot de passe, et 8 codes de secours. Chacun l'active depuis **My account → 2FA**. Elle est
+**obligatoire pour les Super Admin et les Admin de team** : sans elle, ils sont renvoyés sur la page d'activation (et
+Grafana leur est fermé). Téléphone perdu sans code de secours : un Super Admin la réinitialise depuis la fiche du
+compte. `TWO_FACTOR_FOR_ADMINS=false` coupe l'obligation, pour une démo jetable seulement.
+
 **Teams** (`/admin/teams`, SCRUM-85) : les teams sont créées par la DSI, plus à l'inscription. Liste (Admins, membres,
 targets, alertes actives) ; création avec le premier Admin (un compte existant est ajouté, une adresse inconnue est
 invitée comme Admin), et son host group Zabbix et son organisation Grafana dans la foulée ; renommage (Zabbix et Grafana

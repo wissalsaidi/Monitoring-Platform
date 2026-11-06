@@ -50,6 +50,12 @@ class FortifyServiceProvider extends ServiceProvider
         Fortify::requestPasswordResetLinkView(fn () => view('auth.forgot-password'));
         Fortify::resetPasswordView(fn ($request) => view('auth.reset-password', ['request' => $request]));
         Fortify::verifyEmailView(fn () => view('auth.verify-email'));
+        // 2FA (SCRUM-86) : code à la connexion, et mot de passe redemandé avant de changer la 2FA
+        Fortify::twoFactorChallengeView(fn () => view('auth.two-factor-challenge'));
+        Fortify::confirmPasswordView(fn () => view('auth.confirm-password'));
+
+        // Code 2FA : 5 essais par minute pour la connexion en cours
+        RateLimiter::for('two-factor', fn (Request $request) => Limit::perMinute(5)->by($request->session()->get('login.id')));
 
         // Rate limiting de la connexion : 5 essais par minute par couple email + IP (cahier des charges §29)
         RateLimiter::for('login', function (Request $request) {

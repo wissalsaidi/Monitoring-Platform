@@ -25,7 +25,8 @@ class GrafanaAuthController extends Controller
             return response('', 401);
         }
 
-        if ($user->grafana_user_id === null) {
+        // Administrateur sans la 2FA exigée (SCRUM-86) : pas de Grafana non plus
+        if ($user->grafana_user_id === null || $user->mustSetUpTwoFactor()) {
             return response('', 403);
         }
 

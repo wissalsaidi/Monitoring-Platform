@@ -79,6 +79,7 @@ flowchart LR
 
 | Cas d'utilisation | Acteur principal | Ce qui se passe | Ticket |
 |---|---|---|---|
+| Activer la double authentification | Tout utilisateur (obligatoire pour Super Admin et Admin) | « My account → 2FA » : mot de passe, QR code à scanner, premier code ; 8 codes de secours montrés une fois. Ensuite, un code est demandé après le mot de passe à chaque connexion. Un Super Admin peut la réinitialiser (téléphone perdu). | SCRUM-86 |
 | Gérer les teams | Super Admin | `/admin/teams` : liste (Admins, membres, targets, alertes actives) ; créer une team avec son premier Admin (compte existant ou invitation), host group Zabbix et organisation Grafana créés ; renommer (Zabbix et Grafana suivent) ; supprimer en tapant son nom exact. | SCRUM-85 |
 | Lire l'audit de la plateforme | Super Admin | `/admin/audit` : toutes les teams et les actions de plateforme, filtres par team, action, auteur et dates. | SCRUM-85 |
 | Gérer les utilisateurs de la plateforme | Super Admin | `/admin/users` : liste (teams, rôles, statut, dernière connexion, 2FA), recherche et filtres, invitations ; ajouter à une team, changer de rôle, retirer, promouvoir ou retirer Super Admin ; désactiver / réactiver un compte ; forcer la réinitialisation du mot de passe. Garde-fous : pas soi-même, dernier Super Admin actif, dernier Admin actif d'une team. | SCRUM-84 |

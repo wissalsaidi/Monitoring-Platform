@@ -94,6 +94,31 @@ class AccountStatusService
         ]);
     }
 
+    /**
+     * Téléphone perdu (SCRUM-86) : la 2FA est retirée et les sessions fermées. Un administrateur devra la réactiver
+     * à sa prochaine connexion.
+     *
+     * @throws AccountStatusException
+     */
+    public function resetTwoFactor(User $user, User $by): void
+    {
+        if ($user->is($by)) {
+            throw new AccountStatusException('Ask another Super Admin to reset your own two-factor authentication.');
+        }
+        if ($user->two_factor_secret === null) {
+            throw new AccountStatusException("{$user->name} has no two-factor authentication to reset.");
+        }
+
+        $user->forceFill([
+            'two_factor_secret' => null,
+            'two_factor_recovery_codes' => null,
+            'two_factor_confirmed_at' => null,
+            'remember_token' => Str::random(60),
+        ])->save();
+        $this->closeSessions($user);
+        AuditLog::record('user.2fa_reset', $by, $user, ['email' => $user->email]);
+    }
+
     /** Sessions en base fermées tout de suite ; les autres drivers sont couverts par EnsureAccountIsActive */
     private function closeSessions(User $user): void
     {

@@ -15,7 +15,9 @@ use App\Http\Controllers\TargetGrafanaController;
 use App\Http\Controllers\TargetMetricsController;
 use App\Http\Controllers\TeamInvitationController;
 use App\Http\Controllers\TeamMemberController;
+use App\Http\Controllers\TwoFactorController;
 use App\Http\Controllers\WaitingForAccessController;
+use App\Http\Middleware\EnsureTwoFactorForAdmins;
 use App\Http\Middleware\EnsureUserHasTeam;
 use Illuminate\Support\Facades\Route;
 
@@ -32,9 +34,12 @@ Route::get('/invitations/{invitation}/accept', [TeamInvitationController::class,
 Route::post('/invitations/{invitation}/accept', [TeamInvitationController::class, 'register'])
     ->whereNumber('invitation')->middleware(['guest', 'throttle:6,1'])->name('invitations.register');
 
-Route::middleware(['auth', 'verified'])->group(function () {
+Route::middleware(['auth', 'verified', EnsureTwoFactorForAdmins::class])->group(function () {
     // Sans team (SCRUM-82) : seules ces pages (et le lien d'invitation) restent accessibles, le reste renvoie sur « Waiting for access »
     Route::get('/waiting', WaitingForAccessController::class)->name('access.waiting');
+    // Double authentification (SCRUM-86) : page d'activation, accessible même quand la 2FA est exigée
+    Route::get('/account/two-factor', [TwoFactorController::class, 'show'])->name('account.two-factor');
+    Route::post('/account/two-factor', [TwoFactorController::class, 'enable'])->middleware('throttle:6,1')->name('account.two-factor.enable');
     // Mon compte et droit à l'effacement (RGPD-5, SCRUM-63)
     Route::get('/account', [AccountController::class, 'edit'])->name('account.edit');
     Route::delete('/account', [AccountController::class, 'destroy'])->middleware('throttle:6,1')->name('account.destroy');
@@ -56,6 +61,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::delete('/users/{user}/super-admin', [AdminUserController::class, 'demote'])->name('users.super-admin.destroy');
         Route::post('/users/{user}/deactivate', [AdminUserController::class, 'deactivate'])->name('users.deactivate');
         Route::post('/users/{user}/reactivate', [AdminUserController::class, 'reactivate'])->name('users.reactivate');
+        Route::delete('/users/{user}/two-factor', [AdminUserController::class, 'resetTwoFactor'])->name('users.two-factor.reset');
         Route::post('/users/{user}/password-reset', [AdminUserController::class, 'forcePasswordReset'])
             ->middleware('throttle:10,1')->name('users.password-reset');
     });

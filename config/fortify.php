@@ -116,6 +116,7 @@ return [
 
     'limiters' => [
         'login' => 'login',
+        'two-factor' => 'two-factor',
     ],
 
     /*
@@ -165,6 +166,11 @@ return [
         // (config/auth.php : passwords.users.expire et verification.expire)
         Features::resetPasswords(),
         Features::emailVerification(),
+        // SCRUM-86 : 2FA TOTP ; activée seulement après un premier code valide, et après confirmation du mot de passe
+        Features::twoFactorAuthentication([
+            'confirm' => true,
+            'confirmPassword' => true,
+        ]),
     ],
 
 ];
