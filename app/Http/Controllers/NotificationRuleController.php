@@ -53,7 +53,7 @@ class NotificationRuleController extends Controller
         $rules = [];
         foreach (AlertSeverity::cases() as $severity) {
             foreach (NotificationEvent::cases() as $event) {
-                $rules["rules.{$severity->value}.{$event->value}"] = ['required', Rule::enum(NotificationChannel::class)];
+                $rules["rules.{$severity->value}.{$event->value}"] = ['required', Rule::enum(NotificationChannel::class)->only(NotificationChannel::ruleChoices())];
             }
         }
         $data = $request->validate($rules)['rules'];
