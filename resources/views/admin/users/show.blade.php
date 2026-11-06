@@ -33,7 +33,7 @@
                     <span><i class="bi bi-calendar me-1"></i>Created {{ $user->created_at->toDisplay()->format('d/m/Y') }}</span>
                     <span><i class="bi bi-box-arrow-in-right me-1"></i>Last login {{ $user->last_login_at?->toDisplay()->format('d/m/Y H:i') ?? 'never' }}</span>
                     <span><i class="bi bi-envelope-check me-1"></i>Email {{ $user->hasVerifiedEmail() ? 'verified' : 'not verified' }}</span>
-                    <span><i class="bi bi-phone me-1"></i>2FA {{ filled($user->getAttributes()['two_factor_confirmed_at'] ?? null) ? 'on' : 'off' }}</span>
+                    <span><i class="bi bi-phone me-1"></i>2FA {{ $user->two_factor_confirmed_at ? 'on since '.$user->two_factor_confirmed_at->toDisplay()->format('d/m/Y') : 'off' }}</span>
                 </div>
             </div>
 
@@ -153,6 +153,20 @@
                         </form>
                     </div>
                 </div>
+
+                @if ($user->two_factor_secret !== null)
+                    <div class="card mb-4">
+                        <div class="card-header py-3 fw-semibold"><i class="bi bi-phone me-1"></i>Two-factor authentication</div>
+                        <div class="card-body small">
+                            <p class="mb-3">Lost phone and no recovery code left? Remove the two-factor authentication: sessions are closed and {{ $user->name }} sets it up again at the next login.</p>
+                            <form method="POST" action="{{ route('admin.users.two-factor.reset', $user) }}" data-confirm="Reset the two-factor authentication of {{ $user->name }}? Check their identity first (call, in person).">
+                                @csrf
+                                @method('DELETE')
+                                <button type="submit" class="btn btn-outline-warning btn-sm">Reset two-factor</button>
+                            </form>
+                        </div>
+                    </div>
+                @endif
 
                 <div class="card border-danger-subtle">
                     <div class="card-header py-3 fw-semibold"><i class="bi bi-person-slash me-1"></i>Access</div>

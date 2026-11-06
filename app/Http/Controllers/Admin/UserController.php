@@ -184,6 +184,12 @@ class UserController extends Controller
             "The password of {$user->name} no longer works. A reset link was sent to {$user->email}.");
     }
 
+    public function resetTwoFactor(Request $request, User $user): RedirectResponse
+    {
+        return $this->attempt(fn () => $this->accounts->resetTwoFactor($user, $request->user()),
+            "Two-factor authentication of {$user->name} was reset. They will set it up again at their next login.");
+    }
+
     /**
      * Nom affiché de chaque team ; deux teams du même nom (anciennes teams « Default ») sont distinguées par leur id.
      *

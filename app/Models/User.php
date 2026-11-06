@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Laravel\Fortify\TwoFactorAuthenticatable;
 
 /**
  * MustVerifyEmail : l'email doit être vérifié avant d'accéder à l'application (SCRUM-32).
@@ -21,7 +22,7 @@ use Illuminate\Notifications\Notifiable;
 class User extends Authenticatable implements MustVerifyEmail
 {
     /** @use HasFactory<UserFactory> */
-    use HasFactory, Notifiable;
+    use HasFactory, Notifiable, TwoFactorAuthenticatable;
 
     /**
      * The attributes that are mass assignable.
@@ -42,6 +43,8 @@ class User extends Authenticatable implements MustVerifyEmail
     protected $hidden = [
         'password',
         'remember_token',
+        'two_factor_secret',            // 2FA (SCRUM-86), chiffrés par Fortify
+        'two_factor_recovery_codes',
     ];
 
     /**
@@ -60,6 +63,7 @@ class User extends Authenticatable implements MustVerifyEmail
             // Console d'administration (SCRUM-84) : hors $fillable, modifiés par AccountStatusService et RecordLastLogin
             'deactivated_at' => 'datetime',
             'last_login_at' => 'datetime',
+            'two_factor_confirmed_at' => 'datetime',
         ];
     }
 
@@ -78,6 +82,19 @@ class User extends Authenticatable implements MustVerifyEmail
     protected function superAdmins(Builder $query): void
     {
         $query->where('platform_role', PlatformRole::SuperAdmin->value);
+    }
+
+    /** 2FA obligatoire (SCRUM-86) : Super Admin, ou Admin d'au moins une team (réglage security.two_factor_for_admins) */
+    public function requiresTwoFactor(): bool
+    {
+        return config('security.two_factor_for_admins')
+            && ($this->isSuperAdmin() || $this->teams()->wherePivot('role', TeamRole::Admin->value)->exists());
+    }
+
+    /** Doit activer la 2FA avant d'aller plus loin (EnsureTwoFactorForAdmins, auth proxy Grafana) */
+    public function mustSetUpTwoFactor(): bool
+    {
+        return $this->requiresTwoFactor() && ! $this->hasEnabledTwoFactorAuthentication();
     }
 
     /** Compte non désactivé (SCRUM-84) : un compte désactivé ne peut plus se connecter */

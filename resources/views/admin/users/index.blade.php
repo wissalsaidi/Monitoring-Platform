@@ -103,8 +103,10 @@
                                         </td>
                                         <td class="d-none d-lg-table-cell small text-body-secondary">{{ $user->last_login_at?->toDisplay()->format('d/m/Y H:i') ?? 'Never' }}</td>
                                         <td class="d-none d-lg-table-cell pe-3 small">
-                                            @if (filled($user->getAttributes()['two_factor_confirmed_at'] ?? null))
+                                            @if ($user->two_factor_confirmed_at)
                                                 <i class="bi bi-check-circle text-success"></i> On
+                                            @elseif ($user->isSuperAdmin() || $user->teams->contains(fn ($t) => $t->pivot->role === \App\Enums\TeamRole::Admin))
+                                                <span class="text-warning" title="Required for Super Admins and team Admins"><i class="bi bi-exclamation-triangle"></i> Off · required</span>
                                             @else
                                                 <span class="text-body-secondary">Off</span>
                                             @endif
