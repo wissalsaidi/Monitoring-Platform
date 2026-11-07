@@ -73,7 +73,7 @@ class WebhookModelTest extends TestCase
         $this->assertSame(48, strlen($webhook->secret));                  // secret créé automatiquement
         $this->assertArrayNotHasKey('url', $webhook->toArray());
         $this->assertArrayNotHasKey('secret', $webhook->toArray());
-        $this->assertSame('https://hooks.slack.com/…', $webhook->maskedUrl());
+        $this->assertSame('https://hooks.slack.com/…/••••', $webhook->maskedUrl());
     }
 
     public function test_the_secret_cannot_be_mass_assigned(): void
