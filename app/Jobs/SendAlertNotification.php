@@ -9,8 +9,8 @@ use App\Exceptions\WebhookDeliveryException;
 use App\Mail\AlertOpenedMail;
 use App\Mail\AlertResolvedMail;
 use App\Models\AlertNotification;
-use App\Models\Webhook;
 use App\Services\IncidentHistoryService;
+use App\Services\WebhookFailureTracker;
 use App\Services\WebhookPayload;
 use App\Services\WebhookSender;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -90,20 +90,21 @@ class SendAlertNotification implements ShouldQueue
         $deliveryId = WebhookPayload::deliveryId($notification->id);
 
         try {
-            app(WebhookSender::class)->send(
+            $status = app(WebhookSender::class)->send(
                 $webhook,
                 WebhookPayload::eventName($notification->event),
                 WebhookPayload::forWebhook($webhook, $alert, $notification->event, $deliveryId, $peak),
                 $deliveryId,
             );
         } catch (WebhookDeliveryException $e) {
-            $notification->update(['error' => Str::limit($e->getMessage(), 490)]);
+            // Code HTTP du dernier essai (SCRUM-79) ; null si le receveur n'a pas répondu
+            $notification->update(['error' => Str::limit($e->getMessage(), 490), 'http_status' => $e->status]);
 
             throw $e;      // la queue refera une tentative
         }
 
-        $notification->update(['status' => NotificationStatus::Sent, 'sent_at' => now(), 'error' => null]);
-        $webhook->forceFill(['consecutive_failures' => 0])->save();
+        $notification->update(['status' => NotificationStatus::Sent, 'sent_at' => now(), 'error' => null, 'http_status' => $status]);
+        app(WebhookFailureTracker::class)->recordSuccess($webhook);
     }
 
     /** Email de l'événement : ouverture (SCRUM-53) ou résolution, avec la valeur maximale de l'incident si connue (SCRUM-54) */
@@ -128,10 +129,10 @@ class SendAlertNotification implements ShouldQueue
             'error' => Str::limit((string) $e?->getMessage(), 490),
         ]);
 
-        // Webhook : un échec de plus d'affilée (désactivation automatique : SCRUM-79)
+        // Webhook : un échec de plus d'affilée, désactivé au 10e (SCRUM-79)
         $webhookId = AlertNotification::whereKey($this->notificationId)->value('webhook_id');
         if ($webhookId !== null) {
-            Webhook::whereKey($webhookId)->increment('consecutive_failures');
+            app(WebhookFailureTracker::class)->recordFailure($webhookId, $e?->getMessage());
         }
 
         // Pas d'adresse email dans les logs : l'id suffit pour retrouver la notification
