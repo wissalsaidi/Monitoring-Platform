@@ -9,6 +9,19 @@
         <div class="alert alert-success small" role="status"><i class="bi bi-check-circle me-1"></i>{{ session('status') }}</div>
     @endif
 
+    {{-- SSO OpenID Connect (SCRUM-88) : bouton seulement si le fournisseur est configuré --}}
+    @if (\App\Services\OidcClient::enabled())
+        @error('sso')
+            <div class="alert alert-danger small" role="alert"><i class="bi bi-exclamation-octagon me-1"></i>{{ $message }}</div>
+        @enderror
+        <a href="{{ route('oidc.redirect') }}" class="btn btn-outline-primary w-100">
+            <i class="bi bi-building-lock me-1"></i> {{ config('oidc.button_label') }}
+        </a>
+        <div class="d-flex align-items-center gap-2 my-4 text-body-secondary small">
+            <hr class="flex-grow-1 my-0"><span>or with your password</span><hr class="flex-grow-1 my-0">
+        </div>
+    @endif
+
     <form method="POST" action="{{ route('login') }}" novalidate>
         @csrf
 

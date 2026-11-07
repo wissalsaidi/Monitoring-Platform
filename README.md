@@ -244,8 +244,41 @@ Commandes des pannes et scénario de démonstration : [`docs/demo/README.md`](do
 
 ## SSO (OpenID Connect)
 
-Epic SCRUM-87 : se connecter avec le compte de l'entreprise (Entra ID, Okta, Keycloak…). La connexion côté plateforme
-arrive avec SCRUM-88 ; pour l'instant, le fournisseur de démo et ce qu'il faut créer chez un vrai fournisseur.
+Epic SCRUM-87 : se connecter avec le compte de l'entreprise (Entra ID, Okta, Keycloak…), en OpenID Connect.
+
+**Connexion** (SCRUM-88) : bouton « Sign in with … » sur la page de connexion, dès que le fournisseur est configuré
+dans `.env`. Le mot de passe reste possible à côté.
+
+| Variable | Rôle |
+|---|---|
+| `OIDC_ISSUER` | émetteur exact du fournisseur (claim `iss`) ; vide = pas de SSO |
+| `OIDC_INTERNAL_URL` | adresse pour lire la découverte depuis le conteneur, si l'émetteur n'y est pas joignable (vide sinon) |
+| `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET` | client confidentiel créé chez le fournisseur |
+| `OIDC_SCOPES` | `openid email profile` par défaut |
+| `OIDC_BUTTON_LABEL` | texte du bouton (ex. « Sign in with Contoso ») |
+
+- Flux « authorization code » avec **PKCE S256**, `state` et `nonce` aléatoires, liés à la session et à usage unique
+  (10 min au plus) ; le code est échangé côté serveur avec le secret client.
+- Jeton d'identité vérifié : signature par les clés du fournisseur (JWKS, relues si une clé inconnue apparaît),
+  algorithmes RS/ES seulement, `iss`, `aud` (et `azp`), `exp`, `iat`, `nonce`. Découverte et clés en cache 1 h.
+- La personne est retrouvée par **`iss` + `sub`**. À sa première connexion, un compte existant est lié si l'annuaire
+  **atteste l'email** (`email_verified`) ; ensuite, plus jamais par l'email. Pas de création de compte : l'accès reste
+  sur invitation (création depuis une invitation : SCRUM-89).
+- Compte désactivé : refusé. 2FA de la plateforme activée : le code est demandé après le SSO ; un administrateur sans
+  2FA doit la mettre en place, comme après un mot de passe.
+- Tout échec ramène à la connexion avec un message générique ; le détail va dans les logs, sans jeton ni code.
+- Audit : `user.sso_link` (première liaison), `user.login_sso` (chaque connexion).
+
+Avec le Keycloak de démo (ci-dessous), dans `.env` :
+
+```bash
+OIDC_ISSUER=http://localhost:8180/realms/monitoring
+OIDC_INTERNAL_URL=http://keycloak:8080/realms/monitoring
+OIDC_CLIENT_ID=monitoring-platform
+OIDC_CLIENT_SECRET=     # KEYCLOAK_DEMO_CLIENT_SECRET, lu dans le volume de Keycloak
+```
+
+Les utilisateurs de test se connectent s'ils ont un compte sur la plateforme avec le même email (créé par invitation).
 
 **Keycloak de démo** (SCRUM-91) : un « annuaire d'entreprise » local, pour tester sans compte Entra ID ni Okta.
 
