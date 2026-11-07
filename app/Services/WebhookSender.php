@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\WebhookType;
 use App\Exceptions\WebhookDeliveryException;
 use App\Models\Webhook;
 use App\Rules\PublicUrl;
@@ -41,14 +42,16 @@ class WebhookSender
         $body = json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
         $timestamp = (string) now()->getTimestamp();
 
+        // Slack et Teams ne vérifient pas de signature : l'URL secrète fait office de jeton (SCRUM-77)
+        $headers = $webhook->type === WebhookType::Generic ? [
+            'X-Platform-Event' => $event,
+            'X-Platform-Delivery' => $deliveryId,
+            'X-Platform-Timestamp' => $timestamp,
+            'X-Platform-Signature' => self::signature((string) $webhook->secret, $timestamp, $body),
+        ] : [];
+
         $request = Http::withBody($body, 'application/json')
-            ->withHeaders([
-                'User-Agent' => self::USER_AGENT,
-                'X-Platform-Event' => $event,
-                'X-Platform-Delivery' => $deliveryId,
-                'X-Platform-Timestamp' => $timestamp,
-                'X-Platform-Signature' => self::signature((string) $webhook->secret, $timestamp, $body),
-            ])
+            ->withHeaders(['User-Agent' => self::USER_AGENT, ...$headers])
             ->timeout(self::TIMEOUT_SECONDS)
             ->connectTimeout(self::TIMEOUT_SECONDS)
             ->withOptions(['allow_redirects' => false, ...$this->pinnedAddress((string) $webhook->url)]);

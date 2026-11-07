@@ -5,7 +5,6 @@ namespace App\Jobs;
 use App\Enums\NotificationChannel;
 use App\Enums\NotificationEvent;
 use App\Enums\NotificationStatus;
-use App\Enums\WebhookType;
 use App\Exceptions\WebhookDeliveryException;
 use App\Mail\AlertOpenedMail;
 use App\Mail\AlertResolvedMail;
@@ -68,8 +67,8 @@ class SendAlertNotification implements ShouldQueue
     }
 
     /**
-     * POST JSON signé vers le webhook (SCRUM-76). Webhook supprimé ou désactivé entre-temps : notification en échec,
-     * sans nouvel essai. Slack et Microsoft Teams : leur format arrive avec SCRUM-77, la notification attend.
+     * POST vers le webhook (SCRUM-76) : JSON signé, message Slack ou Adaptive Card Teams selon son type (SCRUM-77).
+     * Webhook supprimé ou désactivé entre-temps : notification en échec, sans nouvel essai.
      */
     private function sendWebhook(AlertNotification $notification): void
     {
@@ -83,10 +82,6 @@ class SendAlertNotification implements ShouldQueue
 
             return;
         }
-        if ($webhook->type !== WebhookType::Generic) {
-            return;
-        }
-
         $notification->increment('attempts');
         $alert = $notification->alert;
         $peak = $notification->event === NotificationEvent::Resolved
@@ -98,7 +93,7 @@ class SendAlertNotification implements ShouldQueue
             app(WebhookSender::class)->send(
                 $webhook,
                 WebhookPayload::eventName($notification->event),
-                WebhookPayload::forAlert($alert, $notification->event, $deliveryId, $peak),
+                WebhookPayload::forWebhook($webhook, $alert, $notification->event, $deliveryId, $peak),
                 $deliveryId,
             );
         } catch (WebhookDeliveryException $e) {

@@ -3,7 +3,9 @@
 namespace App\Services;
 
 use App\Enums\NotificationEvent;
+use App\Enums\WebhookType;
 use App\Models\Alert;
+use App\Models\Webhook;
 use Illuminate\Support\Carbon;
 use Ramsey\Uuid\Uuid;
 
@@ -49,6 +51,20 @@ class WebhookPayload
                 'name' => $target->team->name,
             ],
         ];
+    }
+
+    /**
+     * Corps à envoyer selon le type du webhook (SCRUM-77) : JSON générique, message Slack ou Adaptive Card Teams.
+     *
+     * @return array<string, mixed>
+     */
+    public static function forWebhook(Webhook $webhook, Alert $alert, NotificationEvent $event, string $deliveryId, ?float $peak = null): array
+    {
+        return match ($webhook->type) {
+            WebhookType::Generic => self::forAlert($alert, $event, $deliveryId, $peak),
+            WebhookType::Slack => WebhookMessage::slack($alert, $event, $peak),
+            WebhookType::Teams => WebhookMessage::teams($alert, $event, $peak),
+        };
     }
 
     /** « alert.opened » ou « alert.resolved » (en-tête X-Platform-Event et champ event) */

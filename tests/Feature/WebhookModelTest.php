@@ -21,6 +21,7 @@ use App\Services\AlertNotifier;
 use App\Services\NotificationRouter;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Validator;
@@ -178,10 +179,11 @@ class WebhookModelTest extends TestCase
         Queue::assertPushed(SendAlertNotification::class, 2);
 
         Mail::fake();
+        Http::fake(['hooks.example.com/*' => Http::response('ok')]);
         $webhookRow = AlertNotification::where('channel', 'webhook')->sole();
         (new SendAlertNotification($webhookRow->id))->handle();
-        Mail::assertNothingSent();                                          // l'envoi signé arrive avec SCRUM-76
-        $this->assertSame(NotificationStatus::Pending, $webhookRow->fresh()->status);
+        Mail::assertNothingSent();                                          // envoyé en HTTP (SCRUM-76, 77), pas par email
+        $this->assertSame(NotificationStatus::Sent, $webhookRow->fresh()->status);
     }
 
     public function test_the_rules_page_still_offers_only_email_or_dashboard(): void

@@ -264,16 +264,26 @@ class WebhookSendTest extends TestCase
         Http::assertNothingSent();
     }
 
-    public function test_slack_and_teams_wait_for_their_format(): void
+    public function test_slack_and_teams_are_sent_in_their_format_without_signature(): void
     {
-        Http::fake();
-        $this->webhook->update(['type' => WebhookType::Slack]);
-        $notification = $this->notification();
+        Http::fake(['itsm.example.com/*' => Http::response('ok')]);
 
-        $this->deliver($notification);
+        foreach ([WebhookType::Slack, WebhookType::Teams] as $type) {
+            $this->webhook->update(['type' => $type]);
+            $notification = $this->notification();
+            $this->deliver($notification);
+            $this->assertSame(NotificationStatus::Sent, $notification->fresh()->status);
+            $notification->delete();
+        }
 
-        Http::assertNothingSent();
-        $this->assertSame(NotificationStatus::Pending, $notification->fresh()->status);
+        $sent = Http::recorded()->map(fn ($pair) => $pair[0]);
+        $this->assertCount(2, $sent);
+        $this->assertArrayHasKey('attachments', json_decode($sent[0]->body(), true));              // Slack
+        $this->assertSame('message', json_decode($sent[1]->body(), true)['type']);                // Teams
+        foreach ($sent as $request) {
+            $this->assertFalse($request->hasHeader('X-Platform-Signature'));
+            $this->assertSame('MonitoringPlatform-Webhook/1', $request->header('User-Agent')[0]);
+        }
     }
 
     public function test_the_job_keeps_the_same_retries_as_the_emails(): void
