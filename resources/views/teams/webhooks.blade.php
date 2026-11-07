@@ -30,7 +30,8 @@
     @endif
 
     <div class="row g-4">
-        <div class="@if ($canManage) col-xxl-8 @else col-12 @endif">
+        {{-- Liste sur toute la largeur (colonnes d'état et d'envoi), formulaire de création dessous --}}
+        <div class="col-12">
             <div class="card">
                 <div class="card-header d-flex align-items-center py-3">
                     <span class="fw-semibold">{{ $team->name }}</span>
@@ -76,7 +77,10 @@
                                             @else
                                                 <span class="badge text-bg-secondary">Disabled</span>
                                             @endif
-                                            @if ($hook->consecutive_failures > 0)
+                                            @if (! $hook->active && $hook->consecutive_failures >= \App\Services\WebhookFailureTracker::AUTO_DISABLE_AFTER)
+                                                {{-- Désactivé automatiquement (SCRUM-79) : à réactiver à la main --}}
+                                                <div class="small text-danger mt-1">Automatically, after {{ $hook->consecutive_failures }} failures</div>
+                                            @elseif ($hook->consecutive_failures > 0)
                                                 <div class="small text-danger mt-1">{{ $hook->consecutive_failures }} failed in a row</div>
                                             @endif
                                         </td>
@@ -84,6 +88,7 @@
                                             @if ($last = $hook->lastNotification)
                                                 <span class="badge @if ($last->status === \App\Enums\NotificationStatus::Sent) text-bg-success @elseif ($last->status === \App\Enums\NotificationStatus::Failed) text-bg-danger @else text-bg-secondary @endif">{{ $last->status->label() }}</span>
                                                 <span class="text-body-secondary ms-1">{{ ($last->sent_at ?? $last->created_at)->toDisplay()->format('d/m/Y H:i') }}</span>
+                                                <div><a href="{{ route('teams.notifications.history', [$team, 'webhook' => $hook->id]) }}" class="text-body-secondary">All deliveries</a></div>
                                             @else
                                                 <span class="text-body-secondary">Never</span>
                                             @endif
@@ -156,7 +161,7 @@
         </div>
 
         @if ($canManage)
-            <div class="col-xxl-4">
+            <div class="col-xl-6">
                 <form method="POST" action="{{ route('teams.notifications.webhooks.store', $team) }}" class="card">
                     @csrf
                     <div class="card-header py-3 fw-semibold"><i class="bi bi-plus-lg me-1"></i>New webhook</div>

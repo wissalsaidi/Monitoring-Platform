@@ -17,7 +17,7 @@ class AlertNotification extends Model
 {
     protected $table = 'notifications';
 
-    protected $fillable = ['alert_id', 'user_id', 'webhook_id', 'recipient', 'channel', 'event', 'status', 'attempts', 'error', 'sent_at'];
+    protected $fillable = ['alert_id', 'user_id', 'webhook_id', 'recipient', 'channel', 'event', 'status', 'attempts', 'http_status', 'error', 'sent_at'];
 
     protected $attributes = [
         'status' => 'pending',
@@ -31,6 +31,7 @@ class AlertNotification extends Model
             'event' => NotificationEvent::class,
             'status' => NotificationStatus::class,
             'sent_at' => 'datetime',
+            'http_status' => 'integer',
         ];
     }
 

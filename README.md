@@ -279,7 +279,8 @@ seulement. Seuls ceux qui ont été prévenus de l'ouverture d'une alerte sont p
 - Onglet **History** de la même page (SCRUM-56) : chaque notification de la team (date, alerte, événement, destinataire,
   canal, statut envoyée / en attente / échec), filtres par statut et par target, 25 par page. Dans les listes d'alertes,
   l'icône enveloppe d'une alerte ouvre ses notifications. Les adresses email et le détail des erreurs SMTP ne sont
-  visibles que des Admin.
+  visibles que des Admin. Envois webhook (SCRUM-79) : nom du webhook, code HTTP et nombre d'essais ; filtres par canal
+  (email / webhook) et par webhook.
 
 ## Webhooks
 
@@ -372,6 +373,12 @@ docker compose exec app php artisan webhooks:try teams --resolved    # message d
   affiché sur la ligne (code HTTP et durée, ou erreur). Pour un webhook générique, l'événement est `alert.test` et le
   corps contient `"test": true`. Rien n'est enregistré.
 - Audit : `webhook.create`, `webhook.update`, `webhook.delete`, `webhook.secret_rotate`, sans l'URL ni le secret.
+
+**Désactivation automatique** (SCRUM-79) : une notification compte comme un échec une fois ses 3 essais épuisés. Au
+**10e échec consécutif**, le webhook est désactivé : les Admin de la team reçoivent un email (nom, dernière erreur, lien
+vers la page, jamais l'URL) et l'audit garde `webhook.auto_disable` (auteur « System »). Un envoi réussi remet le
+compteur à zéro. On réactive le webhook à la main, depuis le menu « … » de l'onglet Webhooks, de préférence après un
+« Send test » réussi ; la réactivation remet aussi le compteur à zéro.
 
 ## Onglet Metrics
 

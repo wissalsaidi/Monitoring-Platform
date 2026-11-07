@@ -66,13 +66,13 @@ class WebhookSender
         }
 
         if ($response->redirect()) {
-            throw new WebhookDeliveryException("HTTP {$response->status()}: redirect not followed.");
+            throw new WebhookDeliveryException("HTTP {$response->status()}: redirect not followed.", $response->status());
         }
         if (! $response->successful()) {
             // Page HTML d'erreur : balises remplacées par des espaces, pour garder les mots séparés
             $excerpt = Str::limit(trim(preg_replace(['/<[^>]*>/', '/\s+/'], ' ', $response->body())), self::EXCERPT);
 
-            throw new WebhookDeliveryException("HTTP {$response->status()}".($excerpt !== '' ? ": {$excerpt}" : '.'));
+            throw new WebhookDeliveryException("HTTP {$response->status()}".($excerpt !== '' ? ": {$excerpt}" : '.'), $response->status());
         }
 
         return $response->status();

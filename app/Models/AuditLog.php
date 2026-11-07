@@ -82,6 +82,7 @@ class AuditLog extends Model
         'webhook.update' => 'Webhook updated',
         'webhook.delete' => 'Webhook deleted',
         'webhook.secret_rotate' => 'Webhook secret regenerated',
+        'webhook.auto_disable' => 'Webhook disabled automatically',
     ];
 
     /** Entrée d'une team supprimée depuis : team_id est passé à null, mais ce n'est pas une action de plateforme */
