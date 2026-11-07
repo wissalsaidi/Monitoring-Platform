@@ -2,12 +2,17 @@
 
 namespace App\Jobs;
 
+use App\Enums\NotificationChannel;
 use App\Enums\NotificationEvent;
 use App\Enums\NotificationStatus;
+use App\Exceptions\WebhookDeliveryException;
 use App\Mail\AlertOpenedMail;
 use App\Mail\AlertResolvedMail;
 use App\Models\AlertNotification;
 use App\Services\IncidentHistoryService;
+use App\Services\WebhookFailureTracker;
+use App\Services\WebhookPayload;
+use App\Services\WebhookSender;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Mail\Mailable;
@@ -41,6 +46,13 @@ class SendAlertNotification implements ShouldQueue
             return;
         }
 
+        // Webhook (SCRUM-76) : même job, mêmes essais que les emails
+        if ($notification->channel === NotificationChannel::Webhook) {
+            $this->sendWebhook($notification);
+
+            return;
+        }
+
         $notification->increment('attempts');
 
         try {
@@ -52,6 +64,47 @@ class SendAlertNotification implements ShouldQueue
         }
 
         $notification->update(['status' => NotificationStatus::Sent, 'sent_at' => now(), 'error' => null]);
+    }
+
+    /**
+     * POST vers le webhook (SCRUM-76) : JSON signé, message Slack ou Adaptive Card Teams selon son type (SCRUM-77).
+     * Webhook supprimé ou désactivé entre-temps : notification en échec, sans nouvel essai.
+     */
+    private function sendWebhook(AlertNotification $notification): void
+    {
+        $webhook = $notification->webhook;
+
+        if ($webhook === null || ! $webhook->active) {
+            $notification->update([
+                'status' => NotificationStatus::Failed,
+                'error' => $webhook === null ? 'Webhook deleted.' : 'Webhook disabled.',
+            ]);
+
+            return;
+        }
+        $notification->increment('attempts');
+        $alert = $notification->alert;
+        $peak = $notification->event === NotificationEvent::Resolved
+            ? app(IncidentHistoryService::class)->peaks($alert->target, collect([$alert]))[$alert->id] ?? null
+            : null;
+        $deliveryId = WebhookPayload::deliveryId($notification->id);
+
+        try {
+            $status = app(WebhookSender::class)->send(
+                $webhook,
+                WebhookPayload::eventName($notification->event),
+                WebhookPayload::forWebhook($webhook, $alert, $notification->event, $deliveryId, $peak),
+                $deliveryId,
+            );
+        } catch (WebhookDeliveryException $e) {
+            // Code HTTP du dernier essai (SCRUM-79) ; null si le receveur n'a pas répondu
+            $notification->update(['error' => Str::limit($e->getMessage(), 490), 'http_status' => $e->status]);
+
+            throw $e;      // la queue refera une tentative
+        }
+
+        $notification->update(['status' => NotificationStatus::Sent, 'sent_at' => now(), 'error' => null, 'http_status' => $status]);
+        app(WebhookFailureTracker::class)->recordSuccess($webhook);
     }
 
     /** Email de l'événement : ouverture (SCRUM-53) ou résolution, avec la valeur maximale de l'incident si connue (SCRUM-54) */
@@ -75,6 +128,12 @@ class SendAlertNotification implements ShouldQueue
             'status' => NotificationStatus::Failed,
             'error' => Str::limit((string) $e?->getMessage(), 490),
         ]);
+
+        // Webhook : un échec de plus d'affilée, désactivé au 10e (SCRUM-79)
+        $webhookId = AlertNotification::whereKey($this->notificationId)->value('webhook_id');
+        if ($webhookId !== null) {
+            app(WebhookFailureTracker::class)->recordFailure($webhookId, $e?->getMessage());
+        }
 
         // Pas d'adresse email dans les logs : l'id suffit pour retrouver la notification
         Log::warning('Alert notification failed', ['notification_id' => $this->notificationId, 'error' => $e?->getMessage()]);

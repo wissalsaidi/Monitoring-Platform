@@ -279,7 +279,106 @@ seulement. Seuls ceux qui ont été prévenus de l'ouverture d'une alerte sont p
 - Onglet **History** de la même page (SCRUM-56) : chaque notification de la team (date, alerte, événement, destinataire,
   canal, statut envoyée / en attente / échec), filtres par statut et par target, 25 par page. Dans les listes d'alertes,
   l'icône enveloppe d'une alerte ouvre ses notifications. Les adresses email et le détail des erreurs SMTP ne sont
-  visibles que des Admin.
+  visibles que des Admin. Envois webhook (SCRUM-79) : nom du webhook, code HTTP et nombre d'essais ; filtres par canal
+  (email / webhook) et par webhook.
+
+## Webhooks
+
+Une team peut prévenir d'autres outils à l'ouverture et à la résolution de ses alertes (SCRUM-74) : un appel HTTP vers
+un outil interne (ITSM, astreinte), ou un message Slack ou Microsoft Teams. Chaque webhook choisit ses sévérités et ses
+événements, indépendamment des emails. Les envois passent par la queue Redis (3 essais, après 30 s puis 2 min) et
+apparaissent dans l'historique des notifications.
+
+**Webhook générique** : `POST` d'un JSON versionné (SCRUM-76).
+
+```json
+{
+  "version": 1,
+  "event": "alert.opened",
+  "delivery_id": "ccfbec4a-dd18-574c-9a73-eb3f017208fc",
+  "sent_at": "2026-11-07T09:01:30Z",
+  "alert": {
+    "id": 522, "severity": "high", "status": "open", "message": "Response time > 2000 ms",
+    "metric": "response_time", "value": 3017.004, "threshold": 2000, "peak_value": null,
+    "started_at": "2026-11-07T09:00:00Z", "resolved_at": null,
+    "url": "https://monitoring.company.com/targets/24?tab=alerts"
+  },
+  "target": { "id": 24, "name": "Website-01", "type": "website" },
+  "team": { "id": 9, "name": "Demo" }
+}
+```
+
+| En-tête | Contenu |
+|---|---|
+| `X-Platform-Event` | `alert.opened` ou `alert.resolved` |
+| `X-Platform-Delivery` | identifiant de livraison, le même à chaque nouvel essai : à garder pour ignorer un doublon |
+| `X-Platform-Timestamp` | heure d'envoi (secondes Unix) |
+| `X-Platform-Signature` | `sha256=` + HMAC-SHA256, avec le secret du webhook, de `<timestamp>.<corps brut>` |
+
+Vérifier la signature chez le receveur. Le timestamp est signé avec le corps : refuser les messages trop anciens
+bloque les rejeux.
+
+```php
+$body = file_get_contents('php://input');                      // corps brut, avant tout json_decode
+$timestamp = $_SERVER['HTTP_X_PLATFORM_TIMESTAMP'] ?? '';
+$expected = 'sha256='.hash_hmac('sha256', $timestamp.'.'.$body, getenv('WEBHOOK_SECRET'));
+
+if (! hash_equals($expected, $_SERVER['HTTP_X_PLATFORM_SIGNATURE'] ?? '') || abs(time() - (int) $timestamp) > 300) {
+    http_response_code(401);
+    exit;
+}
+```
+
+```python
+import hashlib, hmac, time
+
+def verify(body: bytes, timestamp: str, signature: str, secret: str) -> bool:
+    expected = "sha256=" + hmac.new(secret.encode(), timestamp.encode() + b"." + body, hashlib.sha256).hexdigest()
+    return hmac.compare_digest(expected, signature) and abs(time.time() - int(timestamp)) <= 300
+```
+
+Répondre un code 2xx dans les 5 s. Les redirections ne sont pas suivies, et l'adresse est revérifiée à chaque envoi
+(pas d'adresse interne). En local, `fake-api` sert de receveur : `POST http://fake-api:8080/webhook`, puis
+`GET http://localhost:8081/webhook/received` montre ce qui a été reçu.
+
+**Slack et Microsoft Teams** (SCRUM-77) : un message lisible dans le canal, couleur selon la sévérité (vert à la
+résolution), avec la target, la métrique, la valeur et le seuil, le début, puis la durée et le maximum à la résolution,
+et un bouton « View alert ». Pas de signature : l'URL secrète fait office de jeton (elle est chiffrée en base et jamais
+affichée en entier).
+
+- Slack : une app avec « Incoming Webhooks » activé, puis « Add New Webhook to Workspace » et le choix du canal.
+  L'URL commence par `https://hooks.slack.com/services/`.
+- Microsoft Teams : dans le canal, « Workflows », puis le modèle « Post to a channel when a webhook request is
+  received ». L'URL est donnée à la fin de l'assistant. Le message est une Adaptive Card.
+
+Essayer une URL avant de l'enregistrer : un message d'exemple est construit sur la dernière alerte. L'URL est saisie
+masquée et n'est pas enregistrée.
+
+```bash
+docker compose exec app php artisan webhooks:try slack               # ou teams, ou generic
+docker compose exec app php artisan webhooks:try teams --resolved    # message de résolution
+```
+
+**Gérer les webhooks** (SCRUM-78) : page Notifications, onglet **Webhooks**.
+
+- Liste : nom, type, sévérités et événements, état (et échecs consécutifs), dernier envoi. Un Viewer voit la liste
+  sans les adresses ni les actions.
+- Admin et Manager (`notification.manage`) : créer, modifier, désactiver / réactiver, supprimer (l'historique des envois
+  est gardé). 10 webhooks au plus par team.
+- L'URL n'est jamais réaffichée en entier (`https://hooks.slack.com/…/••••`) ; à la modification, un champ vide garde
+  l'adresse actuelle.
+- Webhook générique : le secret de signature est montré **une seule fois**, après la création ou la régénération
+  (menu « … » → « Regenerate secret » ; l'ancien cesse aussitôt de valoir).
+- **Send test** : envoi immédiat d'une alerte fictive (« Sample target », sévérité la plus grave choisie), résultat
+  affiché sur la ligne (code HTTP et durée, ou erreur). Pour un webhook générique, l'événement est `alert.test` et le
+  corps contient `"test": true`. Rien n'est enregistré.
+- Audit : `webhook.create`, `webhook.update`, `webhook.delete`, `webhook.secret_rotate`, sans l'URL ni le secret.
+
+**Désactivation automatique** (SCRUM-79) : une notification compte comme un échec une fois ses 3 essais épuisés. Au
+**10e échec consécutif**, le webhook est désactivé : les Admin de la team reçoivent un email (nom, dernière erreur, lien
+vers la page, jamais l'URL) et l'audit garde `webhook.auto_disable` (auteur « System »). Un envoi réussi remet le
+compteur à zéro. On réactive le webhook à la main, depuis le menu « … » de l'onglet Webhooks, de préférence après un
+« Send test » réussi ; la réactivation remet aussi le compteur à zéro.
 
 ## Onglet Metrics
 

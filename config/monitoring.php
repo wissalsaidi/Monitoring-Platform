@@ -13,6 +13,12 @@ return [
     | À réserver aux services de démonstration (ex. la fake API du docker-compose).
     | Liste séparée par des virgules dans TARGET_ALLOWED_INTERNAL_HOSTS.
     */
+    // Webhooks (SCRUM-75) : hôtes de démo acceptés en HTTP et sur le réseau interne (sinon HTTPS et adresse publique)
+    'webhook_allowed_hosts' => array_values(array_filter(array_map(
+        'trim',
+        explode(',', (string) env('WEBHOOK_ALLOWED_HOSTS', 'fake-api')),
+    ))),
+
     'allowed_internal_hosts' => array_values(array_filter(array_map(
         'trim',
         explode(',', (string) env('TARGET_ALLOWED_INTERNAL_HOSTS', 'fake-api,demo-website-01')),

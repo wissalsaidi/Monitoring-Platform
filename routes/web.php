@@ -17,6 +17,7 @@ use App\Http\Controllers\TeamInvitationController;
 use App\Http\Controllers\TeamMemberController;
 use App\Http\Controllers\TwoFactorController;
 use App\Http\Controllers\WaitingForAccessController;
+use App\Http\Controllers\WebhookController;
 use App\Http\Middleware\EnsureTwoFactorForAdmins;
 use App\Http\Middleware\EnsureUserHasTeam;
 use Illuminate\Support\Facades\Route;
@@ -111,6 +112,18 @@ Route::middleware(['auth', 'verified', EnsureTwoFactorForAdmins::class])->group(
         Route::put('/teams/{team}/notifications', [NotificationRuleController::class, 'update'])->name('teams.notifications.update');
         // Historique des notifications (SCRUM-56) : tout membre de la team
         Route::get('/teams/{team}/notifications/history', NotificationHistoryController::class)->name('teams.notifications.history');
+
+        // Webhooks de la team (SCRUM-78) : le webhook doit appartenir à la team de l'URL (scopeBindings)
+        Route::prefix('/teams/{team}/notifications/webhooks')->name('teams.notifications.webhooks.')->scopeBindings()->group(function () {
+            Route::get('/', [WebhookController::class, 'index'])->name('index');
+            Route::post('/', [WebhookController::class, 'store'])->name('store');
+            Route::get('/{webhook}/edit', [WebhookController::class, 'edit'])->name('edit');
+            Route::put('/{webhook}', [WebhookController::class, 'update'])->name('update');
+            Route::patch('/{webhook}/active', [WebhookController::class, 'toggle'])->name('toggle');
+            Route::delete('/{webhook}', [WebhookController::class, 'destroy'])->name('destroy');
+            Route::post('/{webhook}/secret', [WebhookController::class, 'rotateSecret'])->name('secret');
+            Route::post('/{webhook}/test', [WebhookController::class, 'test'])->middleware('throttle:10,1')->name('test');
+        });
 
         // Journal d'audit de la team (SCRUM-60) : Admin (permission audit.view)
         Route::get('/audit', [AuditLogController::class, 'current'])->name('teams.audit.current');

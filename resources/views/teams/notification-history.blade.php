@@ -25,7 +25,7 @@
         @if ($alert)
             <input type="hidden" name="alert" value="{{ $alert->id }}">
         @endif
-        <div class="col-6 col-md-3">
+        <div class="col-6 col-md-2">
             <select name="status" class="form-select form-select-sm" aria-label="Filter by status" data-auto-submit>
                 <option value="">All statuses</option>
                 @foreach ($statuses as $status)
@@ -33,7 +33,25 @@
                 @endforeach
             </select>
         </div>
-        <div class="col-6 col-md-4">
+        <div class="col-6 col-md-2">
+            <select name="channel" class="form-select form-select-sm" aria-label="Filter by channel" data-auto-submit>
+                <option value="">All channels</option>
+                @foreach ($channels as $channel)
+                    <option value="{{ $channel->value }}" @selected(($filters['channel'] ?? null) === $channel->value)>{{ $channel->label() }}</option>
+                @endforeach
+            </select>
+        </div>
+        @if ($webhooks->isNotEmpty())
+            <div class="col-6 col-md-3">
+                <select name="webhook" class="form-select form-select-sm" aria-label="Filter by webhook" data-auto-submit>
+                    <option value="">All webhooks</option>
+                    @foreach ($webhooks as $webhook)
+                        <option value="{{ $webhook->id }}" @selected((int) ($filters['webhook'] ?? 0) === $webhook->id)>{{ $webhook->name }}</option>
+                    @endforeach
+                </select>
+            </div>
+        @endif
+        <div class="col-6 col-md-3">
             <select name="target" class="form-select form-select-sm" aria-label="Filter by target" data-auto-submit>
                 <option value="">All targets</option>
                 @foreach ($targets as $target)
@@ -68,7 +86,7 @@
                 <i class="bi bi-envelope text-body-secondary" style="font-size: 2.5rem"></i>
                 <p class="mt-3 mb-1 fw-semibold">{{ array_filter($filters) ? 'No notification matches these filters' : 'No notification sent yet' }}</p>
                 @unless (array_filter($filters))
-                    <p class="text-body-secondary small mb-0">Emails sent for this team's alerts appear here, according to the notification rules.</p>
+                    <p class="text-body-secondary small mb-0">Emails and webhook deliveries for this team's alerts appear here, according to the notification rules.</p>
                 @endunless
             </div>
         @else
@@ -98,21 +116,33 @@
                                 </td>
                                 <td class="small">{{ $notification->event->label() }}</td>
                                 <td class="small">
-                                    {{ $notification->user?->name ?? 'Deleted user' }}
-                                    @if ($showEmails && $notification->user)
-                                        <div class="text-body-secondary">{{ $notification->recipient }}</div>
+                                    @if ($notification->channel === \App\Enums\NotificationChannel::Webhook)
+                                        {{-- Webhook (SCRUM-75) : son nom n'est pas une donnée personnelle, visible de tous --}}
+                                        {{ $notification->recipient }}@unless ($notification->webhook_id)<span class="text-body-secondary"> (deleted)</span>@endunless
+                                    @else
+                                        {{ $notification->user?->name ?? 'Deleted user' }}
+                                        @if ($showEmails && $notification->user)
+                                            <div class="text-body-secondary">{{ $notification->recipient }}</div>
+                                        @endif
                                     @endif
                                 </td>
-                                <td class="small text-nowrap"><i class="bi bi-envelope me-1"></i>{{ $notification->channel->label() }}</td>
+                                <td class="small text-nowrap"><i class="bi {{ $notification->channel === \App\Enums\NotificationChannel::Webhook ? 'bi-broadcast' : 'bi-envelope' }} me-1"></i>{{ $notification->channel->label() }}</td>
                                 <td class="pe-3 small text-nowrap">
                                     @switch($notification->status)
                                         @case(\App\Enums\NotificationStatus::Sent)
                                             <span class="text-success"><i class="bi bi-check-circle-fill me-1"></i>{{ $notification->status->label() }}</span>
-                                            <div class="text-body-secondary">{{ $notification->sent_at?->toDisplay()->format('H:i:s') }}</div>
+                                            <div class="text-body-secondary">
+                                                {{ $notification->sent_at?->toDisplay()->format('H:i:s') }}
+                                                {{-- Webhook (SCRUM-79) : code HTTP et nombre d'essais --}}
+                                                @if ($notification->channel === \App\Enums\NotificationChannel::Webhook)
+                                                    · HTTP {{ $notification->http_status ?? '—' }} · {{ $notification->attempts }} {{ Str::plural('attempt', $notification->attempts) }}
+                                                @endif
+                                            </div>
                                             @break
                                         @case(\App\Enums\NotificationStatus::Failed)
                                             <span class="text-danger"><i class="bi bi-x-circle-fill me-1"></i>{{ $notification->status->label() }}</span>
                                             <div class="text-body-secondary text-wrap" style="max-width: 22rem">
+                                                @if ($notification->http_status)HTTP {{ $notification->http_status }} · @endif
                                                 after {{ $notification->attempts }} {{ Str::plural('attempt', $notification->attempts) }}@if ($showErrors && $notification->error): {{ $notification->error }}@endif
                                             </div>
                                             @break

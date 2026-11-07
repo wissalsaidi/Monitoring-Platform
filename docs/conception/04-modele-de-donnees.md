@@ -17,6 +17,8 @@ erDiagram
     TEAM ||--o{ ALERT_RULE : "définit"
     ALERT ||--o{ NOTIFICATION : "est notifiée par"
     USER |o--o{ NOTIFICATION : "reçoit"
+    TEAM ||--o{ WEBHOOK : "configure"
+    WEBHOOK |o--o{ NOTIFICATION : "reçoit"
 ```
 
 - Un **utilisateur** appartient à une ou plusieurs **teams**, avec un **rôle** dans chacune (Admin, Manager, Viewer).
@@ -106,13 +108,27 @@ erDiagram
         bigint id PK
         bigint alert_id FK
         bigint user_id FK "null si le compte est supprimé"
-        varchar recipient "email au moment de l'envoi"
-        varchar channel "email"
+        bigint webhook_id FK "webhook destinataire (SCRUM-75)"
+        varchar recipient "email, ou nom du webhook, au moment de l'envoi"
+        varchar channel "email, webhook"
         varchar event "opened, resolved"
         varchar status "pending, sent, failed"
         tinyint attempts
         varchar error
         timestamp sent_at
+        timestamps created_updated
+    }
+    webhooks {
+        bigint id PK
+        bigint team_id FK
+        varchar name "unique dans la team"
+        varchar type "generic, slack, teams"
+        text url "chiffrée (APP_KEY)"
+        text secret "chiffré, signature HMAC"
+        json severities "ex. critical, high"
+        json events "opened, resolved"
+        boolean active
+        smallint consecutive_failures
         timestamps created_updated
     }
     audit_logs {
@@ -136,6 +152,8 @@ erDiagram
     teams ||--o{ alert_rules : ""
     alerts ||--o{ notifications : ""
     users |o--o{ notifications : ""
+    teams ||--o{ webhooks : ""
+    webhooks |o--o{ notifications : ""
 ```
 
 ## Clés étrangères et règles de suppression
@@ -152,6 +170,8 @@ erDiagram
 | `alert_rules.team_id` | `teams.id` | les règles sont supprimées (cascade) |
 | `notifications.alert_id` | `alerts.id` | les notifications sont supprimées (cascade) |
 | `notifications.user_id` | `users.id` | mis à `null` ; l'email du destinataire est remplacé par « deleted user » (RGPD) |
+| `webhooks.team_id` | `teams.id` | les webhooks sont supprimés (cascade) |
+| `notifications.webhook_id` | `webhooks.id` | mis à `null` (l'historique reste, avec le nom du webhook) |
 
 ## Contraintes d'unicité et index
 
@@ -170,12 +190,20 @@ erDiagram
 | `alert_rules` | (`team_id`, `severity`, `event`) unique | une seule règle par sévérité et par événement |
 | `notifications` | (`alert_id`, `recipient`, `channel`, `event`) unique | une notification n'est jamais envoyée deux fois pour le même événement |
 | `notifications` | index (`status`, `created_at`) | historique des notifications, filtre par statut |
+| `webhooks` | (`team_id`, `name`) unique | le nom d'un webhook est le destinataire de ses notifications |
 
 Le nom d'une target est aussi unique **dans sa team** (règle de validation applicative).
 
 ## Tables techniques de Laravel
 
 `sessions`, `password_reset_tokens`, `cache`, `cache_locks`, `jobs`, `job_batches` et `failed_jobs` sont créées par Laravel et ne portent pas de données métier.
+
+## Évolutions de la V2
+
+- **`webhooks`** (SCRUM-75) : webhooks d'une team (générique, Slack, Microsoft Teams), abonnés à des sévérités et des
+  événements, indépendamment des règles email. URL et secret chiffrés. Chaque envoi est une ligne de `notifications`
+  (canal `webhook`, destinataire = nom du webhook, `webhook_id`).
+- **`users`** : `platform_role` (SCRUM-81), `deactivated_at` et `last_login_at` (SCRUM-84), colonnes 2FA (SCRUM-86).
 
 ## Évolutions de la V1
 

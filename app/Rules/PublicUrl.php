@@ -26,7 +26,11 @@ class PublicUrl implements ValidationRule
         '0.0.0.0/8',
     ];
 
-    public function __construct(private readonly ?HostResolver $resolver = null) {}
+    /** @param  list<string>|null  $allowedHosts  hôtes acceptés ; null = config('monitoring.allowed_internal_hosts') */
+    public function __construct(
+        private readonly ?HostResolver $resolver = null,
+        private readonly ?array $allowedHosts = null,
+    ) {}
 
     public function validate(string $attribute, mixed $value, Closure $fail): void
     {
@@ -100,6 +104,6 @@ class PublicUrl implements ValidationRule
     /** @return list<string> */
     private function allowedHosts(): array
     {
-        return array_map('strtolower', config('monitoring.allowed_internal_hosts', []));
+        return array_map('strtolower', $this->allowedHosts ?? config('monitoring.allowed_internal_hosts', []));
     }
 }

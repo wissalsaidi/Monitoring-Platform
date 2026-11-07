@@ -48,6 +48,12 @@ class Team extends Model
         return $this->hasMany(TeamInvitation::class);
     }
 
+    /** Webhooks de la team (SCRUM-75) */
+    public function webhooks(): HasMany
+    {
+        return $this->hasMany(Webhook::class);
+    }
+
     /** Alertes des targets de la team (console d'administration, SCRUM-85) */
     public function alerts(): HasManyThrough
     {

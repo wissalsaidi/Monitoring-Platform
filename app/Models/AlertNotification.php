@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * Notification d'une alerte à un membre de la team (SCRUM-52), table « notifications » : historique des envois et
+ * Notification d'une alerte à un membre de la team (SCRUM-52) ou à un webhook (SCRUM-75), table « notifications » : historique des envois et
  * garde-fou contre les doublons (une seule par alerte, destinataire, canal et événement).
  * Nom différent de la table pour ne pas confondre avec Illuminate\Notifications\Notification.
  */
@@ -17,7 +17,7 @@ class AlertNotification extends Model
 {
     protected $table = 'notifications';
 
-    protected $fillable = ['alert_id', 'user_id', 'recipient', 'channel', 'event', 'status', 'attempts', 'error', 'sent_at'];
+    protected $fillable = ['alert_id', 'user_id', 'webhook_id', 'recipient', 'channel', 'event', 'status', 'attempts', 'http_status', 'error', 'sent_at'];
 
     protected $attributes = [
         'status' => 'pending',
@@ -31,6 +31,7 @@ class AlertNotification extends Model
             'event' => NotificationEvent::class,
             'status' => NotificationStatus::class,
             'sent_at' => 'datetime',
+            'http_status' => 'integer',
         ];
     }
 
@@ -42,5 +43,11 @@ class AlertNotification extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    /** Webhook destinataire (SCRUM-75) ; null pour un email, ou si le webhook a été supprimé depuis */
+    public function webhook(): BelongsTo
+    {
+        return $this->belongsTo(Webhook::class);
     }
 }
