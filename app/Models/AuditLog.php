@@ -46,6 +46,7 @@ class AuditLog extends Model
             $subject instanceof Team => $subject->id,
             $subject instanceof MonitoringTarget => $subject->team_id,
             $subject instanceof Alert => $subject->target?->team_id,
+            $subject instanceof Webhook => $subject->team_id,
             default => null,
         };
     }
@@ -77,6 +78,10 @@ class AuditLog extends Model
         'user.2fa_disable' => 'Two-factor disabled',
         'user.2fa_recovery_codes' => 'Recovery codes regenerated',
         'user.2fa_reset' => 'Two-factor reset',
+        'webhook.create' => 'Webhook created',
+        'webhook.update' => 'Webhook updated',
+        'webhook.delete' => 'Webhook deleted',
+        'webhook.secret_rotate' => 'Webhook secret regenerated',
     ];
 
     /** Entrée d'une team supprimée depuis : team_id est passé à null, mais ce n'est pas une action de plateforme */
@@ -98,6 +103,7 @@ class AuditLog extends Model
             $this->subject instanceof Alert => 'Alert on '.($this->subject->target?->name ?? $this->details['target'] ?? '?'),
             $this->subject instanceof Team => 'Team '.$this->subject->name,
             $this->subject instanceof User => $this->subject->name,
+            $this->subject instanceof Webhook => 'Webhook '.$this->subject->name,
             isset($this->details['name']) => $this->details['name'].' (deleted)',
             // Team supprimée depuis (SCRUM-85) : son dernier nom connu
             isset($this->details['changes']['name'][1]) => 'Team '.$this->details['changes']['name'][1].' (deleted)',

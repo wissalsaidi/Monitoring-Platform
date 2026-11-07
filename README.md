@@ -358,6 +358,21 @@ docker compose exec app php artisan webhooks:try slack               # ou teams,
 docker compose exec app php artisan webhooks:try teams --resolved    # message de résolution
 ```
 
+**Gérer les webhooks** (SCRUM-78) : page Notifications, onglet **Webhooks**.
+
+- Liste : nom, type, sévérités et événements, état (et échecs consécutifs), dernier envoi. Un Viewer voit la liste
+  sans les adresses ni les actions.
+- Admin et Manager (`notification.manage`) : créer, modifier, désactiver / réactiver, supprimer (l'historique des envois
+  est gardé). 10 webhooks au plus par team.
+- L'URL n'est jamais réaffichée en entier (`https://hooks.slack.com/…/••••`) ; à la modification, un champ vide garde
+  l'adresse actuelle.
+- Webhook générique : le secret de signature est montré **une seule fois**, après la création ou la régénération
+  (menu « … » → « Regenerate secret » ; l'ancien cesse aussitôt de valoir).
+- **Send test** : envoi immédiat d'une alerte fictive (« Sample target », sévérité la plus grave choisie), résultat
+  affiché sur la ligne (code HTTP et durée, ou erreur). Pour un webhook générique, l'événement est `alert.test` et le
+  corps contient `"test": true`. Rien n'est enregistré.
+- Audit : `webhook.create`, `webhook.update`, `webhook.delete`, `webhook.secret_rotate`, sans l'URL ni le secret.
+
 ## Onglet Metrics
 
 Sur la page d'une target, l'onglet **Metrics** (SCRUM-49) montre chaque métrique du type sur la période choisie :

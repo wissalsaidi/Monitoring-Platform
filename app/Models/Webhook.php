@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Str;
 
 /**
@@ -71,7 +72,24 @@ class Webhook extends Model
     {
         $parts = parse_url((string) $this->url);
 
-        return ($parts['scheme'] ?? 'https').'://'.($parts['host'] ?? '?').'/…';
+        return ($parts['scheme'] ?? 'https').'://'.($parts['host'] ?? '?').'/…/••••';
+    }
+
+    /** Sévérités et événements lisibles, dans l'ordre de la page (« CRITICAL, HIGH ») : audit et liste (SCRUM-78) */
+    public function severitiesLabel(): string
+    {
+        return $this->severities->sortByDesc(fn (AlertSeverity $s) => $s->rank())->map->label()->join(', ');
+    }
+
+    public function eventsLabel(): string
+    {
+        return collect(NotificationEvent::cases())->filter(fn ($e) => $this->events->contains($e))->map->label()->join(', ');
+    }
+
+    /** Dernier envoi (ouverture ou résolution d'une alerte), pour la liste */
+    public function lastNotification(): HasOne
+    {
+        return $this->hasOne(AlertNotification::class)->latestOfMany();
     }
 
     public function team(): BelongsTo

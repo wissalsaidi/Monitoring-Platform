@@ -23,7 +23,7 @@ class WebhookMessage
     ];
 
     /** @return array<string, mixed> */
-    public static function slack(Alert $alert, NotificationEvent $event, ?float $peak = null): array
+    public static function slack(Alert $alert, NotificationEvent $event, ?float $peak = null, ?string $url = null): array
     {
         $resolved = $event === NotificationEvent::Resolved;
 
@@ -42,7 +42,7 @@ class WebhookMessage
                     ['type' => 'actions', 'elements' => [[
                         'type' => 'button',
                         'text' => ['type' => 'plain_text', 'text' => 'View alert'],
-                        'url' => self::url($alert, $event),
+                        'url' => $url ?? self::url($alert, $event),
                         ...($resolved ? [] : ['style' => 'danger']),
                     ]]],
                     ['type' => 'context', 'elements' => [['type' => 'mrkdwn', 'text' => 'Team *'.self::escapeSlack($alert->target->team->name).'* · '.config('app.name')]]],
@@ -52,7 +52,7 @@ class WebhookMessage
     }
 
     /** @return array<string, mixed> */
-    public static function teams(Alert $alert, NotificationEvent $event, ?float $peak = null): array
+    public static function teams(Alert $alert, NotificationEvent $event, ?float $peak = null, ?string $url = null): array
     {
         $resolved = $event === NotificationEvent::Resolved;
 
@@ -75,7 +75,7 @@ class WebhookMessage
                         ['type' => 'FactSet', 'facts' => self::facts($alert, $event, $peak)],
                         ['type' => 'TextBlock', 'text' => 'Team '.$alert->target->team->name.' · '.config('app.name'), 'isSubtle' => true, 'size' => 'Small', 'wrap' => true],
                     ],
-                    'actions' => [['type' => 'Action.OpenUrl', 'title' => 'View alert', 'url' => self::url($alert, $event)]],
+                    'actions' => [['type' => 'Action.OpenUrl', 'title' => 'View alert', 'url' => $url ?? self::url($alert, $event)]],
                 ],
             ]],
         ];
