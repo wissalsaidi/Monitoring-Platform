@@ -242,6 +242,52 @@ docker compose exec -u www-data app php artisan db:seed --class=DemoSeeder   # c
 
 Commandes des pannes et scénario de démonstration : [`docs/demo/README.md`](docs/demo/README.md).
 
+## SSO (OpenID Connect)
+
+Epic SCRUM-87 : se connecter avec le compte de l'entreprise (Entra ID, Okta, Keycloak…). La connexion côté plateforme
+arrive avec SCRUM-88 ; pour l'instant, le fournisseur de démo et ce qu'il faut créer chez un vrai fournisseur.
+
+**Keycloak de démo** (SCRUM-91) : un « annuaire d'entreprise » local, pour tester sans compte Entra ID ni Okta.
+
+```bash
+docker compose --profile sso up -d keycloak     # profil "sso" : non lancé par défaut (~1 min au premier démarrage)
+docker compose exec keycloak cat /opt/keycloak/data/demo/secrets.env   # secrets générés au premier démarrage
+```
+
+- Page de connexion et console : http://localhost:8180 (console : `admin` / `KEYCLOAK_ADMIN_PASSWORD`).
+- Realm `monitoring`, importé au premier démarrage depuis `docker/keycloak/import/monitoring-realm.json`.
+- **Aucun mot de passe dans le dépôt** : les valeurs vides de `.env` (`KEYCLOAK_ADMIN_PASSWORD`,
+  `KEYCLOAK_DEMO_CLIENT_SECRET`, `KEYCLOAK_DEMO_USER_PASSWORD`) sont générées au premier démarrage et gardées dans le
+  volume `keycloak-data`. Pour repartir de zéro : `docker compose --profile sso down` puis
+  `docker volume rm monitoring-platform_keycloak-data`.
+- Client `monitoring-platform` : confidentiel, flux « authorization code » seulement, **PKCE S256 obligatoire**,
+  URL de retour `http://localhost:8000/auth/oidc/callback`, claim `groups` dans le jeton d'identité.
+- Émetteur (`iss`) : toujours `http://localhost:8180/realms/monitoring`. Le navigateur passe par `localhost:8180` ;
+  l'application appelle `http://keycloak:8080` pour le jeton et les clés (`KC_HOSTNAME_BACKCHANNEL_DYNAMIC`).
+
+Utilisateurs de test (mot de passe commun : `KEYCLOAK_DEMO_USER_PASSWORD`) :
+
+| Utilisateur | Groupe | Sert à tester |
+|---|---|---|
+| `alice.admin@company.com` | `monitoring-demo-admins` | connexion d'un Admin |
+| `victor.viewer@company.com` | `monitoring-demo-viewers` | connexion d'un Viewer |
+| `olivia.otp@company.com` | `monitoring-demo-admins` | MFA : configure un OTP à sa première connexion |
+| `nina.newcomer@company.com` | — | personne de l'annuaire jamais invitée |
+| `eve.unverified@company.com` | — | email **non vérifié** par l'annuaire (`email_verified: false`) |
+
+**Chez un vrai fournisseur**, une application OpenID Connect « web » (confidentielle) :
+
+- URL de retour : `https://<plateforme>/auth/oidc/callback` ; URL après déconnexion : `https://<plateforme>/login` ;
+- flux « authorization code » avec PKCE ; scopes `openid email profile` ;
+- claims attendus : `sub`, `email`, `email_verified`, `name`, et `groups` si les groupes servent (SCRUM-92) ;
+- Entra ID : « App registrations », plateforme « Web », secret client ; `email_verified` n'est pas toujours envoyé
+  (traité dans SCRUM-89) ; groupes : « Token configuration → Add groups claim » ;
+- Okta : « Applications → Create App Integration → OIDC, Web Application » ; groupes : claim `groups` sur le serveur
+  d'autorisation ;
+- Keycloak : client confidentiel, « Standard flow », PKCE `S256`, mapper « Group Membership » (`groups`, sans chemin).
+
+La MFA de l'annuaire (claims `amr` / `acr`) et le SSO obligatoire, avec compte de secours, arrivent avec SCRUM-90.
+
 ## Agent Zabbix 2
 
 Les serveurs, conteneurs et bases de données se supervisent avec l'agent Zabbix 2 (service `zabbix-agent2`).

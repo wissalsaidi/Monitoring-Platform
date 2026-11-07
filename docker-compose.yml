@@ -338,6 +338,31 @@ services:
     container_name: demo-nginx-01
     profiles: [demo]
 
+  # ─── SSO de démo : Keycloak, fournisseur OpenID Connect (SCRUM-91, epic SCRUM-87) ───
+  # Profil "sso" : docker compose --profile sso up -d keycloak
+  # Realm « monitoring » importé au premier démarrage (docker/keycloak/import) : client « monitoring-platform »,
+  # utilisateurs et groupes de test. Secrets générés au premier démarrage, gardés dans le volume (voir le README).
+  # KC_HOSTNAME : l'émetteur (iss) est toujours http://localhost:8180/realms/monitoring, que l'appel vienne du
+  # navigateur ou d'un conteneur ; KC_HOSTNAME_BACKCHANNEL_DYNAMIC : l'appli appelle http://keycloak:8080 en interne.
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.5.3
+    profiles: [sso]
+    entrypoint: ["/bin/bash", "/opt/keycloak/demo/entrypoint.sh"]
+    environment:
+      KC_HOSTNAME: http://localhost:8180
+      KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "true"
+      KC_HEALTH_ENABLED: "true"
+      # Vides par défaut : générés au premier démarrage (docker/keycloak/entrypoint.sh)
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-}
+      KEYCLOAK_DEMO_CLIENT_SECRET: ${KEYCLOAK_DEMO_CLIENT_SECRET:-}
+      KEYCLOAK_DEMO_USER_PASSWORD: ${KEYCLOAK_DEMO_USER_PASSWORD:-}
+    volumes:
+      - keycloak-data:/opt/keycloak/data
+      - ./docker/keycloak/entrypoint.sh:/opt/keycloak/demo/entrypoint.sh:ro
+      - ./docker/keycloak/import:/opt/keycloak/data/import:ro
+    ports:
+      - "127.0.0.1:8180:8080"   # page de connexion et console d'administration, depuis ce PC seulement
+
 networks:
   # Réseau interne nginx ↔ Grafana (SCRUM-48) : adresses fixes, pour que Grafana ne fasse confiance qu'à nginx
   grafana-proxy:
@@ -352,6 +377,7 @@ volumes:
   redis-data:
   zabbix-db-data:
   grafana-data:
+  keycloak-data:
   # Socket Docker filtré, partagé entre docker-socket-proxy et zabbix-agent2 uniquement (tmpfs : recréé à chaque démarrage)
   docker-proxy-socket:
     driver_opts:
