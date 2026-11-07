@@ -340,6 +340,24 @@ Répondre un code 2xx dans les 5 s. Les redirections ne sont pas suivies, et l'a
 (pas d'adresse interne). En local, `fake-api` sert de receveur : `POST http://fake-api:8080/webhook`, puis
 `GET http://localhost:8081/webhook/received` montre ce qui a été reçu.
 
+**Slack et Microsoft Teams** (SCRUM-77) : un message lisible dans le canal, couleur selon la sévérité (vert à la
+résolution), avec la target, la métrique, la valeur et le seuil, le début, puis la durée et le maximum à la résolution,
+et un bouton « View alert ». Pas de signature : l'URL secrète fait office de jeton (elle est chiffrée en base et jamais
+affichée en entier).
+
+- Slack : une app avec « Incoming Webhooks » activé, puis « Add New Webhook to Workspace » et le choix du canal.
+  L'URL commence par `https://hooks.slack.com/services/`.
+- Microsoft Teams : dans le canal, « Workflows », puis le modèle « Post to a channel when a webhook request is
+  received ». L'URL est donnée à la fin de l'assistant. Le message est une Adaptive Card.
+
+Essayer une URL avant de l'enregistrer : un message d'exemple est construit sur la dernière alerte. L'URL est saisie
+masquée et n'est pas enregistrée.
+
+```bash
+docker compose exec app php artisan webhooks:try slack               # ou teams, ou generic
+docker compose exec app php artisan webhooks:try teams --resolved    # message de résolution
+```
+
 ## Onglet Metrics
 
 Sur la page d'une target, l'onglet **Metrics** (SCRUM-49) montre chaque métrique du type sur la période choisie :
