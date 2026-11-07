@@ -78,6 +78,8 @@ class AuditLog extends Model
         'user.2fa_disable' => 'Two-factor disabled',
         'user.2fa_recovery_codes' => 'Recovery codes regenerated',
         'user.2fa_reset' => 'Two-factor reset',
+        'user.login_sso' => 'Signed in with SSO',
+        'user.sso_link' => 'SSO identity linked',
         'webhook.create' => 'Webhook created',
         'webhook.update' => 'Webhook updated',
         'webhook.delete' => 'Webhook deleted',

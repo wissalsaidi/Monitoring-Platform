@@ -11,6 +11,7 @@ use App\Http\Controllers\GrafanaAuthController;
 use App\Http\Controllers\MonitoringTargetController;
 use App\Http\Controllers\NotificationHistoryController;
 use App\Http\Controllers\NotificationRuleController;
+use App\Http\Controllers\OidcController;
 use App\Http\Controllers\TargetGrafanaController;
 use App\Http\Controllers\TargetMetricsController;
 use App\Http\Controllers\TeamInvitationController;
@@ -27,6 +28,12 @@ use Illuminate\Support\Facades\Route;
 // Email vérifié obligatoire (SCRUM-32) : sinon redirection vers la page « Verify your email »
 // Auth proxy de Grafana (SCRUM-48), appelé par nginx avant chaque requête vers /grafana/ : 200 / 401 / 403, sans redirection
 Route::get('/_grafana_auth', GrafanaAuthController::class)->name('grafana.auth');
+
+// SSO OpenID Connect (SCRUM-88) : départ vers le fournisseur et retour (URL de retour fixe, déclarée chez lui)
+Route::middleware(['guest', 'throttle:20,1'])->group(function () {
+    Route::get('/auth/oidc/redirect', [OidcController::class, 'redirect'])->name('oidc.redirect');
+    Route::get('/auth/oidc/callback', [OidcController::class, 'callback'])->name('oidc.callback');
+});
 
 // Lien d'invitation reçu par email (SCRUM-59, 83), public : connexion pour un compte existant, création du compte
 // pour une adresse inconnue. Signature vérifiée dans le contrôleur pour afficher un message clair.
