@@ -6,6 +6,8 @@ use App\Enums\TeamRole;
 use App\Exceptions\TeamMembershipException;
 use App\Exceptions\Zabbix\ZabbixException;
 use App\Http\Controllers\Controller;
+use App\Models\AuditLog;
+use App\Models\DirectoryGroupMapping;
 use App\Models\Team;
 use App\Models\User;
 use App\Services\TeamAdminService;
@@ -62,7 +64,41 @@ class TeamController extends Controller
             'team' => $team->loadCount(['monitoringTargets', 'alerts as active_alerts_count' => fn (Builder $query) => $query->active()]),
             'members' => $team->members()->orderByRaw("case team_members.role when 'admin' then 0 when 'manager' then 1 else 2 end")->orderBy('name')->get(),
             'invitations' => $team->invitations()->orderBy('email')->get(),
+            'directoryGroups' => $team->directoryGroups()->get(),
+            'roles' => TeamRole::cases(),
         ]);
+    }
+
+    /**
+     * Groupe de l'annuaire → rôle dans la team (SCRUM-92), appliqué à chaque connexion SSO. Jamais Super Admin : la liste
+     * des rôles possibles est celle d'une team.
+     */
+    public function storeGroup(Request $request, Team $team): RedirectResponse
+    {
+        $data = $request->validateWithBag('directoryGroup', [
+            'group' => ['required', 'string', 'max:255', Rule::unique('directory_group_mappings', 'group')->where('team_id', $team->id)],
+            'role' => ['required', Rule::enum(TeamRole::class)],
+        ], ['group.unique' => 'This group is already mapped to the team.']);
+
+        if ($team->directoryGroups()->count() >= DirectoryGroupMapping::MAX_PER_TEAM) {
+            return back()->with('error', 'A team can have at most '.DirectoryGroupMapping::MAX_PER_TEAM.' directory groups.');
+        }
+
+        $mapping = $team->directoryGroups()->create(['group' => trim($data['group']), 'role' => $data['role']]);
+        AuditLog::record('team.group_map', $request->user(), $team, ['group' => $mapping->group, 'role' => $mapping->role->value]);
+
+        return back()->with('success', "Members of the directory group {$mapping->group} join {$team->name} as ".ucfirst($mapping->role->value).' at their next single sign-on.');
+    }
+
+    /** Les appartenances déjà données par ce groupe sont retirées à la prochaine connexion SSO de chaque membre */
+    public function destroyGroup(Request $request, Team $team, DirectoryGroupMapping $mapping): RedirectResponse
+    {
+        abort_unless($mapping->team_id === $team->id, 404);
+
+        $mapping->delete();
+        AuditLog::record('team.group_unmap', $request->user(), $team, ['group' => $mapping->group, 'role' => $mapping->role->value]);
+
+        return back()->with('success', "Directory group {$mapping->group} removed. Memberships it gave end at the member's next single sign-on.");
     }
 
     public function update(Request $request, Team $team): RedirectResponse

@@ -34,7 +34,12 @@
                                         @unless ($member->isActive())<span class="badge text-bg-danger ms-1">Deactivated</span>@endunless
                                         <div class="small text-body-secondary">{{ $member->email }}</div>
                                     </td>
-                                    <td>{{ ucfirst($member->pivot->role->value) }}</td>
+                                    <td>
+                                        {{ ucfirst($member->pivot->role->value) }}
+                                        @if ($member->pivot->directory_group)
+                                            <div class="small text-body-secondary"><i class="bi bi-diagram-3 me-1"></i>from directory group {{ $member->pivot->directory_group }}</div>
+                                        @endif
+                                    </td>
                                     <td class="pe-3 small text-body-secondary text-end">Since {{ $member->pivot->created_at?->toDisplay()->format('d/m/Y') }}</td>
                                 </tr>
                             @empty
@@ -57,6 +62,47 @@
         </div>
 
         <div class="col-xl-4">
+            {{-- Groupes de l'annuaire (SCRUM-92) --}}
+            <div class="card mb-4">
+                <div class="card-header py-3 fw-semibold"><i class="bi bi-diagram-3 me-1"></i>Directory groups</div>
+                <div class="card-body small">
+                    <p class="text-body-secondary">
+                        At each single sign-on, members of these groups (claim <code>{{ config('oidc.groups_claim') }}</code>) join the
+                        team with the role shown. Never Super Admin. Memberships added by hand are never removed.
+                    </p>
+                    @forelse ($directoryGroups as $mapping)
+                        <div class="d-flex align-items-center gap-2 border-top py-2">
+                            <code class="text-break me-auto">{{ $mapping->group }}</code>
+                            <span class="badge text-bg-secondary">{{ ucfirst($mapping->role->value) }}</span>
+                            <form method="POST" action="{{ route('admin.teams.groups.destroy', [$team, $mapping]) }}" data-confirm="Remove the directory group {{ $mapping->group }}? Memberships it gave end at the next single sign-on.">
+                                @csrf
+                                @method('DELETE')
+                                <button type="submit" class="btn btn-link btn-sm text-danger p-0" aria-label="Remove {{ $mapping->group }}"><i class="bi bi-x-lg"></i></button>
+                            </form>
+                        </div>
+                    @empty
+                        <p class="text-body-secondary border-top pt-2 mb-0">No directory group: members are managed in the platform only.</p>
+                    @endforelse
+                    <form method="POST" action="{{ route('admin.teams.groups.store', $team) }}" class="row g-2 mt-2" novalidate>
+                        @csrf
+                        <div class="col-12">
+                            <label for="group" class="visually-hidden">Directory group</label>
+                            <input id="group" name="group" value="{{ old('group') }}" placeholder="Group name or ID (e.g. monitoring-payments-admins)" maxlength="255"
+                                   class="form-control form-control-sm @error('group', 'directoryGroup') is-invalid @enderror">
+                            @error('group', 'directoryGroup')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                        </div>
+                        <div class="col">
+                            <select name="role" class="form-select form-select-sm" aria-label="Role">
+                                @foreach ($roles as $role)<option value="{{ $role->value }}" @selected(old('role', 'viewer') === $role->value)>{{ ucfirst($role->value) }}</option>@endforeach
+                            </select>
+                        </div>
+                        <div class="col-auto">
+                            <button type="submit" class="btn btn-outline-primary btn-sm"><i class="bi bi-plus-lg me-1"></i>Add</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
             <form method="POST" action="{{ route('admin.teams.update', $team) }}" class="card mb-4" novalidate>
                 @csrf
                 @method('PATCH')

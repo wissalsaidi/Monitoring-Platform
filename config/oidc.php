@@ -36,6 +36,10 @@ return [
     'mfa_amr' => ['mfa', 'otp', 'hwk', 'swk', 'sc', 'fpt', 'face', 'iris', 'retina', 'vbm'],
     'mfa_acr' => array_values(array_filter(array_map('trim', explode(',', (string) env('OIDC_MFA_ACR', ''))))),
 
+    // Claim du jeton qui porte les groupes de l'annuaire (SCRUM-92), utilisé seulement si des correspondances
+    // groupe → team existent (console, fiche d'une team). Entra ID : identifiants des groupes ; Keycloak, Okta : noms.
+    'groups_claim' => (string) env('OIDC_GROUPS_CLAIM', 'groups'),
+
     // Texte du bouton de la page de connexion
     'button_label' => (string) env('OIDC_BUTTON_LABEL', 'Sign in with SSO'),
 

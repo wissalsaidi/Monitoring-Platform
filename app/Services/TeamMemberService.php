@@ -81,9 +81,13 @@ class TeamMemberService
         });
     }
 
-    public function changeRole(Team $team, User $member, TeamRole $role, User $by): void
+    /**
+     * @param  ?User  $by  null : synchronisation des groupes de l'annuaire (SCRUM-92)
+     * @param  array<string, string>  $context  ajouté au détail de l'audit (ex. via: sso_group, group)
+     */
+    public function changeRole(Team $team, User $member, TeamRole $role, ?User $by, array $context = []): void
     {
-        DB::transaction(function () use ($team, $member, $role, $by) {
+        DB::transaction(function () use ($team, $member, $role, $by, $context) {
             $old = $this->lockedRole($team, $member);
 
             if ($old === $role) {
@@ -100,13 +104,15 @@ class TeamMemberService
                 'email' => $member->email,
                 'old' => $old->value,
                 'new' => $role->value,
+                ...$context,
             ]);
         });
     }
 
-    public function remove(Team $team, User $member, User $by): void
+    /** @param  ?User  $by  null : synchronisation des groupes de l'annuaire (SCRUM-92) */
+    public function remove(Team $team, User $member, ?User $by, array $context = []): void
     {
-        DB::transaction(function () use ($team, $member, $by) {
+        DB::transaction(function () use ($team, $member, $by, $context) {
             $role = $this->lockedRole($team, $member);
 
             if ($role === TeamRole::Admin) {
@@ -118,6 +124,7 @@ class TeamMemberService
                 'user_id' => $member->id,
                 'email' => $member->email,
                 'role' => $role->value,
+                ...$context,
             ]);
         });
 

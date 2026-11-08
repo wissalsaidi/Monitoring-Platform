@@ -6,6 +6,7 @@ use App\Exceptions\OidcException;
 use App\Exceptions\SsoAccessException;
 use App\Models\AuditLog;
 use App\Models\User;
+use App\Services\DirectoryGroupSync;
 use App\Services\OidcClient;
 use App\Services\SsoAccountService;
 use Illuminate\Http\RedirectResponse;
@@ -57,7 +58,7 @@ class OidcController extends Controller
         return $this->start($request, $oidc, $request->user());
     }
 
-    public function callback(Request $request, OidcClient $oidc, SsoAccountService $accounts): RedirectResponse
+    public function callback(Request $request, OidcClient $oidc, SsoAccountService $accounts, DirectoryGroupSync $groups): RedirectResponse
     {
         abort_unless(OidcClient::enabled(), 404);
 
@@ -108,6 +109,8 @@ class OidcController extends Controller
         if (! $user->isActive()) {
             return $this->fail("Deactivated account (user #{$user->id}).", self::DEACTIVATED);
         }
+        // Teams et rôles selon les groupes de l'annuaire, si des correspondances existent (SCRUM-92)
+        $groups->apply($user, $claims);
 
         // MFA attestée par l'annuaire (amr / acr) : la 2FA de la plateforme n'est pas redemandée (SCRUM-90)
         $mfa = OidcClient::mfaAttested($claims);

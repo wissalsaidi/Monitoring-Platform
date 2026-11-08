@@ -26,7 +26,7 @@
                     </td>
                 @endif
                 <td class="small">
-                    {{ $log->user?->name ?? match ($log->user_id === null ? ($log->details['via'] ?? null) : null) { 'console' => 'Console', 'system' => 'System', default => 'Deleted user' } }}
+                    {{ $log->user?->name ?? match ($log->user_id === null ? ($log->details['via'] ?? null) : null) { 'console' => 'Console', 'system' => 'System', 'sso_group' => 'Directory', default => 'Deleted user' } }}
                     @if ($log->ip_address)<div class="text-body-secondary">{{ $log->ip_address }}</div>@endif
                 </td>
                 <td><span class="badge text-bg-secondary fw-normal">{{ $log->actionLabel() }}</span></td>
