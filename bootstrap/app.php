@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\EnforceSsoSession;
 use App\Http\Middleware\EnsureAccountIsActive;
 use App\Http\Middleware\SecurityHeaders;
 use Illuminate\Foundation\Application;
@@ -14,7 +15,8 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         // CSP, X-Frame-Options, HSTS… sur toutes les pages (SCRUM-61)
-        $middleware->web(append: [SecurityHeaders::class, EnsureAccountIsActive::class]);   // + compte désactivé déconnecté (SCRUM-84)
+        // + compte désactivé déconnecté (SCRUM-84), durée des sessions SSO et SSO obligatoire (SCRUM-90)
+        $middleware->web(append: [SecurityHeaders::class, EnsureAccountIsActive::class, EnforceSsoSession::class]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         // Jamais de secret dans la session après une erreur de validation (mot de passe d'une base, SCRUM-71)

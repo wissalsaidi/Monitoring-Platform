@@ -50,7 +50,7 @@
                 </div>
             </div>
 
-            @if ($user->hasSso() && $user->hasPassword())
+            @if ($user->hasSso() && $user->hasPassword() && ! \App\Services\OidcClient::required())
                 {{-- Délier le SSO (SCRUM-89) : seulement s'il reste un mot de passe --}}
                 <div class="card mt-4">
                     <div class="card-body p-4">

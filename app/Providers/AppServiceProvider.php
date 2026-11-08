@@ -7,6 +7,7 @@ use App\Enums\PlatformPermission;
 use App\Models\Team;
 use App\Models\User;
 use App\Monitoring\ProvisionerRegistry;
+use App\Services\SsoRequirementMonitor;
 use App\Services\ZabbixService;
 use Illuminate\Pagination\Paginator;
 use Illuminate\Support\Carbon;
@@ -39,6 +40,18 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Paginator::useBootstrapFive();
+
+        // Changement de SSO_REQUIRED tracé dans l'audit (SCRUM-90), vérifié à chaque requête web (une lecture du
+        // cache) ; jamais bloquant (base indisponible, migration pas encore faite)
+        if (! $this->app->runningInConsole()) {
+            $this->app->booted(function () {
+                try {
+                    app(SsoRequirementMonitor::class)->check();
+                } catch (\Throwable $e) {
+                    Log::warning('SSO requirement not checked', ['error' => $e->getMessage()]);
+                }
+            });
+        }
 
         // Chaque permission est aussi une ability : @can('user.create', $team), Gate::authorize('configuration.manage', $team)
         foreach (Permission::cases() as $permission) {

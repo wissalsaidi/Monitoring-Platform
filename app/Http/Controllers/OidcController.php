@@ -23,6 +23,8 @@ use Illuminate\View\View;
  * puis le compte est retrouvé, lié ou créé par SsoAccountService.
  * reauth : un compte sans mot de passe confirme son identité chez le fournisseur avant une action sensible
  * (activer la 2FA, supprimer son compte), à la place de « Confirm your password ».
+ * MFA de l'annuaire, durée de session et déconnexion chez le fournisseur : SCRUM-90 (RecordSignInMethod,
+ * EnforceSsoSession, SsoLogoutResponse).
  *
  * Toute erreur ramène à la page de connexion avec un message générique ; le détail va dans les logs, sans jeton ni code.
  */
@@ -107,10 +109,16 @@ class OidcController extends Controller
             return $this->fail("Deactivated account (user #{$user->id}).", self::DEACTIVATED);
         }
 
-        AuditLog::record('user.login_sso', $user, $user);
+        // MFA attestée par l'annuaire (amr / acr) : la 2FA de la plateforme n'est pas redemandée (SCRUM-90)
+        $mfa = OidcClient::mfaAttested($claims);
+        AuditLog::record('user.login_sso', $user, $user, $mfa ? ['mfa' => 'directory'] : []);
+        // Repris à la connexion par RecordSignInMethod, y compris après le défi 2FA : durée de session, MFA, déconnexion
+        $request->session()->put('auth.pending', [
+            'via' => 'sso', 'user_id' => $user->id, 'at' => now()->getTimestamp(), 'mfa' => $mfa, 'id_token' => $oidc->idToken,
+        ]);
 
-        // 2FA de la plateforme activée : même défi qu'après un mot de passe (MFA de l'annuaire : SCRUM-90)
-        if ($user->hasEnabledTwoFactorAuthentication()) {
+        // 2FA de la plateforme activée, sans MFA de l'annuaire : même défi qu'après un mot de passe
+        if ($user->hasEnabledTwoFactorAuthentication() && ! $mfa) {
             $request->session()->put(['login.id' => $user->getKey(), 'login.remember' => false]);
 
             return redirect()->route('two-factor.login');

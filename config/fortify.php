@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\DisablePasswordAuthWhenSsoRequired;
 use Laravel\Fortify\Features;
 
 return [
@@ -101,7 +102,8 @@ return [
     |
     */
 
-    'middleware' => ['web'],
+    // SSO obligatoire (SCRUM-90) : mot de passe, inscription et réinitialisation coupés
+    'middleware' => ['web', DisablePasswordAuthWhenSsoRequired::class],
 
     /*
     |--------------------------------------------------------------------------

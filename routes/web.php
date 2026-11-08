@@ -6,6 +6,7 @@ use App\Http\Controllers\Admin\TeamController as AdminTeamController;
 use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\AlertController;
 use App\Http\Controllers\AuditLogController;
+use App\Http\Controllers\BreakGlassController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\GrafanaAuthController;
 use App\Http\Controllers\MonitoringTargetController;
@@ -36,6 +37,11 @@ Route::middleware(['guest', 'throttle:20,1'])->group(function () {
     Route::get('/auth/oidc/no-access', [OidcController::class, 'noAccess'])->name('oidc.no-access');
 });
 Route::get('/auth/oidc/callback', [OidcController::class, 'callback'])->middleware('throttle:20,1')->name('oidc.callback');
+// Compte de secours (SCRUM-90) : connexion par mot de passe quand le SSO est obligatoire (404 sinon)
+Route::middleware('guest')->group(function () {
+    Route::get('/login/break-glass', [BreakGlassController::class, 'show'])->name('break-glass');
+    Route::post('/login/break-glass', [BreakGlassController::class, 'store'])->middleware('throttle:login')->name('break-glass.store');
+});
 Route::get('/auth/oidc/reauth', [OidcController::class, 'reauth'])->middleware(['auth', 'throttle:10,1'])->name('oidc.reauth');
 
 // Lien d'invitation reçu par email (SCRUM-59, 83), public : connexion pour un compte existant, création du compte

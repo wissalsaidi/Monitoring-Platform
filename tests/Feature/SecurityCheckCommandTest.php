@@ -2,6 +2,8 @@
 
 namespace Tests\Feature;
 
+use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 /**
@@ -9,6 +11,8 @@ use Tests\TestCase;
  */
 class SecurityCheckCommandTest extends TestCase
 {
+    use RefreshDatabase;
+
     private function productionConfig(): void
     {
         config([
@@ -54,5 +58,20 @@ class SecurityCheckCommandTest extends TestCase
         $this->artisan('security:check')
             ->expectsOutputToContain('3 point(s) à corriger')
             ->assertFailed();
+    }
+
+    /** SSO obligatoire (SCRUM-90) : fournisseur configuré et compte de secours */
+    public function test_sso_required_needs_a_provider_and_an_emergency_account(): void
+    {
+        $this->productionConfig();
+        config(['oidc.required' => true, 'oidc.issuer' => '']);
+
+        $this->artisan('security:check')->expectsOutputToContain('2 point(s) à corriger')->assertFailed();
+
+        config(['oidc.issuer' => 'https://sso.company.com', 'oidc.client_id' => 'platform', 'oidc.client_secret' => 'secret']);
+        $this->artisan('security:check')->expectsOutputToContain('1 point(s) à corriger')->assertFailed();
+
+        User::factory()->superAdmin()->create(['break_glass_at' => now()]);
+        $this->artisan('security:check')->expectsOutputToContain('Configuration prête pour la production.')->assertSuccessful();
     }
 }

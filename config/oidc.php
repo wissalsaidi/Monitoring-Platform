@@ -23,6 +23,19 @@ return [
     // l'email du jeton compte alors comme vérifié pour lier ou créer un compte (SCRUM-89). À n'activer que dans ce cas.
     'trust_email' => (bool) env('OIDC_TRUST_EMAIL', false),
 
+    // SSO obligatoire (SCRUM-90) : plus de connexion par mot de passe, de réinitialisation ni d'inscription. Seul le
+    // compte de secours (platform:break-glass) garde un mot de passe, sur /login/break-glass.
+    'required' => (bool) env('SSO_REQUIRED', false),
+
+    // Durée d'une session ouverte par le SSO, en minutes (8 h) : ensuite, nouveau passage par l'annuaire. Un compte
+    // désactivé dans l'annuaire perd l'accès au plus tard à ce moment-là.
+    'session_lifetime' => (int) env('SSO_SESSION_LIFETIME', 480),
+
+    // MFA faite chez le fournisseur (SCRUM-90) : la 2FA de la plateforme n'est alors pas redemandée.
+    // amr (RFC 8176) : méthodes considérées comme une MFA ; acr : valeurs propres au fournisseur (OIDC_MFA_ACR).
+    'mfa_amr' => ['mfa', 'otp', 'hwk', 'swk', 'sc', 'fpt', 'face', 'iris', 'retina', 'vbm'],
+    'mfa_acr' => array_values(array_filter(array_map('trim', explode(',', (string) env('OIDC_MFA_ACR', ''))))),
+
     // Texte du bouton de la page de connexion
     'button_label' => (string) env('OIDC_BUTTON_LABEL', 'Sign in with SSO'),
 

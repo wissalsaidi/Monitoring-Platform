@@ -40,7 +40,8 @@ class PlatformAdminService
                 throw new PlatformAdminException('The platform must keep at least one Super Admin. Promote someone else first.');
             }
 
-            $user->forceFill(['platform_role' => null])->save();
+            // Plus Super Admin : plus compte de secours non plus (SCRUM-90)
+            $user->forceFill(['platform_role' => null, 'break_glass_at' => null])->save();
             AuditLog::record('platform.admin_revoke', $by, $user, ['email' => $user->email, ...$by ? [] : ['via' => 'console']]);
         });
     }

@@ -23,9 +23,59 @@ class OidcClient
     /** Algorithmes acceptés pour la signature du jeton d'identité (jamais « none » ni HS*, qui utiliserait le secret) */
     public const ALGORITHMS = ['RS256', 'RS384', 'RS512', 'ES256', 'ES384'];
 
+    /** Jeton d'identité brut de la dernière connexion (authenticate), gardé en session pour la déconnexion (SCRUM-90) */
+    public ?string $idToken = null;
+
     public static function enabled(): bool
     {
         return config('oidc.issuer') !== '' && config('oidc.client_id') !== '' && config('oidc.client_secret') !== '';
+    }
+
+    /**
+     * SSO obligatoire (SCRUM-90) : seulement si le fournisseur est configuré. SSO_REQUIRED=true sans fournisseur ne
+     * ferme pas la plateforme (security:check le signale).
+     */
+    public static function required(): bool
+    {
+        return self::enabled() && config('oidc.required');
+    }
+
+    /**
+     * Le jeton atteste-t-il une MFA chez le fournisseur ? amr (RFC 8176) contenant une méthode forte, ou acr parmi
+     * les valeurs de OIDC_MFA_ACR (SCRUM-90).
+     *
+     * @param  array<string, mixed>  $claims
+     */
+    public static function mfaAttested(array $claims): bool
+    {
+        $amr = is_array($claims['amr'] ?? null) ? array_filter($claims['amr'], 'is_string') : [];
+        if (array_intersect($amr, config('oidc.mfa_amr')) !== []) {
+            return true;
+        }
+
+        return is_string($claims['acr'] ?? null) && in_array($claims['acr'], config('oidc.mfa_acr'), true);
+    }
+
+    /**
+     * Déconnexion côté fournisseur (RP-Initiated Logout) : URL de end_session_endpoint, ou null s'il n'en publie pas
+     * (ou s'il est injoignable : la déconnexion de la plateforme suffit alors).
+     */
+    public function endSessionUrl(?string $idToken, string $postLogoutRedirect): ?string
+    {
+        try {
+            $endpoint = $this->discovery()['end_session_endpoint'] ?? null;
+        } catch (OidcException) {
+            return null;
+        }
+        if (! is_string($endpoint) || $endpoint === '') {
+            return null;
+        }
+
+        return $endpoint.'?'.http_build_query(array_filter([
+            'id_token_hint' => $idToken,
+            'client_id' => config('oidc.client_id'),
+            'post_logout_redirect_uri' => $postLogoutRedirect,
+        ]), '', '&', PHP_QUERY_RFC3986);
     }
 
     /**
@@ -83,7 +133,10 @@ class OidcClient
             throw new OidcException("Token request refused (HTTP {$response->status()}, ".((string) ($response->json('error') ?? 'no id_token')).').');
         }
 
-        return $this->verifyIdToken($response->json('id_token'), $nonce);
+        $claims = $this->verifyIdToken($response->json('id_token'), $nonce);
+        $this->idToken = $response->json('id_token');
+
+        return $claims;
     }
 
     /**

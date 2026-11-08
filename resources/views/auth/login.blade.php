@@ -14,14 +14,20 @@
         @error('sso')
             <div class="alert alert-danger small" role="alert"><i class="bi bi-exclamation-octagon me-1"></i>{{ $message }}</div>
         @enderror
-        <a href="{{ route('oidc.redirect') }}" class="btn btn-outline-primary w-100">
+        <a href="{{ route('oidc.redirect') }}" class="btn {{ \App\Services\OidcClient::required() ? 'btn-primary' : 'btn-outline-primary' }} w-100">
             <i class="bi bi-building-lock me-1"></i> {{ config('oidc.button_label') }}
         </a>
-        <div class="d-flex align-items-center gap-2 my-4 text-body-secondary small">
-            <hr class="flex-grow-1 my-0"><span>or with your password</span><hr class="flex-grow-1 my-0">
-        </div>
+        @unless (\App\Services\OidcClient::required())
+            <div class="d-flex align-items-center gap-2 my-4 text-body-secondary small">
+                <hr class="flex-grow-1 my-0"><span>or with your password</span><hr class="flex-grow-1 my-0">
+            </div>
+        @endunless
     @endif
 
+    {{-- SSO obligatoire (SCRUM-90) : seul le bouton SSO reste --}}
+    @if (\App\Services\OidcClient::required())
+        <p class="text-center text-body-secondary small mt-4 mb-0">Sign in with your company account. Ask your administrator if you cannot.</p>
+    @else
     <form method="POST" action="{{ route('login') }}" novalidate>
         @csrf
 
@@ -65,4 +71,5 @@
             Access is by invitation. Ask your administrator to invite you.
         @endif
     </p>
+    @endif
 @endsection
