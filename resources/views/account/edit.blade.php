@@ -18,6 +18,19 @@
                             <dt class="col-sm-3 text-body-secondary fw-normal">Platform</dt>
                             <dd class="col-sm-9"><span class="badge text-bg-primary"><i class="bi bi-shield-lock me-1"></i>{{ $user->platform_role->label() }}</span></dd>
                         @endif
+                        {{-- Moyens de connexion (SCRUM-89) --}}
+                        <dt class="col-sm-3 text-body-secondary fw-normal">Sign-in</dt>
+                        <dd class="col-sm-9">
+                            @if ($user->hasSso())
+                                <span class="badge text-bg-primary"><i class="bi bi-building-lock me-1"></i>Single sign-on</span>
+                                <span class="small text-body-secondary ms-1">{{ $ssoProvider }}</span>
+                            @endif
+                            @if ($user->hasPassword())
+                                <span class="badge text-bg-light border"><i class="bi bi-key me-1"></i>Password</span>
+                            @else
+                                <div class="small text-body-secondary mt-1">No password on this platform: you sign in with your company account.</div>
+                            @endif
+                        </dd>
                         <dt class="col-sm-3 text-body-secondary fw-normal">2FA</dt>
                         <dd class="col-sm-9">
                             @if ($user->hasEnabledTwoFactorAuthentication())
@@ -36,6 +49,29 @@
                     </dl>
                 </div>
             </div>
+
+            @if ($user->hasSso() && $user->hasPassword() && ! \App\Services\OidcClient::required())
+                {{-- Délier le SSO (SCRUM-89) : seulement s'il reste un mot de passe --}}
+                <div class="card mt-4">
+                    <div class="card-body p-4">
+                        <p class="section-label mb-2">Single sign-on</p>
+                        <p class="small text-body-secondary">Your account is linked to your company account at {{ $ssoProvider }}. Unlink it to sign in with your email and password only.</p>
+                        <form method="POST" action="{{ route('account.sso.destroy') }}" class="row g-2 align-items-start" data-confirm="Unlink single sign-on from your account?" novalidate>
+                            @csrf
+                            @method('DELETE')
+                            <div class="col-sm">
+                                <label for="sso-password" class="visually-hidden">Your password</label>
+                                <input id="sso-password" type="password" name="password" placeholder="Your password" autocomplete="current-password" required
+                                       class="form-control @error('password', 'unlinkSso') is-invalid @enderror">
+                                @error('password', 'unlinkSso')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                            </div>
+                            <div class="col-sm-auto">
+                                <button type="submit" class="btn btn-outline-danger"><i class="bi bi-link-45deg me-1"></i>Unlink</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            @endif
         </div>
 
         <div class="col-lg-5">
@@ -66,14 +102,22 @@
                         <form method="POST" action="{{ route('account.destroy') }}" data-confirm="Delete your account permanently?" novalidate>
                             @csrf
                             @method('DELETE')
-                            <div class="mb-3">
-                                <label for="password" class="form-label">Confirm with your password</label>
-                                <input id="password" type="password" name="password" autocomplete="current-password" required
-                                       class="form-control @error('password', 'deleteAccount') is-invalid @enderror">
-                                @error('password', 'deleteAccount')<div class="invalid-feedback">{{ $message }}</div>@enderror
-                            </div>
-                            <button type="submit" class="btn btn-danger w-100"><i class="bi bi-trash me-1"></i>Delete my account</button>
+                            @if ($user->hasPassword())
+                                <div class="mb-3">
+                                    <label for="password" class="form-label">Confirm with your password</label>
+                                    <input id="password" type="password" name="password" autocomplete="current-password" required
+                                           class="form-control @error('password', 'deleteAccount') is-invalid @enderror">
+                                    @error('password', 'deleteAccount')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                                </div>
+                            @endif
+                            @if ($user->hasPassword() || $identityConfirmed)
+                                <button type="submit" class="btn btn-danger w-100"><i class="bi bi-trash me-1"></i>Delete my account</button>
+                            @endif
                         </form>
+                        @if (! $user->hasPassword() && ! $identityConfirmed)
+                            {{-- Compte SSO sans mot de passe (SCRUM-89) : reconnexion chez le fournisseur avant la suppression --}}
+                            <a href="{{ route('oidc.reauth') }}" class="btn btn-outline-danger w-100"><i class="bi bi-building-lock me-1"></i>Confirm with single sign-on to delete</a>
+                        @endif
                     @endif
                 </div>
             </div>

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Support\IdentityConfirmation;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -23,6 +24,7 @@ class TwoFactorController extends Controller
             'required' => $user->requiresTwoFactor(),
             'enabled' => $user->hasEnabledTwoFactorAuthentication(),
             // Activée mais pas encore confirmée : QR code et clé à saisir dans l'application
+            'confirmed' => IdentityConfirmation::isRecent(),
             'pending' => $user->two_factor_secret !== null && $user->two_factor_confirmed_at === null,
             // Codes de secours montrés juste après la confirmation ou une régénération, jamais ensuite
             'showRecoveryCodes' => in_array($status, ['two-factor-authentication-confirmed', 'recovery-codes-generated'], true),
@@ -32,10 +34,15 @@ class TwoFactorController extends Controller
     /**
      * Mise en place en une étape : mot de passe vérifié puis secret créé (action de Fortify). La route de Fortify
      * passe par la page « Confirm your password », qui renvoie ensuite sur la page sans avoir activé : un clic de trop.
+     * Compte sans mot de passe (SCRUM-89) : identité confirmée récemment par le SSO (connexion ou reauth).
      */
     public function enable(Request $request, EnableTwoFactorAuthentication $enable): RedirectResponse
     {
-        $request->validate(['password' => ['required', 'string', 'current_password']]);
+        if ($request->user()->hasPassword()) {
+            $request->validate(['password' => ['required', 'string', 'current_password']]);
+        } elseif (! IdentityConfirmation::isRecent()) {
+            return redirect()->route('account.two-factor')->with('error', 'Confirm your identity with single sign-on first.');
+        }
 
         $enable($request->user());
         $request->session()->put('auth.password_confirmed_at', time());

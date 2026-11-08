@@ -242,6 +242,137 @@ docker compose exec -u www-data app php artisan db:seed --class=DemoSeeder   # c
 
 Commandes des pannes et scénario de démonstration : [`docs/demo/README.md`](docs/demo/README.md).
 
+## SSO (OpenID Connect)
+
+Epic SCRUM-87 : se connecter avec le compte de l'entreprise (Entra ID, Okta, Keycloak…), en OpenID Connect.
+
+**Connexion** (SCRUM-88) : bouton « Sign in with … » sur la page de connexion, dès que le fournisseur est configuré
+dans `.env`. Le mot de passe reste possible à côté.
+
+| Variable | Rôle |
+|---|---|
+| `OIDC_ISSUER` | émetteur exact du fournisseur (claim `iss`) ; vide = pas de SSO |
+| `OIDC_INTERNAL_URL` | adresse pour lire la découverte depuis le conteneur, si l'émetteur n'y est pas joignable (vide sinon) |
+| `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET` | client confidentiel créé chez le fournisseur |
+| `OIDC_SCOPES` | `openid email profile` par défaut |
+| `OIDC_BUTTON_LABEL` | texte du bouton (ex. « Sign in with Contoso ») |
+| `OIDC_TRUST_EMAIL` | `true` seulement pour un fournisseur qui garantit ses emails sans envoyer `email_verified` (Entra ID) |
+
+- Flux « authorization code » avec **PKCE S256**, `state` et `nonce` aléatoires, liés à la session et à usage unique
+  (10 min au plus) ; le code est échangé côté serveur avec le secret client.
+- Jeton d'identité vérifié : signature par les clés du fournisseur (JWKS, relues si une clé inconnue apparaît),
+  algorithmes RS/ES seulement, `iss`, `aud` (et `azp`), `exp`, `iat`, `nonce`. Découverte et clés en cache 1 h.
+- La personne est retrouvée par **`iss` + `sub`** ; ensuite, plus jamais par l'email.
+- Compte désactivé : refusé. 2FA de la plateforme activée : le code est demandé après le SSO ; un administrateur sans
+  2FA doit la mettre en place, comme après un mot de passe.
+- Tout échec ramène à la connexion avec un message générique ; le détail va dans les logs, sans jeton ni code.
+- Audit : `user.sso_link` (première liaison), `user.login_sso` (chaque connexion).
+
+**Première connexion** (SCRUM-89), mêmes règles d'accès que l'inscription (`REGISTRATION_MODE`) et les invitations :
+
+| Situation | Résultat |
+|---|---|
+| compte existant avec le même email | lié, si l'annuaire **atteste l'email** (`email_verified`, ou `OIDC_TRUST_EMAIL`) ; sinon refus |
+| invitation en attente pour cet email | compte créé **sans mot de passe**, dans la team avec le rôle de l'invitation (toutes les invitations en attente) |
+| personne inconnue, mode `invite` | page « Waiting for access », **aucun compte créé** |
+| personne inconnue, mode `domain` | compte créé sans team si le domaine est dans `REGISTRATION_DOMAINS`, sinon comme `invite` |
+| personne inconnue, mode `open` | compte créé sans team |
+
+- Nom et email pris dans le jeton (`name`, sinon `given_name` + `family_name`, sinon `preferred_username`). L'email d'un
+  compte n'est **jamais changé** par l'annuaire : un nouvel email est signalé dans l'audit (`user.sso_email_mismatch`).
+- Compte sans mot de passe : la connexion par mot de passe est impossible. Les actions sensibles (activer la 2FA,
+  supprimer son compte) demandent de **se reconnecter chez le fournisseur** (`prompt=login`, `max_age=0`, `auth_time`
+  contrôlé, même `iss` + `sub`) au lieu du mot de passe ; la connexion SSO elle-même vaut confirmation pendant 3 h.
+- « My account » montre les moyens de connexion ; le SSO peut être délié (mot de passe demandé) s'il reste un mot de
+  passe. « Mot de passe oublié » permet encore à un compte SSO d'en choisir un, tant que le SSO n'est pas obligatoire
+  (SCRUM-90).
+- Console `/admin/users` : colonne « SSO » (liée, sans mot de passe) et filtre « Single sign-on / Password only ».
+- Audit : `user.create` (`via: sso`, team ou mode), `user.sso_link`, `user.sso_unlink`, `user.sso_email_mismatch`.
+
+Avec le Keycloak de démo (ci-dessous), dans `.env` :
+
+```bash
+OIDC_ISSUER=http://localhost:8180/realms/monitoring
+OIDC_INTERNAL_URL=http://keycloak:8080/realms/monitoring
+OIDC_CLIENT_ID=monitoring-platform
+OIDC_CLIENT_SECRET=     # KEYCLOAK_DEMO_CLIENT_SECRET, lu dans le volume de Keycloak
+```
+
+Pour tester : inviter `victor.viewer@company.com` dans une team (rôle Viewer), puis « Sign in with SSO » avec ce compte
+Keycloak : le compte est créé et arrive dans la team. `nina.newcomer` (jamais invitée) voit « Waiting for access »,
+`eve.unverified` est refusée.
+
+**Keycloak de démo** (SCRUM-91) : un « annuaire d'entreprise » local, pour tester sans compte Entra ID ni Okta.
+
+```bash
+docker compose --profile sso up -d keycloak     # profil "sso" : non lancé par défaut (~1 min au premier démarrage)
+docker compose exec keycloak cat /opt/keycloak/data/demo/secrets.env   # secrets générés au premier démarrage
+```
+
+- Page de connexion et console : http://localhost:8180 (console : `admin` / `KEYCLOAK_ADMIN_PASSWORD`).
+- Realm `monitoring`, importé au premier démarrage depuis `docker/keycloak/import/monitoring-realm.json`.
+- **Aucun mot de passe dans le dépôt** : les valeurs vides de `.env` (`KEYCLOAK_ADMIN_PASSWORD`,
+  `KEYCLOAK_DEMO_CLIENT_SECRET`, `KEYCLOAK_DEMO_USER_PASSWORD`) sont générées au premier démarrage et gardées dans le
+  volume `keycloak-data`. Pour repartir de zéro : `docker compose --profile sso down` puis
+  `docker volume rm monitoring-platform_keycloak-data`.
+- Client `monitoring-platform` : confidentiel, flux « authorization code » seulement, **PKCE S256 obligatoire**,
+  URL de retour `http://localhost:8000/auth/oidc/callback`, claim `groups` dans le jeton d'identité.
+- Émetteur (`iss`) : toujours `http://localhost:8180/realms/monitoring`. Le navigateur passe par `localhost:8180` ;
+  l'application appelle `http://keycloak:8080` pour le jeton et les clés (`KC_HOSTNAME_BACKCHANNEL_DYNAMIC`).
+
+Utilisateurs de test (mot de passe commun : `KEYCLOAK_DEMO_USER_PASSWORD`) :
+
+| Utilisateur | Groupe | Sert à tester |
+|---|---|---|
+| `alice.admin@company.com` | `monitoring-demo-admins` | connexion d'un Admin |
+| `victor.viewer@company.com` | `monitoring-demo-viewers` | connexion d'un Viewer |
+| `olivia.otp@company.com` | `monitoring-demo-admins` | MFA : configure un OTP à sa première connexion |
+| `nina.newcomer@company.com` | — | personne de l'annuaire jamais invitée |
+| `eve.unverified@company.com` | — | email **non vérifié** par l'annuaire (`email_verified: false`) |
+
+**Chez un vrai fournisseur**, une application OpenID Connect « web » (confidentielle) :
+
+- URL de retour : `https://<plateforme>/auth/oidc/callback` ; URL après déconnexion : `https://<plateforme>/login` ;
+- flux « authorization code » avec PKCE ; scopes `openid email profile` ;
+- claims attendus : `sub`, `email`, `email_verified`, `name`, et `groups` si les groupes servent (SCRUM-92) ;
+- Entra ID : « App registrations », plateforme « Web », secret client ; `email_verified` n'est pas envoyé :
+  `OIDC_TRUST_EMAIL=true` si les emails de l'annuaire sont gérés par l'entreprise ; groupes : « Token configuration → Add groups claim » ;
+- Okta : « Applications → Create App Integration → OIDC, Web Application » ; groupes : claim `groups` sur le serveur
+  d'autorisation ;
+- Keycloak : client confidentiel, « Standard flow », PKCE `S256`, mapper « Group Membership » (`groups`, sans chemin).
+
+**SSO obligatoire, MFA de l'annuaire, compte de secours** (SCRUM-90) :
+
+| Variable | Rôle |
+|---|---|
+| `SSO_REQUIRED` | `true` : seul le bouton SSO reste ; connexion par mot de passe refusée côté serveur, inscription et « mot de passe oublié » coupés (sans effet tant que le fournisseur n'est pas configuré) |
+| `SSO_SESSION_LIFETIME` | durée d'une session ouverte par le SSO, en minutes (480 = 8 h), puis nouveau passage par l'annuaire |
+| `OIDC_MFA_ACR` | valeurs de `acr` qui attestent une MFA chez le fournisseur (séparées par des virgules), en plus de `amr` |
+
+- **SSO obligatoire** : les sessions ouvertes autrement (mot de passe d'avant, « remember me ») sont fermées à la requête
+  suivante. Une invitation se termine par « Sign in with SSO » (compte créé à la connexion, SCRUM-89). On ne peut plus
+  délier le SSO ni forcer une réinitialisation de mot de passe depuis la console.
+- **Compte de secours** (« break-glass ») : un Super Admin désigné par `php artisan platform:break-glass <email>`
+  (`--revoke` pour retirer ; un compte sans mot de passe en choisit un en interactif) garde son mot de passe et la 2FA
+  de la plateforme, sur **`/login/break-glass`** (page absente si le SSO n'est pas obligatoire). Chaque usage est audité
+  (`user.login_break_glass`) et prévient les autres Super Admin par email. `platform:list-admins` le montre.
+- **MFA de l'annuaire** : si le jeton atteste une MFA (`amr` contient `mfa`, `otp`, `hwk`, `swk`, `sc`, `fpt`…, ou `acr`
+  dans `OIDC_MFA_ACR`), la 2FA de la plateforme n'est ni demandée ni exigée pour les administrateurs. Sinon, elle l'est
+  comme après un mot de passe. Keycloak 26.5 envoie un `amr` vide : la 2FA de la plateforme reste donc demandée avec le
+  Keycloak de démo (sauf `OIDC_MFA_ACR` adapté à sa configuration de niveaux d'authentification).
+- **Durée de session** : une session SSO (ou de secours) dure `SSO_SESSION_LIFETIME`, même si l'utilisateur est actif ;
+  un compte coupé dans l'annuaire perd donc l'accès au plus tard à ce moment-là.
+- **Déconnexion** : « Log out » ferme aussi la session chez le fournisseur (`end_session_endpoint`, avec `id_token_hint`
+  et retour sur `/login`), s'il en publie un. Le jeton d'identité est gardé dans la session côté serveur pour cela.
+  La CSP autorise l'origine du fournisseur dans `form-action` (sinon le navigateur bloque la redirection qui suit le
+  formulaire « Log out »).
+- `php artisan security:check` échoue si `SSO_REQUIRED=true` sans fournisseur configuré ou sans compte de secours.
+- Audit : `platform.sso_required` (changement du réglage, constaté au démarrage), `platform.break_glass_grant` /
+  `_revoke`, `user.login_break_glass` ; `user.login_sso` indique `mfa: directory`.
+
+À faire avant `SSO_REQUIRED=true` : se connecter une fois par SSO avec chaque compte d'administrateur (liaison),
+désigner le compte de secours et tester `/login/break-glass`, puis `security:check`.
+
 ## Agent Zabbix 2
 
 Les serveurs, conteneurs et bases de données se supervisent avec l'agent Zabbix 2 (service `zabbix-agent2`).

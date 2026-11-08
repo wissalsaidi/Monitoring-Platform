@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Services\OidcClient;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Vite;
@@ -54,11 +55,27 @@ class SecurityHeaders
             'connect-src' => ["'self'", ...$vite, ...array_map(fn ($url) => preg_replace('#^http#', 'ws', $url), $vite)],
             'object-src' => ["'none'"],
             'base-uri' => ["'self'"],
-            'form-action' => ["'self'"],
+            // Déconnexion SSO (SCRUM-90) : le formulaire « Log out » est redirigé vers le fournisseur, et form-action
+            // s'applique aussi aux redirections qui suivent l'envoi d'un formulaire
+            'form-action' => ["'self'", ...$this->identityProvider()],
             'frame-ancestors' => ["'none'"],
         ];
 
         return collect($directives)->map(fn ($sources, $name) => $name.' '.implode(' ', $sources))->implode('; ');
+    }
+
+    /** @return list<string> origine du fournisseur SSO configuré (ex. https://login.microsoftonline.com) */
+    private function identityProvider(): array
+    {
+        if (! OidcClient::enabled()) {
+            return [];
+        }
+        $parts = parse_url((string) config('oidc.issuer'));
+        if (! isset($parts['scheme'], $parts['host'])) {
+            return [];
+        }
+
+        return [$parts['scheme'].'://'.$parts['host'].(isset($parts['port']) ? ':'.$parts['port'] : '')];
     }
 
     /** @return list<string> */

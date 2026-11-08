@@ -64,6 +64,8 @@ class User extends Authenticatable implements MustVerifyEmail
             'deactivated_at' => 'datetime',
             'last_login_at' => 'datetime',
             'two_factor_confirmed_at' => 'datetime',
+            // Compte de secours (SCRUM-90) : hors $fillable, modifié seulement par platform:break-glass
+            'break_glass_at' => 'datetime',
         ];
     }
 
@@ -91,10 +93,31 @@ class User extends Authenticatable implements MustVerifyEmail
             && ($this->isSuperAdmin() || $this->teams()->wherePivot('role', TeamRole::Admin->value)->exists());
     }
 
-    /** Doit activer la 2FA avant d'aller plus loin (EnsureTwoFactorForAdmins, auth proxy Grafana) */
+    /**
+     * Doit activer la 2FA avant d'aller plus loin (EnsureTwoFactorForAdmins, auth proxy Grafana). Pas si la session a
+     * été ouverte par le SSO avec une MFA attestée par l'annuaire (SCRUM-90).
+     */
     public function mustSetUpTwoFactor(): bool
     {
-        return $this->requiresTwoFactor() && ! $this->hasEnabledTwoFactorAuthentication();
+        return $this->requiresTwoFactor() && ! $this->hasEnabledTwoFactorAuthentication() && session('auth.mfa') !== true;
+    }
+
+    /** Compte de secours (SCRUM-90) : connexion par mot de passe sur /login/break-glass quand le SSO est obligatoire */
+    public function isBreakGlass(): bool
+    {
+        return $this->break_glass_at !== null && $this->isSuperAdmin();
+    }
+
+    /** Compte créé par SSO (SCRUM-89) : pas de mot de passe local, connexion par le fournisseur d'identité */
+    public function hasPassword(): bool
+    {
+        return $this->password !== null;
+    }
+
+    /** Identité SSO liée (SCRUM-88) */
+    public function hasSso(): bool
+    {
+        return $this->oidc_subject !== null;
     }
 
     /** Compte non désactivé (SCRUM-84) : un compte désactivé ne peut plus se connecter */

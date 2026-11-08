@@ -1,0 +1,114 @@
+{
+  "realm": "monitoring",
+  "displayName": "Company SSO (demo)",
+  "enabled": true,
+  "sslRequired": "external",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "resetPasswordAllowed": false,
+  "rememberMe": false,
+  "bruteForceProtected": true,
+  "failureFactor": 5,
+  "accessTokenLifespan": 300,
+  "ssoSessionIdleTimeout": 28800,
+  "ssoSessionMaxLifespan": 28800,
+  "otpPolicyType": "totp",
+  "otpPolicyAlgorithm": "HmacSHA1",
+  "otpPolicyDigits": 6,
+  "otpPolicyPeriod": 30,
+  "groups": [
+    { "name": "monitoring-demo-admins" },
+    { "name": "monitoring-demo-viewers" }
+  ],
+  "clients": [
+    {
+      "clientId": "monitoring-platform",
+      "name": "Monitoring Platform",
+      "description": "Confidential OIDC client of the monitoring platform (SCRUM-88)",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "${KEYCLOAK_DEMO_CLIENT_SECRET}",
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "frontchannelLogout": false,
+      "redirectUris": ["http://localhost:8000/auth/oidc/callback"],
+      "webOrigins": ["http://localhost:8000"],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "http://localhost:8000/login"
+      },
+      "protocolMappers": [
+        {
+          "name": "groups",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-group-membership-mapper",
+          "consentRequired": false,
+          "config": {
+            "claim.name": "groups",
+            "full.path": "false",
+            "id.token.claim": "true",
+            "access.token.claim": "false",
+            "userinfo.token.claim": "true",
+            "introspection.token.claim": "true"
+          }
+        }
+      ]
+    }
+  ],
+  "users": [
+    {
+      "username": "alice.admin@company.com",
+      "email": "alice.admin@company.com",
+      "emailVerified": true,
+      "firstName": "Alice",
+      "lastName": "Admin",
+      "enabled": true,
+      "groups": ["monitoring-demo-admins"],
+      "credentials": [{ "type": "password", "value": "${KEYCLOAK_DEMO_USER_PASSWORD}", "temporary": false }]
+    },
+    {
+      "username": "victor.viewer@company.com",
+      "email": "victor.viewer@company.com",
+      "emailVerified": true,
+      "firstName": "Victor",
+      "lastName": "Viewer",
+      "enabled": true,
+      "groups": ["monitoring-demo-viewers"],
+      "credentials": [{ "type": "password", "value": "${KEYCLOAK_DEMO_USER_PASSWORD}", "temporary": false }]
+    },
+    {
+      "username": "olivia.otp@company.com",
+      "email": "olivia.otp@company.com",
+      "emailVerified": true,
+      "firstName": "Olivia",
+      "lastName": "Otp",
+      "enabled": true,
+      "groups": ["monitoring-demo-admins"],
+      "requiredActions": ["CONFIGURE_TOTP"],
+      "credentials": [{ "type": "password", "value": "${KEYCLOAK_DEMO_USER_PASSWORD}", "temporary": false }]
+    },
+    {
+      "username": "nina.newcomer@company.com",
+      "email": "nina.newcomer@company.com",
+      "emailVerified": true,
+      "firstName": "Nina",
+      "lastName": "Newcomer",
+      "enabled": true,
+      "credentials": [{ "type": "password", "value": "${KEYCLOAK_DEMO_USER_PASSWORD}", "temporary": false }]
+    },
+    {
+      "username": "eve.unverified@company.com",
+      "email": "eve.unverified@company.com",
+      "emailVerified": false,
+      "firstName": "Eve",
+      "lastName": "Unverified",
+      "enabled": true,
+      "credentials": [{ "type": "password", "value": "${KEYCLOAK_DEMO_USER_PASSWORD}", "temporary": false }]
+    }
+  ]
+}

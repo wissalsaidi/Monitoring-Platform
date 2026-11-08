@@ -2,6 +2,8 @@
 
 namespace App\Console\Commands;
 
+use App\Models\User;
+use App\Services\OidcClient;
 use Illuminate\Console\Command;
 use Illuminate\Support\Str;
 
@@ -32,6 +34,13 @@ class SecurityCheck extends Command
             'Emails envoyés pour de vrai (pas Mailpit, log ou array)' => ! in_array(config('mail.default'), ['log', 'array'], true)
                 && config('mail.mailers.smtp.host') !== 'mailpit',
         ];
+
+        // SSO obligatoire (SCRUM-90) : fournisseur configuré, et un compte de secours pour entrer s'il tombe en panne
+        if (config('oidc.required')) {
+            $checks['SSO_REQUIRED=true avec un fournisseur configuré (OIDC_*)'] = OidcClient::enabled();
+            $checks['SSO_REQUIRED=true avec un compte de secours (platform:break-glass)'] = User::superAdmins()->active()
+                ->whereNotNull('break_glass_at')->whereNotNull('password')->exists();
+        }
 
         foreach ($checks as $label => $ok) {
             $this->components->twoColumnDetail($label, $ok ? '<fg=green>OK</>' : '<fg=red>À corriger</>');
