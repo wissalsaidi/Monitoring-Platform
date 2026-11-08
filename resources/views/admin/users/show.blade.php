@@ -34,6 +34,8 @@
                     <span><i class="bi bi-box-arrow-in-right me-1"></i>Last login {{ $user->last_login_at?->toDisplay()->format('d/m/Y H:i') ?? 'never' }}</span>
                     <span><i class="bi bi-envelope-check me-1"></i>Email {{ $user->hasVerifiedEmail() ? 'verified' : 'not verified' }}</span>
                     <span><i class="bi bi-phone me-1"></i>2FA {{ $user->two_factor_confirmed_at ? 'on since '.$user->two_factor_confirmed_at->toDisplay()->format('d/m/Y') : 'off' }}</span>
+                    {{-- Moyens de connexion (SCRUM-89) --}}
+                    <span><i class="bi bi-building-lock me-1"></i>SSO {{ $user->hasSso() ? 'linked ('.\App\Services\SsoAccountService::providerName($user->oidc_issuer).')' : 'not linked' }}{{ $user->hasPassword() ? '' : ' · no password' }}</span>
                 </div>
             </div>
 

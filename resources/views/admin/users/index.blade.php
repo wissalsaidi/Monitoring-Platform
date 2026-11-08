@@ -5,7 +5,7 @@
 @section('content')
     @include('admin._tabs')
     @php
-        $filterUrl = fn (array $change) => route('admin.users.index', array_filter([...request()->only(['q', 'status', 'team']), ...$change], fn ($v) => $v !== null && $v !== ''));
+        $filterUrl = fn (array $change) => route('admin.users.index', array_filter([...request()->only(['q', 'status', 'team', 'sign_in']), ...$change], fn ($v) => $v !== null && $v !== ''));
     @endphp
 
     <div class="row g-4">
@@ -31,10 +31,20 @@
                                 @endforeach
                             </select>
                         </div>
+                        @unless ($status === 'invited')
+                            <div class="col-sm-auto">
+                                <select name="sign_in" class="form-select form-select-sm" aria-label="Sign-in" data-auto-submit>
+                                    <option value="">Any sign-in</option>
+                                    @foreach (\App\Http\Controllers\Admin\UserController::SIGN_IN as $value => $label)
+                                        <option value="{{ $value }}" @selected($signIn === $value)>{{ $label }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                        @endunless
                         <div class="col-sm-auto">
                             <button type="submit" class="btn btn-outline-secondary btn-sm"><i class="bi bi-search me-1"></i>Search</button>
-                            @if ($q !== '' || $teamId)
-                                <a href="{{ $filterUrl(['q' => null, 'team' => null]) }}" class="btn btn-link btn-sm">Clear</a>
+                            @if ($q !== '' || $teamId || $signIn)
+                                <a href="{{ $filterUrl(['q' => null, 'team' => null, 'sign_in' => null]) }}" class="btn btn-link btn-sm">Clear</a>
                             @endif
                         </div>
                     </form>
@@ -74,6 +84,7 @@
                                     <th class="ps-3">User</th>
                                     <th>Teams and roles</th>
                                     <th>Status</th>
+                                    <th class="d-none d-md-table-cell">SSO</th>
                                     <th class="d-none d-lg-table-cell">Last login</th>
                                     <th class="d-none d-lg-table-cell pe-3">2FA</th>
                                 </tr>
@@ -101,6 +112,14 @@
                                                 <span class="badge text-bg-danger" title="Since {{ $user->deactivated_at->toDisplay()->format('d/m/Y H:i') }}">Deactivated</span>
                                             @endif
                                         </td>
+                                        <td class="d-none d-md-table-cell small">
+                                            @if ($user->hasSso())
+                                                <span class="badge text-bg-primary" title="{{ \App\Services\SsoAccountService::providerName($user->oidc_issuer) }}"><i class="bi bi-building-lock me-1"></i>Linked</span>
+                                                @unless ($user->hasPassword())<div class="text-body-secondary">No password</div>@endunless
+                                            @else
+                                                <span class="text-body-secondary">—</span>
+                                            @endif
+                                        </td>
                                         <td class="d-none d-lg-table-cell small text-body-secondary">{{ $user->last_login_at?->toDisplay()->format('d/m/Y H:i') ?? 'Never' }}</td>
                                         <td class="d-none d-lg-table-cell pe-3 small">
                                             @if ($user->two_factor_confirmed_at)
@@ -113,7 +132,7 @@
                                         </td>
                                     </tr>
                                 @empty
-                                    <tr><td colspan="5" class="text-center text-body-secondary py-4">No user matches these filters.</td></tr>
+                                    <tr><td colspan="6" class="text-center text-body-secondary py-4">No user matches these filters.</td></tr>
                                 @endforelse
                             </tbody>
                         </table>

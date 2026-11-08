@@ -97,6 +97,18 @@ class User extends Authenticatable implements MustVerifyEmail
         return $this->requiresTwoFactor() && ! $this->hasEnabledTwoFactorAuthentication();
     }
 
+    /** Compte créé par SSO (SCRUM-89) : pas de mot de passe local, connexion par le fournisseur d'identité */
+    public function hasPassword(): bool
+    {
+        return $this->password !== null;
+    }
+
+    /** Identité SSO liée (SCRUM-88) */
+    public function hasSso(): bool
+    {
+        return $this->oidc_subject !== null;
+    }
+
     /** Compte non désactivé (SCRUM-84) : un compte désactivé ne peut plus se connecter */
     public function isActive(): bool
     {
