@@ -7,6 +7,7 @@ use App\Exceptions\TeamMembershipException;
 use App\Exceptions\Zabbix\ZabbixException;
 use App\Models\AuditLog;
 use App\Services\AccountDeletionService;
+use App\Services\OidcClient;
 use App\Services\PlatformAdminService;
 use App\Services\SsoAccountService;
 use App\Support\IdentityConfirmation;
@@ -72,6 +73,9 @@ class AccountController extends Controller
         }
         if (! $user->hasPassword()) {
             return back()->with('error', 'Your account has no password: single sign-on is your only way to log in, so it cannot be unlinked.');
+        }
+        if (OidcClient::required()) {
+            return back()->with('error', 'Single sign-on is required on this platform: it cannot be unlinked.');
         }
         $request->validateWithBag('unlinkSso', [
             'password' => ['required', 'string', 'current_password'],

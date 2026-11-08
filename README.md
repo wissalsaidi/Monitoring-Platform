@@ -341,7 +341,37 @@ Utilisateurs de test (mot de passe commun : `KEYCLOAK_DEMO_USER_PASSWORD`) :
   d'autorisation ;
 - Keycloak : client confidentiel, « Standard flow », PKCE `S256`, mapper « Group Membership » (`groups`, sans chemin).
 
-La MFA de l'annuaire (claims `amr` / `acr`) et le SSO obligatoire, avec compte de secours, arrivent avec SCRUM-90.
+**SSO obligatoire, MFA de l'annuaire, compte de secours** (SCRUM-90) :
+
+| Variable | Rôle |
+|---|---|
+| `SSO_REQUIRED` | `true` : seul le bouton SSO reste ; connexion par mot de passe refusée côté serveur, inscription et « mot de passe oublié » coupés (sans effet tant que le fournisseur n'est pas configuré) |
+| `SSO_SESSION_LIFETIME` | durée d'une session ouverte par le SSO, en minutes (480 = 8 h), puis nouveau passage par l'annuaire |
+| `OIDC_MFA_ACR` | valeurs de `acr` qui attestent une MFA chez le fournisseur (séparées par des virgules), en plus de `amr` |
+
+- **SSO obligatoire** : les sessions ouvertes autrement (mot de passe d'avant, « remember me ») sont fermées à la requête
+  suivante. Une invitation se termine par « Sign in with SSO » (compte créé à la connexion, SCRUM-89). On ne peut plus
+  délier le SSO ni forcer une réinitialisation de mot de passe depuis la console.
+- **Compte de secours** (« break-glass ») : un Super Admin désigné par `php artisan platform:break-glass <email>`
+  (`--revoke` pour retirer ; un compte sans mot de passe en choisit un en interactif) garde son mot de passe et la 2FA
+  de la plateforme, sur **`/login/break-glass`** (page absente si le SSO n'est pas obligatoire). Chaque usage est audité
+  (`user.login_break_glass`) et prévient les autres Super Admin par email. `platform:list-admins` le montre.
+- **MFA de l'annuaire** : si le jeton atteste une MFA (`amr` contient `mfa`, `otp`, `hwk`, `swk`, `sc`, `fpt`…, ou `acr`
+  dans `OIDC_MFA_ACR`), la 2FA de la plateforme n'est ni demandée ni exigée pour les administrateurs. Sinon, elle l'est
+  comme après un mot de passe. Keycloak 26.5 envoie un `amr` vide : la 2FA de la plateforme reste donc demandée avec le
+  Keycloak de démo (sauf `OIDC_MFA_ACR` adapté à sa configuration de niveaux d'authentification).
+- **Durée de session** : une session SSO (ou de secours) dure `SSO_SESSION_LIFETIME`, même si l'utilisateur est actif ;
+  un compte coupé dans l'annuaire perd donc l'accès au plus tard à ce moment-là.
+- **Déconnexion** : « Log out » ferme aussi la session chez le fournisseur (`end_session_endpoint`, avec `id_token_hint`
+  et retour sur `/login`), s'il en publie un. Le jeton d'identité est gardé dans la session côté serveur pour cela.
+  La CSP autorise l'origine du fournisseur dans `form-action` (sinon le navigateur bloque la redirection qui suit le
+  formulaire « Log out »).
+- `php artisan security:check` échoue si `SSO_REQUIRED=true` sans fournisseur configuré ou sans compte de secours.
+- Audit : `platform.sso_required` (changement du réglage, constaté au démarrage), `platform.break_glass_grant` /
+  `_revoke`, `user.login_break_glass` ; `user.login_sso` indique `mfa: directory`.
+
+À faire avant `SSO_REQUIRED=true` : se connecter une fois par SSO avec chaque compte d'administrateur (liaison),
+désigner le compte de secours et tester `/login/break-glass`, puis `security:check`.
 
 ## Agent Zabbix 2
 

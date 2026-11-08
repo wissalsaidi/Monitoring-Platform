@@ -9,6 +9,7 @@ use App\Models\AuditLog;
 use App\Models\Team;
 use App\Models\TeamInvitation;
 use App\Models\User;
+use App\Services\OidcClient;
 use App\Services\TeamMemberService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -93,6 +94,10 @@ class TeamInvitationController extends Controller
         if (User::where('email', $invitation->email)->exists()) {
             return redirect()->guest(route('login'));
         }
+        // SSO obligatoire (SCRUM-90) : le compte est créé à la connexion SSO, qui accepte l'invitation (SCRUM-89)
+        if (OidcClient::required()) {
+            return view('invitations.sso', ['invitation' => $invitation]);
+        }
 
         return view('invitations.register', ['invitation' => $invitation, 'action' => $request->fullUrl()]);
     }
@@ -100,6 +105,7 @@ class TeamInvitationController extends Controller
     /** Création du compte depuis le lien (SCRUM-83) : email vérifié d'office, la personne arrive dans la team invitée */
     public function register(Request $request, int $invitation): View|RedirectResponse
     {
+        abort_if(OidcClient::required(), 404);
         $invitation = $this->validInvitation($request, $invitation);
         if ($invitation === null) {
             return view('invitations.invalid', ['message' => self::INVALID]);

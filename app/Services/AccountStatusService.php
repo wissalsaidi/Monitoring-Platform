@@ -83,6 +83,9 @@ class AccountStatusService
         if ($user->is($by)) {
             throw new AccountStatusException('Use "My account" or "Forgot password" for your own password.');
         }
+        if (OidcClient::required()) {
+            throw new AccountStatusException('Single sign-on is required: passwords are not used. Deactivate the account, or block it in the company directory.');
+        }
 
         $user->forceFill(['password' => Str::random(64), 'remember_token' => Str::random(60)])->save();
         $this->closeSessions($user);

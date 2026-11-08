@@ -49,6 +49,16 @@ class SecurityHeadersTest extends TestCase
         $this->assertSame("'self'", $csp['form-action']);
     }
 
+    /** Déconnexion SSO (SCRUM-90) : le formulaire « Log out » peut être redirigé vers le fournisseur, et seulement lui */
+    public function test_form_action_allows_the_sso_provider(): void
+    {
+        config(['oidc.issuer' => 'https://sso.company.com:8443/realms/acme', 'oidc.client_id' => 'platform', 'oidc.client_secret' => 'secret']);
+
+        $csp = $this->csp($this->get('/login')->headers->get('Content-Security-Policy'));
+
+        $this->assertSame("'self' https://sso.company.com:8443", $csp['form-action']);
+    }
+
     public function test_authenticated_pages_send_them_too(): void
     {
         $this->actingAs(User::factory()->create())->get(route('account.edit'))
