@@ -48,7 +48,13 @@
                             @forelse ($user->teams as $team)
                                 @php $sole = $soleAdminOf->contains($team->id); @endphp
                                 <tr>
-                                    <td class="ps-3 fw-semibold">{{ $teamLabels[$team->id] }}</td>
+                                    <td class="ps-3">
+                                        <span class="fw-semibold">{{ $teamLabels[$team->id] }}</span>
+                                        {{-- Origine de l'appartenance (SCRUM-92) --}}
+                                        @if ($team->pivot->directory_group)
+                                            <div class="small text-body-secondary"><i class="bi bi-diagram-3 me-1"></i>from directory group {{ $team->pivot->directory_group }}</div>
+                                        @endif
+                                    </td>
                                     <td>
                                         <form method="POST" action="{{ route('admin.users.teams.update', [$user, $team]) }}">
                                             @csrf

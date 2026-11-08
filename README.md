@@ -272,6 +272,7 @@ remain possible alongside.
 | `OIDC_SCOPES` | `openid email profile` by default |
 | `OIDC_BUTTON_LABEL` | button text (e.g. "Sign in with Contoso") |
 | `OIDC_TRUST_EMAIL` | `true` only for a provider that guarantees its emails without sending `email_verified` (Entra ID) |
+| `OIDC_GROUPS_CLAIM` | claim carrying the directory groups (`groups` by default), used only when group mappings exist |
 
 - Authorization code flow with **PKCE S256**, random `state` and `nonce`, bound to the session and single-use
   (10 minutes at most); the code is exchanged server-side with the client secret.
@@ -347,7 +348,7 @@ Test users (shared password: `KEYCLOAK_DEMO_USER_PASSWORD`):
 
 - redirect URI: `https://<platform>/auth/oidc/callback`; post-logout URI: `https://<platform>/login`;
 - authorization code flow with PKCE; scopes `openid email profile`;
-- expected claims: `sub`, `email`, `email_verified`, `name`, and `groups` if groups are used;
+- expected claims: `sub`, `email`, `email_verified`, `name`, and `groups` if directory groups are mapped to teams;
 - Entra ID: "App registrations", "Web" platform, client secret; `email_verified` is not sent: `OIDC_TRUST_EMAIL=true`
   if the directory emails are managed by the company; groups: "Token configuration → Add groups claim";
 - Okta: "Applications → Create App Integration → OIDC, Web Application"; groups: `groups` claim on the authorization
@@ -385,6 +386,25 @@ Test users (shared password: `KEYCLOAK_DEMO_USER_PASSWORD`):
 
 Before setting `SSO_REQUIRED=true`: sign in once with SSO with every administrator account (linking), designate the
 break-glass account and test `/login/break-glass`, then run `security:check`.
+
+**Directory groups → teams and roles** (optional): in large companies, team membership already lives in the directory.
+
+- Off by default: without any mapping, teams and roles are managed in the platform only.
+- A Super Admin maps a directory group to a team and a role (Admin, Manager, Viewer) on the team page
+  (`/admin/teams/{team}` → **Directory groups**). The claim name is `OIDC_GROUPS_CLAIM` (`groups` by default); Keycloak
+  and Okta send group names (a leading `/` of a Keycloak path is ignored), Entra ID sends group IDs.
+- Applied **at every SSO sign-in**: the person joins the team, or their role changes, when one of their groups matches;
+  several groups for the same team give the highest role. A membership that came from a group ends when the group
+  disappears from the token (or when its mapping is removed); memberships added by hand are never removed.
+- A token without the groups claim changes nothing, so a provider misconfiguration cannot empty the teams.
+- **Never Super Admin** through a group: that role stays command-line only.
+- A team never loses its last active Admin through a sync: the change is refused, audited (`member.sync_blocked`) and
+  emailed to the Super Admins (at most once a day per person and team).
+- The origin is shown on the account and team pages ("from directory group …").
+- Audit: `member.add`, `member.role_change`, `member.remove` with `via: sso_group` and the group (author "Directory");
+  `team.group_map` / `team.group_unmap` for the mappings.
+- With the demo Keycloak: map `monitoring-demo-viewers` (Viewer) or `monitoring-demo-admins` to a team, then sign in
+  as `victor.viewer` or `alice.admin`.
 
 ## Zabbix agent 2
 

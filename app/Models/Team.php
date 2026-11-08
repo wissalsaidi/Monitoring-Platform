@@ -38,8 +38,14 @@ class Team extends Model
     {
         return $this->belongsToMany(User::class, 'team_members')
             ->using(TeamMember::class)
-            ->withPivot('role')
+            ->withPivot('role', 'directory_group')     // groupe de l'annuaire qui a donné l'appartenance (SCRUM-92)
             ->withTimestamps();
+    }
+
+    /** Groupes de l'annuaire qui donnent l'accès à la team (SCRUM-92) */
+    public function directoryGroups(): HasMany
+    {
+        return $this->hasMany(DirectoryGroupMapping::class)->orderBy('group');
     }
 
     /** Invitations en attente (SCRUM-59) */
