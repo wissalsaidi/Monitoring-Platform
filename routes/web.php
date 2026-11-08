@@ -91,6 +91,9 @@ Route::middleware(['auth', 'verified', EnsureTwoFactorForAdmins::class])->group(
         Route::get('/teams/{team}', [AdminTeamController::class, 'show'])->name('teams.show');
         Route::patch('/teams/{team}', [AdminTeamController::class, 'update'])->name('teams.update');
         Route::delete('/teams/{team}', [AdminTeamController::class, 'destroy'])->middleware('throttle:10,1')->name('teams.destroy');
+        // Groupes de l'annuaire (SCRUM-92)
+        Route::post('/teams/{team}/directory-groups', [AdminTeamController::class, 'storeGroup'])->name('teams.groups.store');
+        Route::delete('/teams/{team}/directory-groups/{mapping}', [AdminTeamController::class, 'destroyGroup'])->name('teams.groups.destroy');
     });
     Route::get('/admin/audit', [AdminAuditController::class, 'index'])->middleware('can:platform.audit.view')->name('admin.audit');
 

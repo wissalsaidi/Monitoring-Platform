@@ -136,7 +136,7 @@ class User extends Authenticatable implements MustVerifyEmail
     {
         return $this->belongsToMany(Team::class, 'team_members')
             ->using(TeamMember::class)
-            ->withPivot('role')
+            ->withPivot('role', 'directory_group')
             ->withTimestamps();
     }
 
