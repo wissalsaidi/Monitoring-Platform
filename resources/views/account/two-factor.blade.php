@@ -62,7 +62,7 @@
                             <li class="mb-2">Open your authenticator app (Google Authenticator, Microsoft Authenticator…) and scan this QR code, or type the key.</li>
                             <li>Enter the 6-digit code the app shows.</li>
                         </ol>
-                        @if ((time() - (int) session('auth.password_confirmed_at', 0)) < (int) config('auth.password_timeout'))
+                        @if ($confirmed)
                             <div class="d-flex flex-wrap align-items-center gap-4 mb-3">
                                 <div class="bg-white p-2 rounded">{!! $user->twoFactorQrCodeSvg() !!}</div>
                                 <div class="small">
@@ -80,10 +80,25 @@
                                 <button type="submit" class="btn btn-primary">Confirm</button>
                             </form>
                         @else
-                            <a href="{{ route('password.confirm') }}" class="btn btn-outline-primary btn-sm">Confirm your password to see the QR code</a>
+                            @if ($user->hasPassword())
+                                <a href="{{ route('password.confirm') }}" class="btn btn-outline-primary btn-sm">Confirm your password to see the QR code</a>
+                            @else
+                                <a href="{{ route('oidc.reauth', ['to' => 'two-factor']) }}" class="btn btn-outline-primary btn-sm"><i class="bi bi-building-lock me-1"></i>Confirm with single sign-on to see the QR code</a>
+                            @endif
                         @endif
                     @else
                         <p class="small">After your password, you will also enter a 6-digit code from an app on your phone. A stolen password is then not enough to enter your account.</p>
+                        @if (! $user->hasPassword())
+                            {{-- Compte SSO sans mot de passe (SCRUM-89) : identité confirmée chez le fournisseur --}}
+                            @if ($confirmed)
+                                <form method="POST" action="{{ route('account.two-factor.enable') }}">
+                                    @csrf
+                                    <button type="submit" class="btn btn-primary"><i class="bi bi-shield-lock me-1"></i>Set up two-factor authentication</button>
+                                </form>
+                            @else
+                                <a href="{{ route('oidc.reauth', ['to' => 'two-factor']) }}" class="btn btn-outline-primary"><i class="bi bi-building-lock me-1"></i>Confirm with single sign-on to set it up</a>
+                            @endif
+                        @else
                         <form method="POST" action="{{ route('account.two-factor.enable') }}" class="row g-2 align-items-start" novalidate>
                             @csrf
                             <div class="col-sm">
@@ -96,6 +111,7 @@
                                 <button type="submit" class="btn btn-primary"><i class="bi bi-shield-lock me-1"></i>Set up two-factor authentication</button>
                             </div>
                         </form>
+                        @endif
                     @endif
                 </div>
             </div>

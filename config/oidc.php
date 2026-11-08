@@ -19,6 +19,10 @@ return [
 
     'scopes' => (string) env('OIDC_SCOPES', 'openid email profile'),
 
+    // Fournisseur qui garantit les emails de son annuaire sans envoyer le claim email_verified (Entra ID) :
+    // l'email du jeton compte alors comme vérifié pour lier ou créer un compte (SCRUM-89). À n'activer que dans ce cas.
+    'trust_email' => (bool) env('OIDC_TRUST_EMAIL', false),
+
     // Texte du bouton de la page de connexion
     'button_label' => (string) env('OIDC_BUTTON_LABEL', 'Sign in with SSO'),
 

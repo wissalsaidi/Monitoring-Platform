@@ -28,9 +28,14 @@ class OidcClient
         return config('oidc.issuer') !== '' && config('oidc.client_id') !== '' && config('oidc.client_secret') !== '';
     }
 
-    public function authorizationUrl(string $state, string $nonce, string $codeVerifier): string
+    /**
+     * @param  bool  $forceLogin  reconnexion exigée chez le fournisseur (prompt=login, max_age=0), pour confirmer
+     *                            l'identité d'un compte sans mot de passe avant une action sensible (SCRUM-89)
+     */
+    public function authorizationUrl(string $state, string $nonce, string $codeVerifier, bool $forceLogin = false): string
     {
         return $this->discovery()['authorization_endpoint'].'?'.http_build_query([
+            ...($forceLogin ? ['prompt' => 'login', 'max_age' => 0] : []),
             'response_type' => 'code',
             'client_id' => config('oidc.client_id'),
             'redirect_uri' => self::redirectUri(),

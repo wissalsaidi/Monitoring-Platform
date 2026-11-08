@@ -80,6 +80,8 @@ class AuditLog extends Model
         'user.2fa_reset' => 'Two-factor reset',
         'user.login_sso' => 'Signed in with SSO',
         'user.sso_link' => 'SSO identity linked',
+        'user.sso_unlink' => 'SSO identity unlinked',
+        'user.sso_email_mismatch' => 'Directory email differs',
         'webhook.create' => 'Webhook created',
         'webhook.update' => 'Webhook updated',
         'webhook.delete' => 'Webhook deleted',

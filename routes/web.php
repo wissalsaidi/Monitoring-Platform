@@ -29,11 +29,14 @@ use Illuminate\Support\Facades\Route;
 // Auth proxy de Grafana (SCRUM-48), appelé par nginx avant chaque requête vers /grafana/ : 200 / 401 / 403, sans redirection
 Route::get('/_grafana_auth', GrafanaAuthController::class)->name('grafana.auth');
 
-// SSO OpenID Connect (SCRUM-88) : départ vers le fournisseur et retour (URL de retour fixe, déclarée chez lui)
+// SSO OpenID Connect (SCRUM-88, 89) : départ vers le fournisseur et retour (URL de retour fixe, déclarée chez lui).
+// Le retour sert aussi à la confirmation d'identité d'une personne connectée (reauth) : pas de middleware guest.
 Route::middleware(['guest', 'throttle:20,1'])->group(function () {
     Route::get('/auth/oidc/redirect', [OidcController::class, 'redirect'])->name('oidc.redirect');
-    Route::get('/auth/oidc/callback', [OidcController::class, 'callback'])->name('oidc.callback');
+    Route::get('/auth/oidc/no-access', [OidcController::class, 'noAccess'])->name('oidc.no-access');
 });
+Route::get('/auth/oidc/callback', [OidcController::class, 'callback'])->middleware('throttle:20,1')->name('oidc.callback');
+Route::get('/auth/oidc/reauth', [OidcController::class, 'reauth'])->middleware(['auth', 'throttle:10,1'])->name('oidc.reauth');
 
 // Lien d'invitation reçu par email (SCRUM-59, 83), public : connexion pour un compte existant, création du compte
 // pour une adresse inconnue. Signature vérifiée dans le contrôleur pour afficher un message clair.
@@ -51,6 +54,8 @@ Route::middleware(['auth', 'verified', EnsureTwoFactorForAdmins::class])->group(
     // Mon compte et droit à l'effacement (RGPD-5, SCRUM-63)
     Route::get('/account', [AccountController::class, 'edit'])->name('account.edit');
     Route::delete('/account', [AccountController::class, 'destroy'])->middleware('throttle:6,1')->name('account.destroy');
+    // Délier le SSO (SCRUM-89), seulement s'il reste un mot de passe
+    Route::delete('/account/sso', [AccountController::class, 'unlinkSso'])->middleware('throttle:6,1')->name('account.sso.destroy');
 
     // Inviter / annuler (gate team.invite) : aussi pour un Super Admin qui n'est membre d'aucune team (SCRUM-83)
     Route::post('/teams/{team}/invitations', [TeamInvitationController::class, 'store'])

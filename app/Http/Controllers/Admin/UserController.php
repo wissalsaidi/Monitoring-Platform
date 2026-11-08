@@ -32,6 +32,9 @@ class UserController extends Controller
 
     public const STATUSES = ['active' => 'Active', 'deactivated' => 'Deactivated', 'invited' => 'Invited'];
 
+    /** Filtre « SSO » (SCRUM-89) */
+    public const SIGN_IN = ['sso' => 'Single sign-on', 'password' => 'Password only'];
+
     public function __construct(
         private TeamMemberService $members,
         private AccountStatusService $accounts,
@@ -44,10 +47,12 @@ class UserController extends Controller
             'q' => ['nullable', 'string', 'max:100'],
             'status' => ['nullable', Rule::in(array_keys(self::STATUSES))],
             'team' => ['nullable', 'integer', Rule::exists('teams', 'id')],
+            'sign_in' => ['nullable', Rule::in(array_keys(self::SIGN_IN))],
         ]);
         $q = trim((string) ($filters['q'] ?? ''));
         $status = $filters['status'] ?? null;
         $teamId = $filters['team'] ?? null;
+        $signIn = $filters['sign_in'] ?? null;
         $like = '%'.addcslashes($q, '%_\\').'%';
 
         // « Invité » : une invitation en attente pour une adresse qui n'a pas encore de compte
@@ -64,6 +69,8 @@ class UserController extends Controller
                 ->when($status === 'active', fn (Builder $query) => $query->active())
                 ->when($status === 'deactivated', fn (Builder $query) => $query->whereNotNull('deactivated_at'))
                 ->when($teamId, fn (Builder $query) => $query->whereHas('teams', fn (Builder $t) => $t->whereKey($teamId)))
+                ->when($signIn === 'sso', fn (Builder $query) => $query->whereNotNull('oidc_subject'))
+                ->when($signIn === 'password', fn (Builder $query) => $query->whereNull('oidc_subject'))
                 ->orderBy('name')->orderBy('id')
                 ->paginate(self::PER_PAGE)->withQueryString();
         }
@@ -83,6 +90,7 @@ class UserController extends Controller
             'q' => $q,
             'status' => $status,
             'teamId' => $teamId,
+            'signIn' => $signIn,
         ]);
     }
 
