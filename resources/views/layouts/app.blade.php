@@ -3,6 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="author" content="Wissal Saidi Hassani Alaoui">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>@yield('title', 'Dashboard') · {{ config('app.name') }}</title>
     @vite(['resources/scss/app.scss', 'resources/js/app.js'])
@@ -114,6 +115,8 @@
         @endforeach
 
         @yield('content')
+
+        @include('layouts._copyright', ['class' => 'mt-5 pt-3 border-top'])
     </main>
 </div>
 </body>

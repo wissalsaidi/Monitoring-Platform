@@ -3,6 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="author" content="Wissal Saidi Hassani Alaoui">
     <title>@yield('title') · {{ config('app.name') }}</title>
     @vite(['resources/scss/app.scss', 'resources/js/app.js'])
 </head>
@@ -22,6 +23,7 @@
                 @yield('content')
             </div>
         </div>
+        @include('layouts._copyright', ['class' => 'text-center mt-4'])
     </div>
 </main>
 </body>
