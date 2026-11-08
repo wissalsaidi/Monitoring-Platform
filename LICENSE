@@ -1,0 +1,25 @@
+Monitoring & Alerting Platform
+Copyright (c) 2026 Wissal Saidi Hassani Alaoui. All rights reserved.
+
+This software and its source code, documentation, designs and screenshots (the "Software") are the exclusive
+property of Wissal Saidi Hassani Alaoui (the "Author").
+
+The Software is made publicly visible for the sole purpose of presenting the Author's work (portfolio, evaluation
+by recruiters, schools and potential partners). Viewing the source code on the hosting platform is permitted.
+
+Without the Author's prior written permission, you may NOT:
+
+  1. copy, reproduce or download the Software, in whole or in part, except as strictly required to view it;
+  2. modify, adapt, translate or create derivative works based on the Software;
+  3. distribute, publish, sublicense, sell, rent or otherwise make the Software available to third parties;
+  4. use the Software, in whole or in part, in any personal, academic or commercial project, product or service;
+  5. present the Software, or any part of it, as your own work;
+  6. remove or alter this notice or any copyright notice in the Software.
+
+Third-party components (Laravel, Zabbix, Grafana, Keycloak, Bootstrap and other dependencies) remain under their own
+licenses; this notice applies only to the original work of the Author.
+
+To request a permission, contact the Author through GitHub: https://github.com/wissalsaidi
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED. IN NO EVENT SHALL THE AUTHOR BE
+LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY ARISING FROM THE SOFTWARE OR ITS USE.
