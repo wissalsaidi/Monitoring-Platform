@@ -1,10 +1,16 @@
 {
     "$schema": "https://getcomposer.org/schema.json",
-    "name": "laravel/laravel",
+    "name": "wissalsaidi/monitoring-platform",
     "type": "project",
-    "description": "The skeleton application for the Laravel framework.",
-    "keywords": ["laravel", "framework"],
-    "license": "MIT",
+    "description": "Monitoring & Alerting Platform: Laravel, Zabbix and Grafana.",
+    "keywords": ["monitoring", "alerting", "zabbix", "grafana", "laravel"],
+    "license": "proprietary",
+    "authors": [
+        {
+            "name": "Wissal Saidi Hassani Alaoui",
+            "homepage": "https://github.com/wissalsaidi"
+        }
+    ],
     "require": {
         "php": "^8.2",
         "firebase/php-jwt": "^7.2",

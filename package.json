@@ -1,6 +1,9 @@
 {
     "$schema": "https://www.schemastore.org/package.json",
+    "name": "monitoring-platform",
     "private": true,
+    "license": "UNLICENSED",
+    "author": "Wissal Saidi Hassani Alaoui",
     "type": "module",
     "scripts": {
         "build": "vite build",
