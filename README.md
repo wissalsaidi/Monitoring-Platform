@@ -9,7 +9,8 @@ notifies the right people (email, Slack, Microsoft Teams, signed webhooks) and k
 - **Grafana**: advanced metric dashboards (Zabbix data source), one organization per team
 - **Docker Compose**: the whole stack runs locally with one command
 
-Project management: Jira (Scrum), GitHub Actions CI, 834 automated tests, eight releases (v0.1.0 to v0.8.0).
+Project management: Jira (Scrum), GitHub Actions CI, 848 automated tests, ten releases (v0.1.0-mvp to v0.9.0).
+See [Engineering decisions](#engineering-decisions) and [Testing and reliability](#testing-and-reliability).
 
 ## Features
 
@@ -68,6 +69,82 @@ browser ──► grafana :3000 ── Zabbix data source ───────�
 | `fake-api` | http://localhost:8081/health | Demo API with adjustable latency |
 | `phpmyadmin` | http://localhost:8082 | phpMyAdmin: web UI for the MySQL databases (dev) |
 | `mailpit` | http://localhost:8025 | Dev mailbox: password reset, email verification, notifications |
+
+## Engineering decisions
+
+The interesting part of this project is not connecting tools, it is deciding **who owns what** and **what happens when
+something fails**. The main choices, and why:
+
+1. **The platform owns the business rules, Zabbix only measures.** Teams, roles, thresholds, alert history and
+   notifications live in Laravel. Zabbix is driven only through its JSON-RPC API (`ZabbixService`, a single entry
+   point with retries, timeouts and logs without secrets). Each team gets its own Zabbix host group, so the
+   monitoring engine can be replaced or upgraded without touching the product rules.
+
+2. **Provisioning is all or nothing, with compensation.** Creating a target means several Zabbix calls (host, web
+   scenario or items, triggers). They run inside a database transaction; if Zabbix refuses a step, the transaction is
+   rolled back **and** the host already created in Zabbix is deleted (`MonitoringService::rollback`). Editing and
+   deleting follow the same rule: the database never says something Zabbix does not have.
+
+3. **Alerts are pulled, not pushed.** Every minute, a queued job reads the recent Zabbix problems and reconciles them
+   with the `alerts` table, keyed by the Zabbix event ID (unique). Missing a run, running twice or restarting after an
+   outage gives the same result: the sync is **idempotent**. Pages read the database, never Zabbix; if the sync
+   fails, they show "Monitoring service temporarily unavailable" instead of stale data (`ZabbixSyncHealth`).
+
+4. **Notifications are planned, then sent.** For each alert event, `NotificationRouter` first writes one `pending`
+   row per recipient and channel (unique on alert, recipient, channel and event), then a queued job sends it.
+   A notification already planned is never planned again, the resolution only goes to the people who were told about
+   the opening, and every attempt ends as `sent` or `failed` in the history. The database acts as an outbox.
+
+5. **Isolation is enforced twice.** In the application, every route is scoped to the team and checked against the
+   role permissions. In Grafana, each team has its own organization whose data source uses a **read-only Zabbix user
+   limited to the team's host group**: even a forged Grafana query cannot read another team's hosts. Grafana sign-in
+   goes through an nginx `auth_request` to Laravel, so there is no second password and access ends when membership
+   ends.
+
+6. **Outgoing calls cannot be turned against the network (SSRF).** URLs of targets and webhooks are checked after DNS
+   resolution (no private, loopback, link-local or reserved address). For webhooks, the checked IP is **pinned** for
+   the actual call (`CURLOPT_RESOLVE`) and redirects are never followed, which closes DNS-rebinding tricks.
+
+7. **Signed, replay-proof webhooks.** Generic webhooks carry `X-Platform-Signature` = HMAC-SHA256 of
+   `<timestamp>.<raw body>` and a stable `X-Platform-Delivery` ID, so receivers can reject forgeries, replays and
+   duplicates. Secrets and URLs are encrypted at rest and never displayed in full again.
+
+8. **SSO identities are bound to the issuer, not to an email.** Users are matched by `iss` + `sub`; an existing
+   account is linked only if the directory vouches for the email. Mandatory SSO keeps a break-glass Super Admin with
+   password + 2FA, audited and announced to the other admins, so the IT department cannot lock itself out.
+
+9. **Statistics are precomputed.** Availability, incidents and MTTR are computed every hour into a daily table; the
+   dashboard and the History tab never call Zabbix to display them, so 30 days of history open in under a second.
+
+## Testing and reliability
+
+**848 automated tests** (PHPUnit, in-memory SQLite, no Docker needed), run by the CI on every pull request with Pint,
+`composer audit`, `npm audit`, the Vite build and the Docker image build. Zabbix, Grafana, the OIDC provider and the
+webhook receivers are replaced by fakes that record every call and can fail on demand
+([`tests/Concerns`](tests/Concerns)).
+
+| Concern | What is proven | Where |
+|---|---|---|
+| **Team isolation** | A member of another team gets 403/404 on targets, alerts, metrics, history, audit, members, notifications, webhooks and Grafana | `TargetDetailTest`, `TargetListTest`, `EditDeleteTargetTest`, `AlertListTest`, `AcknowledgeAlertTest`, `AuditLogPageTest`, `TeamMembersTest`, `NotificationHistoryTest`, `WebhookPageTest`, `GrafanaAccessTest`… |
+| **Role permissions** | The full Viewer / Manager / Admin permission matrix, and each protected action refused to the lower roles | `RbacTest` and the page tests |
+| **Zabbix failures** | Zabbix down or refusing a step: nothing half-saved, the Zabbix host rolled back, a clear message shown | `TargetCreationTest`, `MonitoringServiceTest`, `EditDeleteTargetTest`, `AcknowledgeAlertTest`, `SyncZabbixEventsTest`, `AdminTeamsTest`, `AccountDeletionTest` |
+| **Alert lifecycle** | Problems become alerts and set the target status; alerts get acknowledged (also from Zabbix) and resolved, even when the recovery event is gone | `SyncZabbixEventsTest`, `AcknowledgeAlertTest` |
+| **Duplicates and idempotency** | Running the sync twice creates no duplicate alert and sends nothing again; an alert discovered already resolved is not announced; a sent notification is never resent; a Grafana API `POST` is never retried (no duplicate objects) | `SyncZabbixEventsTest`, `NotificationRoutingTest`, `AlertOpenedEmailTest`, `AlertResolvedEmailTest`, `GrafanaApiRetryTest` |
+| **Delivery failures** | 3 attempts (after 30 s then 2 min), error code and excerpt kept, `failed` status, webhook disabled after 10 consecutive failures with an email to the Admins | `WebhookSendTest`, `WebhookHealthTest` |
+| **Webhook security** | HMAC signature and timestamp, stable delivery ID, private addresses refused after DNS resolution, IP pinned, no redirect | `WebhookSendTest`, `WebhookModelTest`, `SsrfProtectionTest` |
+| **Authentication and SSO** | Forged, expired, replayed or foreign ID tokens refused (other issuer, audience, nonce, unknown key, HS256), PKCE and state, account linking rules, mandatory SSO and break-glass | `OidcLoginTest`, `OidcProvisioningTest`, `SsoRequiredTest`, `TwoFactorTest` |
+| **Statistics** | Availability, overlapping incidents counted once, ongoing incidents, MTTR | `DailyStatisticsTest` |
+| **Performance guard** | The dashboard runs a constant number of queries whatever the number of targets | `DashboardTest` |
+
+Everything above was also checked **for real** before each merge: real Zabbix, Grafana, Mailpit, the demo Keycloak
+and a headless browser, with outages triggered on purpose (see [`docs/demo`](docs/demo/README.md)).
+
+**Known limits**, stated honestly:
+
+- Redis being down is not covered by automated tests. While it is unavailable, the scheduled sync cannot be queued,
+  so no alert is created; when it comes back, the next sync catches up with the recent Zabbix problems (it is
+  idempotent) and notifications go out late. A problem that opened and closed during a long outage can be missed.
+- There is a single Zabbix server and a single queue worker in the Docker setup; scaling them out is not addressed.
 
 ## Installation
 
